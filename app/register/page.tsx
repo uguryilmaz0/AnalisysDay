@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,7 +11,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Bell,
+  Shield,
 } from "lucide-react";
+import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -20,13 +22,39 @@ export default function RegisterPage() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState("");
 
   const { signUp } = useAuth();
   const router = useRouter();
+  const rateLimiter = new RateLimiter("register");
+
+  // Check rate limit on mount
+  useEffect(() => {
+    const { isBlocked, remainingTime } = rateLimiter.check();
+    if (isBlocked) {
+      setRateLimitError(
+        `Çok fazla kayıt denemesi. Lütfen ${formatRemainingTime(
+          remainingTime
+        )} sonra tekrar deneyin.`
+      );
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setRateLimitError("");
+
+    // Check rate limit
+    const { isBlocked, remainingTime } = rateLimiter.check();
+    if (isBlocked) {
+      setRateLimitError(
+        `Çok fazla kayıt denemesi. Lütfen ${formatRemainingTime(
+          remainingTime
+        )} sonra tekrar deneyin.`
+      );
+      return;
+    }
 
     // Validasyon
     if (password !== confirmPassword) {
@@ -43,9 +71,12 @@ export default function RegisterPage() {
 
     try {
       await signUp(email, password, emailNotifications);
-      router.push("/pricing");
+      rateLimiter.reset(); // Reset on success
+      // Başarılı kayıt - anasayfaya veya pricing'e yönlendir
+      router.push("/analysis");
     } catch (err) {
-      console.error(err);
+      rateLimiter.recordAttempt(); // Record failed attempt
+
       const error = err as { code?: string };
       if (error.code === "auth/email-already-in-use") {
         setError("Bu email adresi zaten kullanılıyor!");
@@ -73,8 +104,16 @@ export default function RegisterPage() {
           <p className="text-gray-400">Ücretsiz hesap oluşturun ve başlayın</p>
         </div>
 
+        {/* Rate Limit Error */}
+        {rateLimitError && (
+          <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <Shield className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+            <p className="text-orange-200 text-sm">{rateLimitError}</p>
+          </div>
+        )}
+
         {/* Error Message */}
-        {error && (
+        {error && !rateLimitError && (
           <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
             <p className="text-red-200 text-sm">{error}</p>
@@ -165,8 +204,8 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
+            disabled={loading || !!rateLimitError}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
           >
             {loading ? "Kayıt Oluşturuluyor..." : "Kayıt Ol"}
           </button>
@@ -178,7 +217,11 @@ export default function RegisterPage() {
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-sm text-gray-300">
               <p className="font-semibold mb-1">Kayıt sonrası:</p>
-              <p>Premium üyelik için ödeme sayfasına yönlendirileceksiniz.</p>
+              <p>
+                Email adresinize doğrulama linki gönderilecek (opsiyonel).
+                Otomatik giriş yapılacak ve sistemi kullanmaya
+                başlayabilirsiniz.
+              </p>
             </div>
           </div>
         </div>

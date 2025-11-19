@@ -79,10 +79,42 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
 export async function getAllUsers(): Promise<User[]> {
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
-    return usersSnapshot.docs.map(doc => doc.data() as User);
+    const users = usersSnapshot.docs.map(doc => doc.data() as User);
+    // Sort by createdAt client-side
+    return users.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
   } catch (error) {
     console.error('Kullanıcılar alınamadı:', error);
     return [];
+  }
+}
+
+export async function updateUserRole(uid: string, role: 'user' | 'admin'): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', uid), { role });
+  } catch (error) {
+    console.error('Kullanıcı rolü güncellenemedi:', error);
+    throw error;
+  }
+}
+
+export async function cancelUserSubscription(uid: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      isPaid: false,
+      subscriptionEndDate: null,
+    });
+  } catch (error) {
+    console.error('Abonelik iptal edilemedi:', error);
+    throw error;
+  }
+}
+
+export async function deleteUser(uid: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+  } catch (error) {
+    console.error('Kullanıcı silinemedi:', error);
+    throw error;
   }
 }
 

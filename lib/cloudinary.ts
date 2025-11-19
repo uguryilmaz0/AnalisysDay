@@ -29,7 +29,6 @@ export async function uploadAnalysisImage(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', UPLOAD_PRESET);
-  formData.append('folder', 'analysisday/analysis');
 
   try {
     const response = await fetch(
@@ -56,9 +55,10 @@ export async function uploadAnalysisImage(file: File): Promise<string> {
 /**
  * Dekont görseli yükle (Kullanıcı ödeme talebi için)
  * @param file - Yüklenecek dekont dosyası
- * @param userId - Kullanıcı ID'si (klasör organizasyonu için)
+ * @param userId - Kullanıcı ID'si (şu an kullanılmıyor, preset'te folder tanımlı)
  * @returns Cloudinary URL
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function uploadReceiptImage(file: File, userId: string): Promise<string> {
   if (!CLOUDINARY_CLOUD_NAME || !RECEIPT_PRESET) {
     throw new Error('Cloudinary yapılandırması eksik. .env.local dosyasını kontrol edin.');
@@ -67,7 +67,6 @@ export async function uploadReceiptImage(file: File, userId: string): Promise<st
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', RECEIPT_PRESET);
-  formData.append('folder', `analysisday/receipts/${userId}`);
 
   try {
     const response = await fetch(

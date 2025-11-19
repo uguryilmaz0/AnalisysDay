@@ -2,34 +2,38 @@
 
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { TrendingUp, LogOut, User, Lock } from "lucide-react";
+import { TrendingUp, LogOut, User, Lock, Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 export default function Header() {
   const { user, userData, signOut } = useAuth();
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => pathname === path;
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+    <header className="bg-gray-950 border-b border-gray-800 sticky top-0 z-50 shadow-xl backdrop-blur-lg bg-opacity-95">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <TrendingUp className="h-8 w-8 text-emerald-500 group-hover:text-emerald-400 transition" />
-            <span className="text-xl font-bold text-white">AnalysisDay</span>
+            <TrendingUp className="h-8 w-8 text-blue-500 group-hover:text-blue-400 transition" />
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
+              AnalysisDay
+            </span>
           </Link>
 
-          {/* Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center space-x-8">
             <Link
               href="/"
               className={`${
                 isActive("/")
-                  ? "text-emerald-400"
-                  : "text-gray-300 hover:text-emerald-400"
-              } transition`}
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-all duration-200`}
             >
               Ana Sayfa
             </Link>
@@ -37,9 +41,9 @@ export default function Header() {
               href="/analysis"
               className={`${
                 isActive("/analysis")
-                  ? "text-emerald-400"
-                  : "text-gray-300 hover:text-emerald-400"
-              } transition`}
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-all duration-200`}
             >
               Günün Analizi
             </Link>
@@ -50,11 +54,11 @@ export default function Header() {
                 href="/pricing"
                 className={`${
                   isActive("/pricing")
-                    ? "text-emerald-400"
-                    : "text-emerald-400 hover:text-emerald-300"
-                } font-semibold transition`}
+                    ? "text-purple-400 font-bold"
+                    : "text-purple-400 hover:text-purple-300"
+                } transition-all duration-200`}
               >
-                Ücretler
+                💎 Ücretler
               </Link>
             )}
 
@@ -64,37 +68,41 @@ export default function Header() {
                 href="/admin"
                 className={`${
                   isActive("/admin")
-                    ? "text-purple-400"
-                    : "text-purple-400 hover:text-purple-300"
-                } font-semibold transition`}
+                    ? "text-orange-400 font-bold"
+                    : "text-orange-400 hover:text-orange-300"
+                } transition-all duration-200`}
               >
-                Admin Panel
+                ⚡ Admin Panel
               </Link>
             )}
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center space-x-4">
+          {/* Desktop User Menu */}
+          <div className="hidden lg:flex items-center space-x-4">
             {user ? (
               <>
                 {/* Premium Badge */}
                 {userData?.isPaid && (
-                  <span className="hidden sm:flex items-center space-x-1 bg-[linear-gradient(to_right,var(--tw-gradient-stops))] from-emerald-500 to-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="flex items-center space-x-1 bg-linear-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
                     <Lock className="h-3 w-3" />
                     <span>Premium</span>
                   </span>
                 )}
 
-                {/* User Email */}
-                <div className="hidden sm:flex items-center space-x-2 text-gray-300">
+                {/* Profil Linki */}
+                <Link
+                  href="/profile"
+                  className="flex items-center space-x-2 text-gray-300 hover:text-blue-400 transition-colors"
+                  title="Profil"
+                >
                   <User className="h-5 w-5" />
                   <span className="text-sm">{user.email}</span>
-                </div>
+                </Link>
 
                 {/* Çıkış Butonu */}
                 <button
                   onClick={() => signOut()}
-                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition"
+                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-red-500/20"
                 >
                   <LogOut className="h-4 w-4" />
                   <span>Çıkış</span>
@@ -104,53 +112,129 @@ export default function Header() {
               <div className="flex items-center space-x-3">
                 <Link
                   href="/login"
-                  className="text-gray-300 hover:text-emerald-400 font-medium transition"
+                  className="text-gray-300 hover:text-blue-400 font-medium transition-all duration-200"
                 >
                   Giriş Yap
                 </Link>
                 <Link
                   href="/register"
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition"
+                  className="bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/20"
                 >
                   Kayıt Ol
                 </Link>
               </div>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden text-gray-300 hover:text-blue-400 transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
         </div>
 
         {/* Mobile Menu */}
-        <div className="md:hidden pb-4 space-y-2">
-          <Link
-            href="/"
-            className={`block ${
-              isActive("/") ? "text-emerald-400" : "text-gray-300"
-            }`}
-          >
-            Ana Sayfa
-          </Link>
-          <Link
-            href="/analysis"
-            className={`block ${
-              isActive("/analysis") ? "text-emerald-400" : "text-gray-300"
-            }`}
-          >
-            Günün Analizi
-          </Link>
-          {(!userData || !userData.isPaid) && (
+        {mobileMenuOpen && (
+          <div className="lg:hidden pb-4 pt-2 space-y-3 border-t border-gray-800 mt-2">
+            {/* Mobile Navigation Links */}
             <Link
-              href="/pricing"
-              className="block text-emerald-400 font-semibold"
+              href="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block py-2 ${
+                isActive("/")
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-colors`}
             >
-              Ücretler
+              Ana Sayfa
             </Link>
-          )}
-          {userData?.role === "admin" && (
-            <Link href="/admin" className="block text-purple-400 font-semibold">
-              Admin Panel
+            <Link
+              href="/analysis"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block py-2 ${
+                isActive("/analysis")
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-colors`}
+            >
+              Günün Analizi
             </Link>
-          )}
-        </div>
+            {(!userData || !userData.isPaid) && (
+              <Link
+                href="/pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-purple-400 hover:text-purple-300 font-semibold transition-colors"
+              >
+                💎 Ücretler
+              </Link>
+            )}
+            {userData?.role === "admin" && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors"
+              >
+                ⚡ Admin Panel
+              </Link>
+            )}
+
+            {/* Mobile User Section */}
+            <div className="pt-3 border-t border-gray-800 space-y-3">
+              {user ? (
+                <>
+                  {userData?.isPaid && (
+                    <div className="flex items-center space-x-2 bg-linear-to-r from-blue-600 to-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold w-fit">
+                      <Lock className="h-4 w-4" />
+                      <span>Premium</span>
+                    </div>
+                  )}
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center space-x-2 text-gray-300 hover:text-blue-400 py-2 transition-colors"
+                  >
+                    <User className="h-5 w-5 text-blue-400" />
+                    <span className="text-sm">{user.email}</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 w-full justify-center"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Çıkış</span>
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-center text-gray-300 hover:text-blue-400 font-medium py-2 transition-colors"
+                  >
+                    Giriş Yap
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-center bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200"
+                  >
+                    Kayıt Ol
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
     </header>
   );

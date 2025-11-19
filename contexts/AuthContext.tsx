@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserData(userDoc.data() as User);
       }
     } catch (error) {
-      console.error("Kullanıcı verisi alınamadı:", error);
+      // Kullanıcı verisi alınamadı - sessizce devam et
     }
   };
 
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Giriş yap
   const signIn = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
+    // Email doğrulama kontrolü kaldırıldı - sadece kayıt sırasında email gönderiliyor
   };
 
   // Kayıt ol
@@ -80,6 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password
     );
+
+    // Email doğrulama linki gönder (opsiyonel - kullanıcı isterse doğrular)
+    await sendEmailVerification(userCredential.user);
 
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
@@ -95,6 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
     setUserData(newUser);
+
+    // Kullanıcı giriş yapmış durumda kalıyor (çıkış yapılmıyor)
   };
 
   // Çıkış yap

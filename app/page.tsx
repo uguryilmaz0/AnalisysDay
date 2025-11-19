@@ -141,7 +141,6 @@ export default function Home() {
             </div>
 
             {/* Kart 2 */}
-            {/* Feature 2 */}
             <div className="bg-linear-to-br from-slate-800 to-slate-700 p-8 rounded-2xl shadow-lg hover:shadow-2xl transition group border border-blue-500/20">
               <div className="bg-blue-500/10 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-500/20 transition">
                 <Target className="h-8 w-8 text-white" />
@@ -172,7 +171,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section. */}
+      {/* CTA Section */}
       <section className="bg-linear-to-r from-emerald-600 to-blue-600 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">

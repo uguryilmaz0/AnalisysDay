@@ -8,6 +8,7 @@ import { DailyAnalysis } from "@/types";
 import { Lock, Calendar, AlertCircle, Loader2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import ImageModal from "@/components/ImageModal";
 
 export default function AnalysisPage() {
   const { user, userData, loading: authLoading, refreshUserData } = useAuth();
@@ -15,6 +16,11 @@ export default function AnalysisPage() {
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionValid, setSubscriptionValid] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -37,14 +43,24 @@ export default function AnalysisPage() {
         }
       }
 
-      // Son analizi çek
-      const latestAnalysis = await getLatestAnalysis();
-      setAnalysis(latestAnalysis);
+      // Admin veya premium kullanıcılar için analiz çek
+      const canViewAnalysis =
+        userData?.role === "admin" || (userData?.isPaid && subscriptionValid);
+
+      if (canViewAnalysis) {
+        try {
+          const latestAnalysis = await getLatestAnalysis();
+          setAnalysis(latestAnalysis);
+        } catch (error) {
+          // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
+        }
+      }
+
       setLoading(false);
     };
 
     loadData();
-  }, [user, userData, authLoading, router, refreshUserData]);
+  }, [user, userData, authLoading, router, refreshUserData, subscriptionValid]);
 
   // Loading state
   if (authLoading || loading) {
@@ -55,13 +71,17 @@ export default function AnalysisPage() {
     );
   }
 
-  // Eğer kullanıcı premium değilse - KİLİT EKRANI
-  if (!userData?.isPaid || !subscriptionValid) {
+  // Admin kullanıcıları her zaman görebilir
+  const canViewAnalysis =
+    userData?.role === "admin" || (userData?.isPaid && subscriptionValid);
+
+  // Eğer kullanıcı premium değilse ve admin değilse - KİLİT EKRANI
+  if (!canViewAnalysis) {
     return (
-      <div className="min-h-screen bg-[linear-gradient(to_bottom_right,var(--tw-gradient-stops))] from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
+      <div className="min-h-screen bg-linear-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
         {/* Arka Plan Bulanık Efekti */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom_right,var(--tw-gradient-stops))] from-blue-500/20 to-purple-500/20 blur-3xl"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-blue-500/20 to-purple-500/20 blur-3xl"></div>
 
           {/* Simüle Grafik (Blur) */}
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
@@ -104,7 +124,7 @@ export default function AnalysisPage() {
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
           <div className="max-w-2xl w-full text-center">
             {/* Kilit İkonu */}
-            <div className="bg-[linear-gradient(to_bottom_right,var(--tw-gradient-stops))] from-yellow-400 to-yellow-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
+            <div className="bg-linear-to-br from-yellow-400 to-yellow-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
               <Lock className="h-12 w-12 text-white" />
             </div>
 
@@ -142,7 +162,7 @@ export default function AnalysisPage() {
 
               <Link
                 href="/pricing"
-                className="inline-block bg-[linear-gradient(to_right,var(--tw-gradient-stops))] from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl"
+                className="inline-block bg-linear-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl"
               >
                 Ücretleri İncele & Premium Ol
               </Link>
@@ -167,7 +187,7 @@ export default function AnalysisPage() {
 
   // Premium kullanıcı - ANALİZİ GÖSTER
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gray-950 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
@@ -196,12 +216,12 @@ export default function AnalysisPage() {
 
         {/* Analiz İçeriği */}
         {analysis ? (
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden hover:border-gray-700 transition-all duration-300">
             {/* Başlık */}
-            <div className="bg-linear-to-r from-gray-50 to-blue-50 p-6 border-b">
+            <div className="bg-linear-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-800">
               <div className="flex items-center gap-3 mb-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
-                <span className="text-sm text-gray-600">
+                <Calendar className="h-5 w-5 text-blue-400" />
+                <span className="text-sm text-gray-400">
                   {new Date(analysis.date.toDate()).toLocaleDateString(
                     "tr-TR",
                     {
@@ -212,40 +232,70 @@ export default function AnalysisPage() {
                   )}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-white">
                 {analysis.title}
               </h2>
               {analysis.description && (
-                <p className="text-gray-600 mt-2">{analysis.description}</p>
+                <p className="text-gray-400 mt-2">{analysis.description}</p>
               )}
             </div>
 
             {/* Görseller */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
               {analysis.imageUrls.map((url, index) => (
-                <div key={index} className="relative">
+                <div
+                  key={index}
+                  className="relative group cursor-pointer"
+                  onClick={() => {
+                    setSelectedImage({
+                      url,
+                      title: `${analysis.title} - Görsel ${index + 1}`,
+                    });
+                    setModalOpen(true);
+                  }}
+                >
+                  <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                   <Image
                     src={url}
                     alt={`${analysis.title} - Görsel ${index + 1}`}
                     width={1200}
                     height={800}
-                    className="w-full h-auto rounded-lg shadow-lg"
+                    className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
                     priority={index === 0}
                   />
+                  {/* Zoom İkonu */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
+                    <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
+                      🔍 Yakından İncele
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
-            <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-12 text-center">
+            <TrendingUp className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-white mb-2">
               Henüz Analiz Yayınlanmadı
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-400">
               Yeni analizler yayınlandığında burada görünecektir.
             </p>
           </div>
+        )}
+
+        {/* Image Modal */}
+        {selectedImage && (
+          <ImageModal
+            isOpen={modalOpen}
+            onClose={() => {
+              setModalOpen(false);
+              setSelectedImage(null);
+            }}
+            imageUrl={selectedImage.url}
+            title={selectedImage.title}
+          />
         )}
       </div>
     </div>

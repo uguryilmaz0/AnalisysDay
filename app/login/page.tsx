@@ -1,36 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
+import { LogIn, Mail, Lock, AlertCircle, Shield } from "lucide-react";
+import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState("");
 
   const { signIn } = useAuth();
   const router = useRouter();
+  const rateLimiter = new RateLimiter("login");
+
+  // Check rate limit on mount
+  useEffect(() => {
+    const { isBlocked, remainingTime } = rateLimiter.check();
+    if (isBlocked) {
+      setRateLimitError(
+        `Çok fazla başarısız deneme. Lütfen ${formatRemainingTime(
+          remainingTime
+        )} sonra tekrar deneyin.`
+      );
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setRateLimitError("");
+
+    // Check rate limit
+    const { isBlocked, remainingTime } = rateLimiter.check();
+    if (isBlocked) {
+      setRateLimitError(
+        `Çok fazla başarısız deneme. Lütfen ${formatRemainingTime(
+          remainingTime
+        )} sonra tekrar deneyin.`
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
       await signIn(email, password);
+      rateLimiter.reset(); // Reset on success
       router.push("/analysis");
     } catch (err) {
-      console.error(err);
-      const error = err as { code?: string };
+      rateLimiter.recordAttempt(); // Record failed attempt
+
+      const error = err as { code?: string; message?: string };
       if (
         error.code === "auth/user-not-found" ||
-        error.code === "auth/wrong-password"
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
       ) {
-        setError("Email veya şifre hatalı!");
+        const remaining = rateLimiter.getRemainingAttempts();
+        setError(
+          `Email veya şifre hatalı! ${
+            remaining > 0 ? `(Kalan deneme: ${remaining})` : ""
+          }`
+        );
       } else if (error.code === "auth/invalid-email") {
         setError("Geçersiz email adresi!");
       } else {
@@ -53,8 +89,16 @@ export default function LoginPage() {
           <p className="text-gray-400">AnalysisDay hesabınıza giriş yapın</p>
         </div>
 
+        {/* Rate Limit Error */}
+        {rateLimitError && (
+          <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <Shield className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+            <p className="text-orange-200 text-sm">{rateLimitError}</p>
+          </div>
+        )}
+
         {/* Error Message */}
-        {error && (
+        {error && !rateLimitError && (
           <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
             <p className="text-red-200 text-sm">{error}</p>
@@ -100,8 +144,8 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
+            disabled={loading || !!rateLimitError}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
           >
             {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
           </button>
