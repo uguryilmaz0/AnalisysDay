@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Kullanıcı verilerini Firestore'dan çek
   const fetchUserData = async (uid: string) => {
-    if (!db) return;
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
@@ -52,11 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Auth state değişikliğini dinle
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
@@ -72,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Giriş yap
   const signIn = async (email: string, password: string) => {
-    if (!auth) throw new Error('Firebase not initialized');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -82,8 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     emailNotifications: boolean
   ) => {
-    if (!auth || !db) throw new Error('Firebase not initialized');
-    
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -108,14 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Çıkış yap
   const signOut = async () => {
-    if (!auth) throw new Error('Firebase not initialized');
     await firebaseSignOut(auth);
     setUserData(null);
   };
 
   // Şifre sıfırlama
   const resetPassword = async (email: string) => {
-    if (!auth) throw new Error('Firebase not initialized');
     await sendPasswordResetEmail(auth, email);
   };
 
