@@ -1,7 +1,7 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'demo-api-key',
@@ -14,10 +14,10 @@ const firebaseConfig = {
 
 // Firebase'i sadece bir kez initialize et
 // Build sırasında hata vermemesi için try-catch ekle
-let app;
-let auth;
-let db;
-let storage;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -26,11 +26,6 @@ try {
   storage = getStorage(app);
 } catch (error) {
   console.warn('Firebase initialization failed:', error);
-  // Build sırasında placeholder export et
-  app = null as any;
-  auth = null as any;
-  db = null as any;
-  storage = null as any;
 }
 
 export { auth, db, storage };
