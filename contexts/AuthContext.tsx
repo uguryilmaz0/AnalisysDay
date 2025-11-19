@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Email doğrulama linki gönderilmiyor - kullanıcı profil sayfasından isteyebilir
-    
+
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
       uid: userCredential.user.uid,
