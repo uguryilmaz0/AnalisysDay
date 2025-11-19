@@ -1,0 +1,66 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "regions": ["fra1"],
+  "env": {
+    "NEXT_PUBLIC_FIREBASE_API_KEY": {
+      "description": "Firebase API Key",
+      "required": true
+    },
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": {
+      "description": "Firebase Auth Domain",
+      "required": true
+    },
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID": {
+      "description": "Firebase Project ID",
+      "required": true
+    },
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": {
+      "description": "Firebase Storage Bucket",
+      "required": true
+    },
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": {
+      "description": "Firebase Messaging Sender ID",
+      "required": true
+    },
+    "NEXT_PUBLIC_FIREBASE_APP_ID": {
+      "description": "Firebase App ID",
+      "required": true
+    },
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": {
+      "description": "Cloudinary Cloud Name",
+      "required": true
+    },
+    "NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET": {
+      "description": "Cloudinary Upload Preset",
+      "required": true
+    },
+    "NEXT_PUBLIC_CLOUDINARY_RECEIPT_PRESET": {
+      "description": "Cloudinary Receipt Preset",
+      "required": true
+    },
+    "NEXT_PUBLIC_WHATSAPP_NUMBER": {
+      "description": "WhatsApp Number (905xxxxxxxxx)",
+      "required": true
+    },
+    "NEXT_PUBLIC_IBAN": {
+      "description": "IBAN Number",
+      "required": true
+    },
+    "NEXT_PUBLIC_BANK_NAME": {
+      "description": "Bank Name",
+      "required": true
+    },
+    "NEXT_PUBLIC_ACCOUNT_HOLDER": {
+      "description": "Account Holder Name",
+      "required": true
+    },
+    "NEXT_PUBLIC_SUBSCRIPTION_PRICE": {
+      "description": "Subscription Price (TL)",
+      "required": true
+    }
+  }
+}
