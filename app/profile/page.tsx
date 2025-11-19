@@ -230,13 +230,15 @@ export default function ProfilePage() {
                 Üyelik Durumu
               </h2>
 
-              {isActive ? (
+              {userData.role === "admin" || isActive ? (
                 <div className="space-y-4">
                   <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <CheckCircle2 className="h-5 w-5 text-green-400" />
                       <span className="text-green-400 font-bold">
-                        Aktif Premium Üyelik
+                        {userData.role === "admin"
+                          ? "Admin - Premium Erişim"
+                          : "Aktif Premium Üyelik"}
                       </span>
                     </div>
                     <p className="text-sm text-gray-300">
@@ -244,39 +246,52 @@ export default function ProfilePage() {
                     </p>
                   </div>
 
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">
-                          Başlangıç Tarihi
-                        </p>
-                        <p className="text-white font-medium">
-                          {userData.lastPaymentDate
-                            ?.toDate()
-                            .toLocaleDateString("tr-TR")}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">
-                          Bitiş Tarihi
-                        </p>
-                        <p className="text-white font-medium">
-                          {userData.subscriptionEndDate
-                            ?.toDate()
-                            .toLocaleDateString("tr-TR")}
-                        </p>
+                  {userData.role !== "admin" && (
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Başlangıç Tarihi
+                          </p>
+                          <p className="text-white font-medium">
+                            {userData.lastPaymentDate
+                              ?.toDate()
+                              .toLocaleDateString("tr-TR")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">
+                            Bitiş Tarihi
+                          </p>
+                          <p className="text-white font-medium">
+                            {userData.subscriptionEndDate
+                              ?.toDate()
+                              .toLocaleDateString("tr-TR")}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4">
-                    <p className="text-sm text-blue-100">
-                      <span className="font-bold text-blue-400">
-                        {daysRemaining} gün
-                      </span>{" "}
-                      premium erişiminiz kaldı
-                    </p>
-                  </div>
+                  {userData.role === "admin" ? (
+                    <div className="bg-orange-900/30 border border-orange-500/50 rounded-lg p-4">
+                      <p className="text-sm text-orange-100">
+                        <span className="font-bold text-orange-400">
+                          ⚡ Sınırsız
+                        </span>{" "}
+                        admin erişiminiz bulunmaktadır
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4">
+                      <p className="text-sm text-blue-100">
+                        <span className="font-bold text-blue-400">
+                          {daysRemaining} gün
+                        </span>{" "}
+                        premium erişiminiz kaldı
+                      </p>
+                    </div>
+                  )}
 
                   <Link
                     href="/analysis"

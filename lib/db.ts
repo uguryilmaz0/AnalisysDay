@@ -118,6 +118,15 @@ export async function deleteUser(uid: string): Promise<void> {
   }
 }
 
+export async function updateUserEmailVerified(uid: string, emailVerified: boolean): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', uid), { emailVerified });
+  } catch (error) {
+    console.error('Email doğrulama durumu güncellenemedi:', error);
+    throw error;
+  }
+}
+
 // ==================== ANALİZ İŞLEMLERİ ====================
 
 export async function createAnalysis(

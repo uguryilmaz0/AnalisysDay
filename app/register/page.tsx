@@ -72,7 +72,7 @@ export default function RegisterPage() {
     try {
       await signUp(email, password, emailNotifications);
       rateLimiter.reset(); // Reset on success
-      // Başarılı kayıt - anasayfaya veya pricing'e yönlendir
+      // Başarılı kayıt - direkt analize yönlendir
       router.push("/analysis");
     } catch (err) {
       rateLimiter.recordAttempt(); // Record failed attempt
@@ -218,9 +218,8 @@ export default function RegisterPage() {
             <div className="text-sm text-gray-300">
               <p className="font-semibold mb-1">Kayıt sonrası:</p>
               <p>
-                Email adresinize doğrulama linki gönderilecek (opsiyonel).
-                Otomatik giriş yapılacak ve sistemi kullanmaya
-                başlayabilirsiniz.
+                Email adresinize doğrulama linki gönderilecek. Sisteme giriş
+                yapabilmek için email adresinizi doğrulamanız gerekmektedir.
               </p>
             </div>
           </div>

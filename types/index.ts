@@ -8,6 +8,7 @@ export interface User {
   subscriptionEndDate: Timestamp | null;
   lastPaymentDate: Timestamp | null;
   emailNotifications: boolean;
+  emailVerified: boolean;
   createdAt: Timestamp;
 }
 

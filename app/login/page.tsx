@@ -56,7 +56,13 @@ export default function LoginPage() {
       rateLimiter.recordAttempt(); // Record failed attempt
 
       const error = err as { code?: string; message?: string };
-      if (
+
+      // Email doğrulama hatası kontrolü
+      if (error.message === "EMAIL_NOT_VERIFIED") {
+        setError(
+          "Email adresiniz doğrulanmamış! Lütfen email'inizdeki doğrulama linkine tıklayın."
+        );
+      } else if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/wrong-password" ||
         error.code === "auth/invalid-credential"
@@ -139,6 +145,14 @@ export default function LoginPage() {
                 required
                 minLength={6}
               />
+            </div>
+            <div className="text-right mt-2">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-emerald-400 hover:text-emerald-300"
+              >
+                Şifremi Unuttum
+              </Link>
             </div>
           </div>
 
