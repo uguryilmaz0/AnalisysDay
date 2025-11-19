@@ -18,6 +18,7 @@ import { User, DailyAnalysis, PaymentRequest } from '@/types';
 // ==================== USER İŞLEMLERİ ====================
 
 export async function getUserById(uid: string): Promise<User | null> {
+  if (!db) return null;
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
@@ -35,6 +36,7 @@ export async function updateUserPaidStatus(
   isPaid: boolean, 
   durationDays: number = 30
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     const now = Timestamp.now();
     const endDate = new Date();
@@ -53,6 +55,7 @@ export async function updateUserPaidStatus(
 
 // Aboneliği kontrol et ve süresi dolmuşsa isPaid'i false yap
 export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
+  if (!db) return false;
   try {
     const user = await getUserById(uid);
     if (!user || !user.isPaid || !user.subscriptionEndDate) {
@@ -77,6 +80,7 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
 }
 
 export async function getAllUsers(): Promise<User[]> {
+  if (!db) return [];
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
     return usersSnapshot.docs.map(doc => doc.data() as User);
@@ -94,6 +98,7 @@ export async function createAnalysis(
   description: string,
   createdBy: string
 ): Promise<string> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     const analysisData: Omit<DailyAnalysis, 'id'> = {
       title,
@@ -113,6 +118,7 @@ export async function createAnalysis(
 }
 
 export async function getLatestAnalysis(): Promise<DailyAnalysis | null> {
+  if (!db) return null;
   try {
     const q = query(
       collection(db, 'daily_analysis'),
@@ -133,6 +139,7 @@ export async function getLatestAnalysis(): Promise<DailyAnalysis | null> {
 }
 
 export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
+  if (!db) return [];
   try {
     const q = query(
       collection(db, 'daily_analysis'),
@@ -151,6 +158,7 @@ export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
 }
 
 export async function deleteAnalysis(id: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     await deleteDoc(doc(db, 'daily_analysis', id));
   } catch (error) {
@@ -171,6 +179,7 @@ export async function createPaymentRequest(
   amount: number,
   receiptUrl?: string
 ): Promise<string> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     const paymentData: Omit<PaymentRequest, 'id'> = {
       userId,
@@ -190,6 +199,7 @@ export async function createPaymentRequest(
 }
 
 export async function getPendingPaymentRequests(): Promise<PaymentRequest[]> {
+  if (!db) return [];
   try {
     const q = query(
       collection(db, 'payment_requests'),
@@ -213,6 +223,7 @@ export async function approvePaymentRequest(
   adminUid: string,
   userId: string
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     // Ödeme talebini onayla
     await updateDoc(doc(db, 'payment_requests', requestId), {
@@ -234,6 +245,7 @@ export async function rejectPaymentRequest(
   adminUid: string,
   notes?: string
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
   try {
     await updateDoc(doc(db, 'payment_requests', requestId), {
       status: 'rejected',
