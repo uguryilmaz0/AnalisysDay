@@ -3,7 +3,9 @@ import { Timestamp } from 'firebase/firestore';
 export interface User {
   uid: string;
   email: string;
+  username: string;
   role: 'user' | 'admin';
+  superAdmin?: boolean; // Super adminler diğer adminleri yönetebilir
   isPaid: boolean;
   subscriptionEndDate: Timestamp | null;
   lastPaymentDate: Timestamp | null;

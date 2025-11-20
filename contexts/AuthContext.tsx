@@ -17,9 +17,10 @@ interface AuthContextType {
   user: FirebaseUser | null;
   userData: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (emailOrUsername: string, password: string) => Promise<void>;
   signUp: (
     email: string,
+    username: string,
     password: string,
     emailNotifications: boolean
   ) => Promise<void>;
@@ -65,7 +66,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Giriş yap
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (emailOrUsername: string, password: string) => {
+    const { getUserByUsername } = await import("@/lib/db");
+
+    let email = emailOrUsername;
+
+    // Eğer @ işareti yoksa, username olarak kabul et
+    if (!emailOrUsername.includes("@")) {
+      const user = await getUserByUsername(emailOrUsername);
+      if (!user) {
+        throw new Error("Kullanıcı bulunamadı");
+      }
+      email = user.email;
+    }
+
     await signInWithEmailAndPassword(auth, email, password);
     // Email doğrulama kontrolü yok - admin panelinden manuel onaylanacak
   };
@@ -73,25 +87,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Kayıt ol
   const signUp = async (
     email: string,
+    username: string,
     password: string,
     emailNotifications: boolean
   ) => {
+    const { isUsernameAvailable } = await import("@/lib/db");
+    const { sendEmailVerification } = await import("firebase/auth");
+
+    // Username kontrolü
+    const available = await isUsernameAvailable(username);
+    if (!available) {
+      throw new Error("Bu kullanıcı adı zaten kullanılıyor");
+    }
+
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
       password
     );
 
-    // Email doğrulama linki gönderilmiyor - kullanıcı profil sayfasından isteyebilir
+    // Email doğrulama linki gönder
+    await sendEmailVerification(userCredential.user);
+
+    // Super admin kontrolü (ortam değişkeninden)
+    const superAdminEmails =
+      process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS?.split(",").map((e) =>
+        e.trim().toLowerCase()
+      ) || [];
+    const isSuperAdmin = superAdminEmails.includes(email.toLowerCase());
 
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
       uid: userCredential.user.uid,
       email: email,
-      role: "user",
-      isPaid: false,
-      subscriptionEndDate: null,
-      lastPaymentDate: null,
+      username: username.toLowerCase(),
+      role: isSuperAdmin ? "admin" : "user",
+      superAdmin: isSuperAdmin,
+      isPaid: isSuperAdmin ? true : false, // Super adminler otomatik premium
+      subscriptionEndDate: isSuperAdmin ? null : null,
+      lastPaymentDate: isSuperAdmin ? Timestamp.now() : null,
       emailNotifications,
       emailVerified: false,
       createdAt: Timestamp.now(),
@@ -100,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
     setUserData(newUser);
 
-    // Kullanıcı giriş yapmış kalıyor - direkt sisteme erişebilir
+    // Kullanıcı email doğrulama sayfasına yönlendirilecek
   };
 
   // Çıkış yap

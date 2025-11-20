@@ -30,6 +30,32 @@ export async function getUserById(uid: string): Promise<User | null> {
   }
 }
 
+export async function getUserByUsername(username: string): Promise<User | null> {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('username', '==', username.toLowerCase()),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return snapshot.docs[0].data() as User;
+  } catch (error) {
+    console.error('Kullanıcı bulunamadı:', error);
+    return null;
+  }
+}
+
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  try {
+    const user = await getUserByUsername(username);
+    return user === null;
+  } catch (error) {
+    console.error('Username kontrolü yapılamadı:', error);
+    return false;
+  }
+}
+
 export async function updateUserPaidStatus(
   uid: string, 
   isPaid: boolean, 
@@ -88,9 +114,15 @@ export async function getAllUsers(): Promise<User[]> {
   }
 }
 
-export async function updateUserRole(uid: string, role: 'user' | 'admin'): Promise<void> {
+export async function updateUserRole(uid: string, role: 'user' | 'admin', superAdmin?: boolean): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', uid), { role });
+    const updateData: Partial<User> = { role };
+    if (role === 'admin' && superAdmin !== undefined) {
+      updateData.superAdmin = superAdmin;
+    } else if (role === 'user') {
+      updateData.superAdmin = false;
+    }
+    await updateDoc(doc(db, 'users', uid), updateData);
   } catch (error) {
     console.error('Kullanıcı rolü güncellenemedi:', error);
     throw error;

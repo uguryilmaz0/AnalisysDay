@@ -12,6 +12,7 @@ import {
   cancelUserSubscription,
   deleteUser as deleteUserFromDB,
   updateUserEmailVerified,
+  updateUserRole,
 } from "@/lib/db";
 import { uploadMultipleImages } from "@/lib/cloudinary";
 import { DailyAnalysis, User } from "@/types";
@@ -35,9 +36,9 @@ export default function AdminPage() {
   const { user, userData, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<"upload" | "analyses" | "users">(
-    "upload"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "upload" | "analyses" | "users" | "admins"
+  >("upload");
 
   // Upload State
   const [title, setTitle] = useState("");
@@ -215,6 +216,54 @@ export default function AdminPage() {
     }
   };
 
+  const handleMakeAdmin = async (uid: string, username: string) => {
+    if (!confirm(`@${username} kullanıcısını admin yapmak istiyor musunuz?`))
+      return;
+
+    try {
+      await updateUserRole(uid, "admin", false);
+      alert("Kullanıcı admin yapıldı!");
+      await loadData();
+    } catch {
+      alert("Admin yapılamadı!");
+    }
+  };
+
+  const handleRemoveAdmin = async (uid: string, username: string) => {
+    if (!confirm(`@${username} admin yetkisini kaldırmak istiyor musunuz?`))
+      return;
+
+    try {
+      await updateUserRole(uid, "user");
+      alert("Admin yetkisi kaldırıldı!");
+      await loadData();
+    } catch {
+      alert("Admin yetkisi kaldırılamadı!");
+    }
+  };
+
+  const handleToggleSuperAdmin = async (
+    uid: string,
+    username: string,
+    currentStatus: boolean
+  ) => {
+    const action = currentStatus ? "kaldırmak" : "vermek";
+    if (
+      !confirm(
+        `@${username} kullanıcısına Super Admin yetkisi ${action} istiyor musunuz?`
+      )
+    )
+      return;
+
+    try {
+      await updateUserRole(uid, "admin", !currentStatus);
+      alert(`Super Admin yetkisi ${currentStatus ? "kaldırıldı" : "verildi"}!`);
+      await loadData();
+    } catch {
+      alert("Super Admin yetkisi güncellenemedi!");
+    }
+  };
+
   const handleToggleEmailVerified = async (
     uid: string,
     currentStatus: boolean,
@@ -327,6 +376,17 @@ export default function AdminPage() {
             >
               <Users className="h-5 w-5" />
               Kullanıcılar
+            </button>
+            <button
+              onClick={() => setActiveTab("admins")}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                activeTab === "admins"
+                  ? "bg-purple-600 text-white"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <Shield className="h-5 w-5" />
+              Admin Yönetimi
             </button>
           </div>
 
@@ -553,6 +613,204 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Admin Management Tab */}
+            {activeTab === "admins" && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">
+                    👑 Admin Yönetimi
+                  </h2>
+                </div>
+
+                {/* Info Box */}
+                <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-6 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-6 w-6 text-blue-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-blue-100 font-semibold mb-2">
+                        Admin Yönetimi Hakkında
+                      </p>
+                      <ul className="text-sm text-blue-200 space-y-1">
+                        <li>
+                          • <strong>Admin:</strong> Analiz yükleyebilir,
+                          kullanıcıları yönetebilir
+                        </li>
+                        <li>
+                          • <strong>Super Admin:</strong> Admin yetkisi
+                          verebilir/kaldırabilir
+                        </li>
+                        <li>
+                          • Super Admin yetkisi sadece super adminler tarafından
+                          verilebilir
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Admin List */}
+                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                  {/* Current Admins */}
+                  <div className="bg-gray-800/50 border border-purple-500/30 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-purple-400" />
+                      Mevcut Adminler (
+                      {users.filter((u) => u.role === "admin").length})
+                    </h3>
+                    <div className="space-y-3">
+                      {users
+                        .filter((u) => u.role === "admin")
+                        .map((admin) => (
+                          <div
+                            key={admin.uid}
+                            className="bg-gray-900 rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="text-white font-semibold flex items-center gap-2">
+                                  @{admin.username}
+                                  {admin.superAdmin && (
+                                    <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs">
+                                      ⭐ Super
+                                    </span>
+                                  )}
+                                  {admin.uid === user?.uid && (
+                                    <span className="text-xs text-purple-400">
+                                      (Siz)
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-400">
+                                  {admin.email}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Actions - Sadece super adminler görebilir */}
+                            {userData?.superAdmin &&
+                              admin.uid !== user?.uid && (
+                                <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
+                                  {!admin.superAdmin && (
+                                    <button
+                                      onClick={() =>
+                                        handleToggleSuperAdmin(
+                                          admin.uid,
+                                          admin.username,
+                                          false
+                                        )
+                                      }
+                                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                      title="Super Admin yap"
+                                    >
+                                      ⭐ Super Admin Yap
+                                    </button>
+                                  )}
+                                  {admin.superAdmin && (
+                                    <button
+                                      onClick={() =>
+                                        handleToggleSuperAdmin(
+                                          admin.uid,
+                                          admin.username,
+                                          true
+                                        )
+                                      }
+                                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                      title="Super Admin kaldır"
+                                    >
+                                      Super Admin Kaldır
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() =>
+                                      handleRemoveAdmin(
+                                        admin.uid,
+                                        admin.username
+                                      )
+                                    }
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                    title="Admin yetkisi kaldır"
+                                  >
+                                    Admin Yetkisi Kaldır
+                                  </button>
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                      {users.filter((u) => u.role === "admin").length === 0 && (
+                        <p className="text-gray-400 text-sm text-center py-4">
+                          Henüz admin kullanıcı yok
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Regular Users - Admin Yapılabilir */}
+                  <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-400" />
+                      Normal Kullanıcılar (
+                      {users.filter((u) => u.role === "user").length})
+                    </h3>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {users
+                        .filter((u) => u.role === "user")
+                        .map((regularUser) => (
+                          <div
+                            key={regularUser.uid}
+                            className="bg-gray-900 rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-white font-semibold">
+                                  @{regularUser.username}
+                                </p>
+                                <p className="text-sm text-gray-400">
+                                  {regularUser.email}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Kayıt:{" "}
+                                  {new Date(
+                                    regularUser.createdAt.toDate()
+                                  ).toLocaleDateString("tr-TR")}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  handleMakeAdmin(
+                                    regularUser.uid,
+                                    regularUser.username
+                                  )
+                                }
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                title="Admin yap"
+                              >
+                                Admin Yap
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      {users.filter((u) => u.role === "user").length === 0 && (
+                        <p className="text-gray-400 text-sm text-center py-4">
+                          Tüm kullanıcılar admin
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Super Admin Info */}
+                {!userData?.superAdmin && (
+                  <div className="bg-orange-900/20 border border-orange-500/50 rounded-lg p-4">
+                    <p className="text-orange-200 text-sm flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Super Admin yetkisi verebilmek için bir Super Admin
+                      tarafından yetkilendirilmelisiniz.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Users Tab */}
             {activeTab === "users" && (
               <div>
@@ -617,6 +875,9 @@ export default function AdminPage() {
                       <thead className="bg-gray-800">
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
+                            Kullanıcı Adı
+                          </th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
                             Email
                           </th>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
@@ -647,13 +908,20 @@ export default function AdminPage() {
                           return (
                             <tr key={u.uid} className="hover:bg-gray-800/50">
                               <td className="px-4 py-3">
-                                <div className="text-sm text-gray-300">
-                                  {u.email}
+                                <div className="text-sm">
+                                  <span className="text-blue-400 font-medium">
+                                    @{u.username}
+                                  </span>
                                   {u.uid === user?.uid && (
                                     <span className="ml-2 text-xs text-purple-400">
                                       (Siz)
                                     </span>
                                   )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-sm text-gray-300">
+                                  {u.email}
                                 </div>
                               </td>
                               <td className="px-4 py-3">

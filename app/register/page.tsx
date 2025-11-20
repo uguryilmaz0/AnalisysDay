@@ -12,11 +12,13 @@ import {
   CheckCircle2,
   Bell,
   Shield,
+  User,
 } from "lucide-react";
 import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -67,18 +69,30 @@ export default function RegisterPage() {
       return;
     }
 
+    if (username.length < 3) {
+      setError("Kullanıcı adı en az 3 karakter olmalıdır!");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError("Kullanıcı adı sadece harf, rakam ve alt çizgi içerebilir!");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await signUp(email, password, emailNotifications);
+      await signUp(email, username, password, emailNotifications);
       rateLimiter.reset(); // Reset on success
-      // Başarılı kayıt - direkt analize yönlendir
-      router.push("/analysis");
+      // Başarılı kayıt - email doğrulama sayfasına yönlendir
+      router.push("/register/verify-email");
     } catch (err) {
       rateLimiter.recordAttempt(); // Record failed attempt
 
-      const error = err as { code?: string };
-      if (error.code === "auth/email-already-in-use") {
+      const error = err as { code?: string; message?: string };
+      if (error.message === "Bu kullanıcı adı zaten kullanılıyor") {
+        setError("Bu kullanıcı adı zaten kullanılıyor!");
+      } else if (error.code === "auth/email-already-in-use") {
         setError("Bu email adresi zaten kullanılıyor!");
       } else if (error.code === "auth/invalid-email") {
         setError("Geçersiz email adresi!");
@@ -137,6 +151,29 @@ export default function RegisterPage() {
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Kullanıcı Adı
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
+                placeholder="kullaniciadi"
+                required
+                minLength={3}
+                pattern="[a-zA-Z0-9_]+"
+                title="Sadece harf, rakam ve alt çizgi kullanılabilir"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              En az 3 karakter, sadece harf, rakam ve alt çizgi
+            </p>
           </div>
 
           <div>

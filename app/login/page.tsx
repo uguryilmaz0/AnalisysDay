@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogIn, Mail, Lock, AlertCircle, Shield } from "lucide-react";
+import { LogIn, User, Lock, AlertCircle, Shield } from "lucide-react";
 import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(emailOrUsername, password);
       rateLimiter.reset(); // Reset on success
       router.push("/analysis");
     } catch (err) {
@@ -62,6 +62,8 @@ export default function LoginPage() {
         setError(
           "Email adresiniz doğrulanmamış! Lütfen email'inizdeki doğrulama linkine tıklayın."
         );
+      } else if (error.message === "Kullanıcı bulunamadı") {
+        setError("Kullanıcı adı veya email bulunamadı!");
       } else if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/wrong-password" ||
@@ -69,7 +71,7 @@ export default function LoginPage() {
       ) {
         const remaining = rateLimiter.getRemainingAttempts();
         setError(
-          `Email veya şifre hatalı! ${
+          `Kullanıcı adı/email veya şifre hatalı! ${
             remaining > 0 ? `(Kalan deneme: ${remaining})` : ""
           }`
         );
@@ -115,19 +117,22 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email Adresi
+              Kullanıcı Adı veya Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="ornek@email.com"
+                placeholder="kullaniciadi veya ornek@email.com"
                 required
               />
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Kullanıcı adınız veya email adresiniz ile giriş yapabilirsiniz
+            </p>
           </div>
 
           <div>

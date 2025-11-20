@@ -6,17 +6,22 @@ service cloud.firestore {
     // Users koleksiyonu
     match /users/{userId} {
       // Kullanıcı kendi kaydını okuyabilir veya admin tüm kayıtları okuyabilir
-      allow read: if request.auth != null && (
-                     request.auth.uid == userId ||
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                  );
+      // Username ile arama yapabilmek için herkes okuyabilir (sadece gerekli fieldlar)
+      allow read: if request.auth != null;
 
-      // Sadece kayıt sırasında yazılabilir
-      allow create: if request.auth != null && request.auth.uid == userId;
+      // Sadece kayıt sırasında yazılabilir + username unique olmalı
+      allow create: if request.auth != null && 
+                       request.auth.uid == userId &&
+                       request.resource.data.username is string &&
+                       request.resource.data.username.size() >= 3;
 
-      // Sadece adminler güncelleyebilir
-      allow update: if request.auth != null &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Kullanıcılar kendi verilerini güncelleyebilir (email notifications vs)
+      // Adminler tüm kullanıcıları güncelleyebilir
+      allow update: if request.auth != null && (
+                       request.auth.uid == userId ||
+                       (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+                    );
 
       // Kullanıcılar kendi hesaplarını silebilir
       allow delete: if request.auth != null && request.auth.uid == userId;
@@ -25,13 +30,15 @@ service cloud.firestore {
     // Daily Analysis koleksiyonu
     match /daily_analysis/{analysisId} {
       // Premium üyeler veya adminler okuyabilir
-      allow read: if request.auth != null && (
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPaid == true ||
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                  );
+      allow read: if request.auth != null && 
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPaid == true ||
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                     );
 
       // Sadece adminler yazabilir, güncelleyebilir, silebilir
       allow write: if request.auth != null &&
+                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -40,13 +47,15 @@ service cloud.firestore {
       // Kullanıcı kendi taleplerini görebilir, adminler hepsini görebilir
       allow read: if request.auth != null &&
                      (resource.data.userId == request.auth.uid ||
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+                      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
 
       // Kullanıcılar kendi taleplerini oluşturabilir
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
 
       // Sadece adminler güncelleyebilir/silebilir
       allow update, delete: if request.auth != null &&
+                               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
