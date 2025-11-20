@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { X, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import {
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Download,
+  Maximize2,
+  Copy,
+} from "lucide-react";
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -123,6 +131,51 @@ export default function ImageModal({
           title="Sıfırla"
         >
           Sıfırla
+        </button>
+
+        <div className="w-px h-6 bg-gray-700 mx-2"></div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const link = document.createElement("a");
+            link.href = imageUrl;
+            link.download = title.replace(/[^a-z0-9]/gi, "_") + ".png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
+          title="İndir"
+        >
+          <Download className="h-5 w-5 text-white" />
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              document.documentElement.requestFullscreen();
+            }
+          }}
+          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
+          title="Tam Ekran"
+        >
+          <Maximize2 className="h-5 w-5 text-white" />
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(imageUrl);
+            alert("Görsel URL'si kopyalandı!");
+          }}
+          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
+          title="URL Kopyala"
+        >
+          <Copy className="h-5 w-5 text-white" />
         </button>
       </div>
 

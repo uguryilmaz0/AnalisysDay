@@ -96,7 +96,9 @@ export default function Header() {
                   title="Profil"
                 >
                   <User className="h-5 w-5" />
-                  <span className="text-sm">{user.email}</span>
+                  <span className="text-sm">
+                    @{userData?.username || user.email}
+                  </span>
                 </Link>
 
                 {/* Çıkış Butonu */}
@@ -201,7 +203,9 @@ export default function Header() {
                     className="flex items-center space-x-2 text-gray-300 hover:text-blue-400 py-2 transition-colors"
                   >
                     <User className="h-5 w-5 text-blue-400" />
-                    <span className="text-sm">{user.email}</span>
+                    <span className="text-sm">
+                      @{userData?.username || user.email}
+                    </span>
                   </Link>
                   <button
                     onClick={() => {

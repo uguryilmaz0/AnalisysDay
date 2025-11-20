@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,10 +21,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.className} antialiased bg-slate-900`}>
+      <body
+        className={`${inter.className} antialiased bg-slate-900 flex flex-col min-h-screen`}
+      >
         <AuthProvider>
           <Header />
-          <main className="min-h-screen">{children}</main>
+          <main className="flex-1">{children}</main>
+          <Footer />
           <WhatsAppWidget />
         </AuthProvider>
       </body>
