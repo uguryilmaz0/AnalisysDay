@@ -156,9 +156,9 @@ d:\analiz\
 
 **Admin Özellikleri:**
 
-- 👑 **Super Admin:** Diğer adminleri atayabilir/kaldırabilir
+- 👑 **Super Admin:** Diğer adminleri atayabilir/kaldırabilir, gizli yönetici (listede görünmez)
 - 🛡️ **Normal Admin:** Analiz yükleyebilir, kullanıcıları yönetebilir
-- 💎 Super adminler otomatik premium üyeliğe sahiptir
+- 💎 Admin rolü otomatik premium erişim sağlar (ayrıca ödeme gereksiz)
 
 ## 🎯 Kullanım Senaryoları
 

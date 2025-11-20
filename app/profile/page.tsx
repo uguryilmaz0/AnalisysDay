@@ -33,8 +33,15 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) {
       router.push("/login");
+      return;
     }
-  }, [user, router]);
+
+    // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
+    if (userData && userData.role !== "admin" && !user.emailVerified) {
+      router.push("/register/verify-email");
+      return;
+    }
+  }, [user, userData, router]);
 
   // Show nothing while checking auth or if no user data
   if (!user || !userData) {
@@ -45,13 +52,17 @@ export default function ProfilePage() {
     );
   }
 
-  const isActive = userData.isPaid && userData.subscriptionEndDate;
-  const daysRemaining = isActive
-    ? Math.ceil(
-        (userData.subscriptionEndDate!.toDate().getTime() - Date.now()) /
-          (1000 * 60 * 60 * 24)
-      )
-    : 0;
+  // Admin her zaman premium sayılır
+  const isActive =
+    userData.role === "admin" ||
+    (userData.isPaid && userData.subscriptionEndDate);
+  const daysRemaining =
+    isActive && userData.subscriptionEndDate
+      ? Math.ceil(
+          (userData.subscriptionEndDate.toDate().getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : 0;
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "SİL") {

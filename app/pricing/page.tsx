@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   CreditCard,
   CheckCircle2,
@@ -16,6 +17,13 @@ import {
 export default function PricingPage() {
   const { user, userData } = useAuth();
   const router = useRouter();
+
+  // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
+  useEffect(() => {
+    if (user && userData && userData.role !== "admin" && !user.emailVerified) {
+      router.push("/register/verify-email");
+    }
+  }, [user, userData, router]);
 
   const price = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE || "500";
   const iban =

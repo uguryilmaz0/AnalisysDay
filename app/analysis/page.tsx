@@ -32,8 +32,14 @@ export default function AnalysisPage() {
         return;
       }
 
-      // Abonelik kontrolü yap
-      if (userData?.isPaid && userData.uid) {
+      // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
+      if (userData && userData.role !== "admin" && !user.emailVerified) {
+        router.push("/register/verify-email");
+        return;
+      }
+
+      // Admin her zaman erişebilir, diğerleri için abonelik kontrolü yap
+      if (userData?.role !== "admin" && userData?.isPaid && userData.uid) {
         const isValid = await checkSubscriptionExpiry(userData.uid);
         setSubscriptionValid(isValid);
 
@@ -43,7 +49,7 @@ export default function AnalysisPage() {
         }
       }
 
-      // Admin veya premium kullanıcılar için analiz çek
+      // Admin otomatik erişir veya premium kullanıcılar için analiz çek
       const canViewAnalysis =
         userData?.role === "admin" || (userData?.isPaid && subscriptionValid);
 

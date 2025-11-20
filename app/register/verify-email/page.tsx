@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Mail,
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { sendEmailVerification } from "firebase/auth";
 
@@ -16,6 +17,20 @@ export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [resendError, setResendError] = useState("");
+  const router = useRouter();
+
+  // Email doğrulandıysa otomatik yönlendir
+  useEffect(() => {
+    const checkEmailVerification = setInterval(async () => {
+      await auth.currentUser?.reload();
+      if (auth.currentUser?.emailVerified) {
+        clearInterval(checkEmailVerification);
+        router.push("/analysis");
+      }
+    }, 3000); // Her 3 saniyede bir kontrol et
+
+    return () => clearInterval(checkEmailVerification);
+  }, [router]);
 
   const handleResendEmail = async () => {
     if (!auth.currentUser) {

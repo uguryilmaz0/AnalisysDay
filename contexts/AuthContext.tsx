@@ -80,8 +80,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email = user.email;
     }
 
-    await signInWithEmailAndPassword(auth, email, password);
-    // Email doğrulama kontrolü yok - admin panelinden manuel onaylanacak
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    // Email doğrulama kontrolü (Admin ve super admin hariç)
+    const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data() as User;
+      // Admin değilse ve email doğrulanmamışsa hata ver
+      if (userData.role !== "admin" && !userCredential.user.emailVerified) {
+        throw new Error("EMAIL_NOT_VERIFIED");
+      }
+    }
   };
 
   // Kayıt ol
@@ -106,15 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password
     );
 
-    // Email doğrulama linki gönder
-    await sendEmailVerification(userCredential.user);
-
     // Super admin kontrolü (ortam değişkeninden)
     const superAdminEmails =
       process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS?.split(",").map((e) =>
         e.trim().toLowerCase()
       ) || [];
     const isSuperAdmin = superAdminEmails.includes(email.toLowerCase());
+
+    // Admin değilse email doğrulama linki gönder
+    if (!isSuperAdmin) {
+      await sendEmailVerification(userCredential.user);
+    }
 
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
@@ -123,18 +138,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       username: username.toLowerCase(),
       role: isSuperAdmin ? "admin" : "user",
       superAdmin: isSuperAdmin,
-      isPaid: isSuperAdmin ? true : false, // Super adminler otomatik premium
-      subscriptionEndDate: isSuperAdmin ? null : null,
-      lastPaymentDate: isSuperAdmin ? Timestamp.now() : null,
+      isPaid: false, // Admin rolü zaten premium erişim sağlar
+      subscriptionEndDate: null,
+      lastPaymentDate: null,
       emailNotifications,
-      emailVerified: false,
+      emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
       createdAt: Timestamp.now(),
     };
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
-    setUserData(newUser);
 
-    // Kullanıcı email doğrulama sayfasına yönlendirilecek
+    // Kayıt sonrası otomatik giriş yapıldığı için çıkış yap
+    await firebaseSignOut(auth);
+
+    // Kullanıcı email doğrulama sayfasına yönlendirilecek (admin değilse)
   };
 
   // Çıkış yap

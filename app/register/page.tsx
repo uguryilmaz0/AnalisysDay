@@ -84,8 +84,20 @@ export default function RegisterPage() {
     try {
       await signUp(email, username, password, emailNotifications);
       rateLimiter.reset(); // Reset on success
-      // Başarılı kayıt - email doğrulama sayfasına yönlendir
-      router.push("/register/verify-email");
+
+      // Super admin kontrolü
+      const superAdminEmails =
+        process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS?.split(",").map((e) =>
+          e.trim().toLowerCase()
+        ) || [];
+      const isSuperAdmin = superAdminEmails.includes(email.toLowerCase());
+
+      // Admin ise login'e, değilse email doğrulama sayfasına yönlendir
+      if (isSuperAdmin) {
+        router.push("/login");
+      } else {
+        router.push("/register/verify-email");
+      }
     } catch (err) {
       rateLimiter.recordAttempt(); // Record failed attempt
 
@@ -266,12 +278,19 @@ export default function RegisterPage() {
         <div className="mt-6 text-center">
           <p className="text-gray-400">
             Zaten hesabınız var mı?{" "}
-            <Link
-              href="/login"
-              className="text-emerald-400 hover:text-emerald-300 font-semibold"
+            <button
+              onClick={async () => {
+                const { signOut: firebaseSignOut } = await import(
+                  "firebase/auth"
+                );
+                const { auth } = await import("@/lib/firebase");
+                await firebaseSignOut(auth);
+                router.push("/login");
+              }}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold bg-transparent border-none cursor-pointer"
             >
               Giriş Yap
-            </Link>
+            </button>
           </p>
         </div>
       </div>

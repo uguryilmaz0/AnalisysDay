@@ -7,7 +7,8 @@ service cloud.firestore {
     match /users/{userId} {
       // Kullanıcı kendi kaydını okuyabilir veya admin tüm kayıtları okuyabilir
       // Username ile arama yapabilmek için herkes okuyabilir (sadece gerekli fieldlar)
-      allow read: if request.auth != null;
+      // Login ve kayıt için username kontrolü gerektiğinden genel okuma izni
+      allow read: if true;
 
       // Sadece kayıt sırasında yazılabilir + username unique olmalı
       allow create: if request.auth != null && 

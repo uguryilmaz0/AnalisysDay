@@ -64,6 +64,12 @@ export default function AdminPage() {
       return;
     }
 
+    // Email doğrulanmamışsa ve admin değilse (ek güvenlik)
+    if (userData.role !== "admin" && !user.emailVerified) {
+      router.push("/register/verify-email");
+      return;
+    }
+
     loadData();
   }, [user, userData, authLoading, router]);
 
@@ -324,7 +330,11 @@ export default function AdminPage() {
             <div className="flex items-center gap-3 mb-2">
               <Users className="h-8 w-8 text-green-500" />
               <span className="text-2xl font-bold text-white">
-                {users.filter((u) => u.isPaid).length}
+                {
+                  users.filter(
+                    (u) => (u.isPaid || u.role === "admin") && !u.superAdmin
+                  ).length
+                }
               </span>
             </div>
             <p className="text-gray-400">Premium Üyeler</p>
@@ -334,7 +344,7 @@ export default function AdminPage() {
             <div className="flex items-center gap-3 mb-2">
               <Users className="h-8 w-8 text-gray-500" />
               <span className="text-2xl font-bold text-white">
-                {users.length}
+                {users.filter((u) => !u.superAdmin).length}
               </span>
             </div>
             <p className="text-gray-400">Toplam Kullanıcı</p>
@@ -633,16 +643,13 @@ export default function AdminPage() {
                       <ul className="text-sm text-blue-200 space-y-1">
                         <li>
                           • <strong>Admin:</strong> Analiz yükleyebilir,
-                          kullanıcıları yönetebilir
+                          kullanıcıları yönetebilir, otomatik premium erişim
                         </li>
                         <li>
-                          • <strong>Super Admin:</strong> Admin yetkisi
-                          verebilir/kaldırabilir
+                          • <strong>Super Admin:</strong> Gizli yönetici, admin
+                          yetkisi verebilir/kaldırabilir
                         </li>
-                        <li>
-                          • Super Admin yetkisi sadece super adminler tarafından
-                          verilebilir
-                        </li>
+                        <li>• Super adminler kullanıcı listesinde görünmez</li>
                       </ul>
                     </div>
                   </div>
@@ -655,11 +662,15 @@ export default function AdminPage() {
                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                       <Shield className="h-5 w-5 text-purple-400" />
                       Mevcut Adminler (
-                      {users.filter((u) => u.role === "admin").length})
+                      {
+                        users.filter((u) => u.role === "admin" && !u.superAdmin)
+                          .length
+                      }
+                      )
                     </h3>
                     <div className="space-y-3">
                       {users
-                        .filter((u) => u.role === "admin")
+                        .filter((u) => u.role === "admin" && !u.superAdmin)
                         .map((admin) => (
                           <div
                             key={admin.uid}
@@ -816,7 +827,8 @@ export default function AdminPage() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-white">
-                    Tüm Kullanıcılar ({users.length})
+                    Tüm Kullanıcılar (
+                    {users.filter((u) => !u.superAdmin).length})
                   </h2>
                   <button
                     onClick={loadData}
@@ -901,137 +913,139 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {users.map((u) => {
-                          const userWithAuth = usersWithAuthData.find(
-                            (ua) => ua.uid === u.uid
-                          );
-                          return (
-                            <tr key={u.uid} className="hover:bg-gray-800/50">
-                              <td className="px-4 py-3">
-                                <div className="text-sm">
-                                  <span className="text-blue-400 font-medium">
-                                    @{u.username}
-                                  </span>
-                                  {u.uid === user?.uid && (
-                                    <span className="ml-2 text-xs text-purple-400">
-                                      (Siz)
+                        {users
+                          .filter((u) => !u.superAdmin)
+                          .map((u) => {
+                            const userWithAuth = usersWithAuthData.find(
+                              (ua) => ua.uid === u.uid
+                            );
+                            return (
+                              <tr key={u.uid} className="hover:bg-gray-800/50">
+                                <td className="px-4 py-3">
+                                  <div className="text-sm">
+                                    <span className="text-blue-400 font-medium">
+                                      @{u.username}
+                                    </span>
+                                    {u.uid === user?.uid && (
+                                      <span className="ml-2 text-xs text-purple-400">
+                                        (Siz)
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="text-sm text-gray-300">
+                                    {u.email}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {u.role === "admin" ? (
+                                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                      Admin
+                                    </span>
+                                  ) : (
+                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                      User
                                     </span>
                                   )}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="text-sm text-gray-300">
-                                  {u.email}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                {u.role === "admin" ? (
-                                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                    Admin
-                                  </span>
-                                ) : (
-                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                    User
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {u.isPaid ? (
-                                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                    Premium
-                                  </span>
-                                ) : (
-                                  <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                    Ücretsiz
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {u.role === "admin" ? (
-                                  <span className="flex items-center gap-1 text-purple-400 text-xs">
-                                    <Shield className="h-3 w-3" />
-                                    Admin
-                                  </span>
-                                ) : (
-                                  <button
-                                    onClick={() =>
-                                      handleToggleEmailVerified(
-                                        u.uid,
-                                        u.emailVerified,
-                                        u.email
-                                      )
-                                    }
-                                    className={`flex items-center gap-1 text-xs hover:opacity-80 transition ${
-                                      u.emailVerified
-                                        ? "text-green-400"
-                                        : "text-orange-400"
-                                    }`}
-                                    title="Email doğrulama durumunu değiştir"
-                                  >
-                                    {u.emailVerified ? (
-                                      <>
-                                        <Mail className="h-3 w-3" />
-                                        Doğrulandı
-                                      </>
-                                    ) : (
-                                      <>
-                                        <MailWarning className="h-3 w-3" />
-                                        Doğrulanmadı
-                                      </>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {u.isPaid ? (
+                                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                      Premium
+                                    </span>
+                                  ) : (
+                                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                      Ücretsiz
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {u.role === "admin" ? (
+                                    <span className="flex items-center gap-1 text-purple-400 text-xs">
+                                      <Shield className="h-3 w-3" />
+                                      Admin
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() =>
+                                        handleToggleEmailVerified(
+                                          u.uid,
+                                          u.emailVerified,
+                                          u.email
+                                        )
+                                      }
+                                      className={`flex items-center gap-1 text-xs hover:opacity-80 transition ${
+                                        u.emailVerified
+                                          ? "text-green-400"
+                                          : "text-orange-400"
+                                      }`}
+                                      title="Email doğrulama durumunu değiştir"
+                                    >
+                                      {u.emailVerified ? (
+                                        <>
+                                          <Mail className="h-3 w-3" />
+                                          Doğrulandı
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MailWarning className="h-3 w-3" />
+                                          Doğrulanmadı
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-400">
+                                  {u.subscriptionEndDate
+                                    ? new Date(
+                                        u.subscriptionEndDate.toDate()
+                                      ).toLocaleDateString("tr-TR")
+                                    : "-"}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-400">
+                                  {new Date(
+                                    u.createdAt.toDate()
+                                  ).toLocaleDateString("tr-TR")}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-2 flex-wrap">
+                                    {!u.isPaid && (
+                                      <button
+                                        onClick={() => handleMakePremium(u.uid)}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                        title="Premium yap (30 gün)"
+                                      >
+                                        Premium Yap
+                                      </button>
                                     )}
-                                  </button>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-400">
-                                {u.subscriptionEndDate
-                                  ? new Date(
-                                      u.subscriptionEndDate.toDate()
-                                    ).toLocaleDateString("tr-TR")
-                                  : "-"}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-400">
-                                {new Date(
-                                  u.createdAt.toDate()
-                                ).toLocaleDateString("tr-TR")}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2 flex-wrap">
-                                  {!u.isPaid && (
-                                    <button
-                                      onClick={() => handleMakePremium(u.uid)}
-                                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
-                                      title="Premium yap (30 gün)"
-                                    >
-                                      Premium Yap
-                                    </button>
-                                  )}
-                                  {u.isPaid && (
-                                    <button
-                                      onClick={() =>
-                                        handleCancelSubscription(u.uid)
-                                      }
-                                      className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
-                                      title="Abonelik iptal"
-                                    >
-                                      İptal Et
-                                    </button>
-                                  )}
-                                  {u.uid !== user?.uid && (
-                                    <button
-                                      onClick={() =>
-                                        handleDeleteUser(u.uid, u.email)
-                                      }
-                                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
-                                      title="Kullanıcıyı sil"
-                                    >
-                                      Sil
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                    {u.isPaid && (
+                                      <button
+                                        onClick={() =>
+                                          handleCancelSubscription(u.uid)
+                                        }
+                                        className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                        title="Abonelik iptal"
+                                      >
+                                        İptal Et
+                                      </button>
+                                    )}
+                                    {u.uid !== user?.uid && (
+                                      <button
+                                        onClick={() =>
+                                          handleDeleteUser(u.uid, u.email)
+                                        }
+                                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
+                                        title="Kullanıcıyı sil"
+                                      >
+                                        Sil
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>

@@ -60,8 +60,13 @@ export default function LoginPage() {
       // Email doğrulama hatası kontrolü
       if (error.message === "EMAIL_NOT_VERIFIED") {
         setError(
-          "Email adresiniz doğrulanmamış! Lütfen email'inizdeki doğrulama linkine tıklayın."
+          "⚠️ Email adresiniz doğrulanmamış! Lütfen email kutunuzu kontrol edin ve doğrulama linkine tıklayın."
         );
+        // 3 saniye sonra verify sayfasına yönlendir
+        setTimeout(() => {
+          router.push("/register/verify-email");
+        }, 3000);
+        return;
       } else if (error.message === "Kullanıcı bulunamadı") {
         setError("Kullanıcı adı veya email bulunamadı!");
       } else if (

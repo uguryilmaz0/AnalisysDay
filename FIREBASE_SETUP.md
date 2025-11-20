@@ -130,7 +130,8 @@ Eğer hata devam ederse:
 5. **Otomatik olarak Super Admin olacaksınız!**
    - `role`: "admin"
    - `superAdmin`: true
-   - `isPaid`: true (otomatik premium)
+   - Admin rolü otomatik premium erişim sağlar
+   - Kullanıcı listesinde görünmezsiniz (gizli yönetici)
 
 ### Manuel Yöntem (Yedek)
 
