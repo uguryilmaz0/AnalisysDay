@@ -75,6 +75,22 @@ export default function Footer() {
                   Profil
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/faq"
+                  className="text-gray-400 hover:text-blue-400 transition text-sm"
+                >
+                  ❓ Sıkça Sorulan Sorular
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/support"
+                  className="text-gray-400 hover:text-blue-400 transition text-sm"
+                >
+                  📧 Destek
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -61,6 +61,10 @@ NEXT_PUBLIC_SUBSCRIPTION_PRICE=500
 # Super Admin (ÖNEMLİ!)
 # İlk admin kullanıcınızın email adresini buraya ekleyin
 NEXT_PUBLIC_SUPER_ADMIN_EMAILS=admin@yourcompany.com
+
+# Resend Email (Destek Formu)
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL=onboarding@resend.dev
 ```
 
 **⚠️ Önemli:** `NEXT_PUBLIC_SUPER_ADMIN_EMAILS` alanına kendi email adresinizi ekleyin. Bu email ile kayıt olduğunuzda otomatik olarak Super Admin olacaksınız!
@@ -195,7 +199,18 @@ git commit -m "Update"
 git push origin main
 ```
 
-### 2. Vercel'e Deploy
+### 2. Resend Email Kurulumu (Destek Formu İçin)
+
+1. https://resend.com adresine gidin ve hesap oluşturun
+2. API Key oluşturun
+3. Domain doğrulaması yapın (veya test için `onboarding@resend.dev` kullanın)
+4. `.env.local` dosyasına ekleyin:
+   ```env
+   RESEND_API_KEY=re_your_api_key
+   RESEND_FROM_EMAIL=onboarding@resend.dev
+   ```
+
+### 3. Vercel'e Deploy
 
 1. https://vercel.com adresine gidin
 2. **New Project** > GitHub repo'nuzu seçin
@@ -214,6 +229,10 @@ git push origin main
    - `NEXT_PUBLIC_BANK_NAME`
    - `NEXT_PUBLIC_ACCOUNT_HOLDER`
    - `NEXT_PUBLIC_SUBSCRIPTION_PRICE`
+   - `NEXT_PUBLIC_SUPER_ADMIN_EMAILS`
+   - `NEXT_PUBLIC_CONTACT_EMAIL`
+   - `RESEND_API_KEY` ⚠️ **Önemli: Server-side değişken**
+   - `RESEND_FROM_EMAIL`
 4. **Deploy** butonuna tıklayın
 
 ⚠️ **Önemli:** Environment variables olmadan build başarısız olur!

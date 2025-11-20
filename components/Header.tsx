@@ -47,6 +47,16 @@ export default function Header() {
             >
               Günün Analizi
             </Link>
+            <Link
+              href="/faq"
+              className={`${
+                isActive("/faq")
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-all duration-200`}
+            >
+              Yardım
+            </Link>
 
             {/* Ücretler Linki - Sadece premium olmayanlara göster */}
             {(!userData || !userData.isPaid) && (
@@ -167,6 +177,17 @@ export default function Header() {
               } transition-colors`}
             >
               Günün Analizi
+            </Link>
+            <Link
+              href="/faq"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block py-2 ${
+                isActive("/faq")
+                  ? "text-blue-400 font-semibold"
+                  : "text-gray-300 hover:text-blue-400"
+              } transition-colors`}
+            >
+              Yardım
             </Link>
             {(!userData || !userData.isPaid) && (
               <Link
