@@ -780,9 +780,11 @@ export default function AdminPage() {
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
                                   Kayıt:{" "}
-                                  {new Date(
-                                    regularUser.createdAt.toDate()
-                                  ).toLocaleDateString("tr-TR")}
+                                  {regularUser.createdAt
+                                    ? new Date(
+                                        regularUser.createdAt.toDate()
+                                      ).toLocaleDateString("tr-TR")
+                                    : "-"}
                                 </p>
                               </div>
                               <button
@@ -1004,9 +1006,11 @@ export default function AdminPage() {
                                     : "-"}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-400">
-                                  {new Date(
-                                    u.createdAt.toDate()
-                                  ).toLocaleDateString("tr-TR")}
+                                  {u.createdAt
+                                    ? new Date(
+                                        u.createdAt.toDate()
+                                      ).toLocaleDateString("tr-TR")
+                                    : "-"}
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex gap-2 flex-wrap">

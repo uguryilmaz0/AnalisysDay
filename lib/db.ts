@@ -106,8 +106,12 @@ export async function getAllUsers(): Promise<User[]> {
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
     const users = usersSnapshot.docs.map(doc => doc.data() as User);
-    // Sort by createdAt client-side
-    return users.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    // Sort by createdAt client-side (handle missing createdAt)
+    return users.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis() || 0;
+      const bTime = b.createdAt?.toMillis() || 0;
+      return bTime - aTime;
+    });
   } catch (error) {
     console.error('Kullanıcılar alınamadı:', error);
     return [];
