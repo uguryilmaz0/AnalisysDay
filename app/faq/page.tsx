@@ -63,7 +63,7 @@ export default function FAQPage() {
         {
           question: "İade alabilir miyim?",
           answer:
-            "İlk 7 gün içinde herhangi bir sebeple tam iade talep edebilirsiniz. 7-14 gün arası teknik sorunlar için %50 iade yapılır. 14 gün sonrası iade yapılmaz ancak abonelik iptal edilebilir.",
+            "İade politikamız gereği, bir kez ödeme yapıldıktan sonra iade yapılmamaktadır. Lütfen abonelik satın almadan önce dikkatlice düşününüz. Teknik sebeplerden dolayı erişim sağlanmaması durumunda erişilemediği gün kadar uzatma yapılabilir.Erişim saati en az 12 saat olmalıdır.",
         },
       ],
     },
