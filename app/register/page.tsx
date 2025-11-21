@@ -8,6 +8,7 @@ import { Button, Input } from "@/shared/components/ui";
 import { useFormValidation, useToast, useRateLimit } from "@/shared/hooks";
 import { AuthLayout } from "@/shared/components/AuthLayout";
 import { KVKKConsent } from "@/shared/components/KVKKConsent";
+import { logger } from "@/lib/logger";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -110,6 +111,17 @@ export default function RegisterPage() {
       rateLimit.recordAttempt(); // Record failed attempt
 
       const error = err as { code?: string; message?: string };
+
+      // Hatalı kayıt denemesini logla
+      logger.warn("Registration attempt failed", {
+        email,
+        username,
+        errorCode: error.code,
+        errorMessage: error.message,
+        action: "register_failed",
+        remainingAttempts: rateLimit.remainingAttempts,
+      });
+
       if (error.message === "Bu kullanıcı adı zaten kullanılıyor") {
         showToast("Bu kullanıcı adı zaten kullanılıyor!", "error");
       } else if (error.code === "auth/email-already-in-use") {

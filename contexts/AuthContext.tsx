@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { User } from "@/types";
+import { logger } from "@/lib/logger";
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -112,8 +113,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
       if (userData.role !== "admin" && !userCredential.user.emailVerified) {
+        logger.warn("Login attempt with unverified email", {
+          userId: userCredential.user.uid,
+          email: userCredential.user.email || email,
+          action: "login_failed",
+        });
         throw new Error("EMAIL_NOT_VERIFIED");
       }
+
+      // Başarılı girişi logla
+      logger.info("User logged in", {
+        userId: userCredential.user.uid,
+        email: userCredential.user.email || email,
+        role: userData.role,
+        action: "login_success",
+      });
     }
   };
 
@@ -172,6 +186,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
 
+    // Kayıt başarısını logla
+    logger.info("User registered", {
+      userId: userCredential.user.uid,
+      email: email,
+      username: username,
+      role: isSuperAdmin ? "admin" : "user",
+      action: "register_success",
+    });
+
     // Kayıt sonrası otomatik giriş yapıldığı için çıkış yap
     await firebaseSignOut(auth);
 
@@ -180,8 +203,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Çıkış yap
   const signOut = async () => {
+    const currentUser = user;
     await firebaseSignOut(auth);
     setUserData(null);
+
+    // Çıkışı logla
+    if (currentUser) {
+      logger.info("User logged out", {
+        userId: currentUser.uid,
+        email: currentUser.email || undefined,
+        action: "logout",
+      });
+    }
   };
 
   // Şifre sıfırlama

@@ -50,6 +50,31 @@ class Logger {
         this.sendToSentry(message, context);
       }
     }
+
+    // Firestore'a kaydet (client-side, API üzerinden)
+    if (typeof window !== 'undefined') {
+      this.saveToFirestore(level, message, context).catch(() => {
+        // Firestore'a kaydedilemezse sessizce devam et
+      });
+    }
+  }
+
+  private async saveToFirestore(level: LogLevel, message: string, context?: LogContext) {
+    try {
+      // API'ye log gönder
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level,
+          message,
+          context: context || {},
+          timestamp: Date.now(),
+        }),
+      });
+    } catch {
+      // API'ye ulaşılamazsa sessizce devam et
+    }
   }
 
   private async sendToSentry(message: string, context?: LogContext) {

@@ -8,6 +8,7 @@ import { LogIn, User, Lock } from "lucide-react";
 import { Button, Input } from "@/shared/components/ui";
 import { useToast, useRateLimit } from "@/shared/hooks";
 import { AuthLayout } from "@/shared/components/AuthLayout";
+import { logger } from "@/lib/logger";
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState("");
@@ -46,6 +47,15 @@ export default function LoginPage() {
       rateLimit.recordAttempt(); // Record failed attempt
 
       const error = err as { code?: string; message?: string };
+
+      // Hatalı giriş denemesini logla
+      logger.warn("Login attempt failed", {
+        emailOrUsername,
+        errorCode: error.code,
+        errorMessage: error.message,
+        action: "login_failed",
+        remainingAttempts: rateLimit.remainingAttempts,
+      });
 
       // Email doğrulama hatası kontrolü
       if (error.message === "EMAIL_NOT_VERIFIED") {
