@@ -65,21 +65,6 @@ export const UpdateUserRoleSchema = z.object({
 });
 
 /**
- * Payment Schemas
- */
-export const UpdatePaymentStatusSchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected'], {
-    message: 'Durum "pending", "approved" veya "rejected" olmalı',
-  }),
-  subscriptionDays: z.number()
-    .int()
-    .positive('Abonelik süresi pozitif olmalı')
-    .max(365, 'Abonelik süresi maksimum 365 gün olabilir')
-    .default(30)
-    .optional(),
-});
-
-/**
  * Authentication Schemas
  */
 export const LoginSchema = z.object({
@@ -160,7 +145,6 @@ export type CreateAnalysisInput = z.infer<typeof CreateAnalysisSchema>;
 export type UpdateAnalysisInput = z.infer<typeof UpdateAnalysisSchema>;
 export type UpdateUserPremiumInput = z.infer<typeof UpdateUserPremiumSchema>;
 export type UpdateUserRoleInput = z.infer<typeof UpdateUserRoleSchema>;
-export type UpdatePaymentStatusInput = z.infer<typeof UpdatePaymentStatusSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type PaginationInput = z.infer<typeof PaginationSchema>;

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     // Super admin kontrolü
     const authResult = await requireSuperAdmin(req);
-    if (authResult.error) {
+    if ('error' in authResult) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 

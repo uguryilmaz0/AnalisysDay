@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await setDoc(userDocRef, { emailVerified: true }, { merge: true });
           }
         }
-        
+
         // Sonra user data'yı çek
         await fetchUserData(user.uid);
       } else {
@@ -101,15 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Email doğrulama kontrolü (Admin ve super admin hariç)
     const userDocRef = doc(db, "users", userCredential.user.uid);
     const userDoc = await getDoc(userDocRef);
-    
+
     if (userDoc.exists()) {
       const userData = userDoc.data() as User;
-      
+
       // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
       if (userCredential.user.emailVerified && !userData.emailVerified) {
         await setDoc(userDocRef, { emailVerified: true }, { merge: true });
       }
-      
+
       // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
       if (userData.role !== "admin" && !userCredential.user.emailVerified) {
         throw new Error("EMAIL_NOT_VERIFIED");

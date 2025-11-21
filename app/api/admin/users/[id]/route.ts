@@ -13,7 +13,7 @@ import { requireAdmin, requireSuperAdmin } from '@/middleware/auth';
 import { withRateLimit } from '@/lib/rateLimitServer';
 import { UpdateUserPremiumSchema, UpdateUserRoleSchema } from '@/lib/validationSchemas';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
-import { logger } from '@/lib/logger';
+import { serverLogger as logger } from '@/lib/serverLogger';
 import { ZodError } from 'zod';
 
 type RouteContext = {
@@ -35,7 +35,11 @@ export async function GET(
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Get user from Firestore
     const userDoc = await adminDb.collection('users').doc(userId).get();
@@ -98,7 +102,11 @@ export async function PUT(
 
     // 3. Check if role update (requires Super Admin)
     if ('role' in body) {
-      const admin = await requireSuperAdmin(req);
+      const authResult = await requireSuperAdmin(req);
+      if ('error' in authResult) {
+        return Response.json({ error: authResult.error }, { status: authResult.status });
+      }
+      const admin = authResult.user as { uid: string; email: string | null };
       const validatedData = UpdateUserRoleSchema.parse(body);
 
       // Update role
@@ -120,7 +128,11 @@ export async function PUT(
     }
 
     // 4. Premium status update (Regular Admin)
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
     const validatedData = UpdateUserPremiumSchema.parse(body);
 
     // Calculate subscription end date if making premium
@@ -186,7 +198,11 @@ export async function DELETE(
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization (Super Admin only)
-    const admin = await requireSuperAdmin(req);
+    const authResult = await requireSuperAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Check if user exists
     const userDoc = await adminDb.collection('users').doc(userId).get();

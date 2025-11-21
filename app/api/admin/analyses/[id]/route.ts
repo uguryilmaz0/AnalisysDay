@@ -12,7 +12,7 @@ import { requireAdmin } from '@/middleware/auth';
 import { withRateLimit } from '@/lib/rateLimitServer';
 import { UpdateAnalysisSchema } from '@/lib/validationSchemas';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { logger } from '@/lib/logger';
+import { serverLogger as logger } from '@/lib/serverLogger';
 import { ZodError } from 'zod';
 
 type RouteContext = {
@@ -34,7 +34,11 @@ export async function GET(
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Get analysis
     const doc = await adminDb.collection('daily_analysis').doc(id).get();
@@ -83,7 +87,11 @@ export async function PUT(
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Validate body
     const body = await req.json();
@@ -152,7 +160,11 @@ export async function DELETE(
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Check if exists
     const doc = await adminDb.collection('daily_analysis').doc(id).get();

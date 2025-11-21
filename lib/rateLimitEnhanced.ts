@@ -29,11 +29,6 @@ const CONFIGS: Record<string, RateLimitConfig> = {
     windowMs: 60 * 60 * 1000, // 1 saat
     blockDurationMs: 2 * 60 * 60 * 1000, // 2 saat block
   },
-  payment: {
-    maxAttempts: 5,
-    windowMs: 60 * 60 * 1000, // 1 saat
-    blockDurationMs: 4 * 60 * 60 * 1000, // 4 saat block
-  },
   support: {
     maxAttempts: 3,
     windowMs: 30 * 60 * 1000, // 30 dakika

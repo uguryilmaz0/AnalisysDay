@@ -13,7 +13,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, DailyAnalysis, PaymentRequest } from '@/types';
+import { User, DailyAnalysis } from '@/types';
 import { logger } from '@/lib/logger';
 
 // ==================== USER İŞLEMLERİ ====================
@@ -242,87 +242,3 @@ export async function deleteAnalysis(id: string): Promise<void> {
 // ==================== GÖRSEL YÜKLEMESİ (CLOUDINARY) ====================
 // Not: Cloudinary upload işlemleri client-side'da yapılacak
 // Bu fonksiyonlar sadece URL'leri kaydetmek için kullanılacak
-
-// ==================== ÖDEME TALEPLERİ ====================
-
-export async function createPaymentRequest(
-  userId: string,
-  userEmail: string,
-  amount: number,
-  receiptUrl?: string
-): Promise<string> {
-  try {
-    const paymentData: Omit<PaymentRequest, 'id'> = {
-      userId,
-      userEmail,
-      amount,
-      receiptUrl,
-      status: 'pending',
-      requestedAt: Timestamp.now(),
-    };
-
-    const docRef = await addDoc(collection(db, 'payment_requests'), paymentData);
-    return docRef.id;
-  } catch (error) {
-    console.error('Ödeme talebi oluşturulamadı:', error);
-    throw error;
-  }
-}
-
-export async function getPendingPaymentRequests(): Promise<PaymentRequest[]> {
-  try {
-    const q = query(
-      collection(db, 'payment_requests'),
-      where('status', '==', 'pending'),
-      orderBy('requestedAt', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as PaymentRequest));
-  } catch (error) {
-    console.error('Ödeme talepleri alınamadı:', error);
-    return [];
-  }
-}
-
-export async function approvePaymentRequest(
-  requestId: string,
-  adminUid: string,
-  userId: string
-): Promise<void> {
-  try {
-    // Ödeme talebini onayla
-    await updateDoc(doc(db, 'payment_requests', requestId), {
-      status: 'approved',
-      processedAt: Timestamp.now(),
-      processedBy: adminUid,
-    });
-
-    // Kullanıcının isPaid durumunu güncelle (30 günlük)
-    await updateUserPaidStatus(userId, true, 30);
-  } catch (error) {
-    console.error('Ödeme onaylanamadı:', error);
-    throw error;
-  }
-}
-
-export async function rejectPaymentRequest(
-  requestId: string,
-  adminUid: string,
-  notes?: string
-): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'payment_requests', requestId), {
-      status: 'rejected',
-      processedAt: Timestamp.now(),
-      processedBy: adminUid,
-      notes,
-    });
-  } catch (error) {
-    console.error('Ödeme reddedilemedi:', error);
-    throw error;
-  }
-}

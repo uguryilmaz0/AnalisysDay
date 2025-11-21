@@ -40,16 +40,6 @@ const rateLimitConfigs = {
     window: '1 m',
   },
   
-  // Payment Operations
-  'payment-approve': {
-    requests: 20,
-    window: '1 m',
-  },
-  'payment-request': {
-    requests: 3,
-    window: '1 h',
-  },
-  
   // Auth Operations
   'auth-login': {
     requests: 5,

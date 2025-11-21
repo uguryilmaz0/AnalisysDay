@@ -96,39 +96,50 @@ export async function requireAuth(req: NextRequest) {
 /**
  * Admin kontrolü yapar
  * 
- * @throws {Error} User admin değilse
+ * @returns Success: { user } | Error: { error, status }
  */
-export async function requireAdmin(req: NextRequest) {
-  const user = await requireAuth(req);
+export async function requireAdmin(
+  req: NextRequest
+): Promise<
+  | { user: { uid: string; email: string | null } }
+  | { error: string; status: number }
+> {
+  try {
+    const user = await requireAuth(req);
 
-  const isAdminUser = await checkIsAdmin(user.uid);
+    const isAdminUser = await checkIsAdmin(user.uid);
 
-  if (!isAdminUser) {
-    logger.warn('Admin access denied', {
+    if (!isAdminUser) {
+      await logger.warn('Admin access denied', {
+        uid: user.uid,
+        email: user.email,
+        path: req.nextUrl.pathname,
+      });
+      return { error: 'Forbidden: Admin access required', status: 403 };
+    }
+
+    await logger.info('Admin authenticated', {
       uid: user.uid,
       email: user.email,
       path: req.nextUrl.pathname,
     });
-    throw new Error('Forbidden: Admin access required');
+
+    return { user };
+  } catch {
+    return { error: 'Authentication failed', status: 401 };
   }
-
-  logger.info('Admin authenticated', {
-    uid: user.uid,
-    email: user.email,
-    path: req.nextUrl.pathname,
-  });
-
-  return user;
 }
 
 /**
  * Super Admin kontrolü (NEXT_PUBLIC_SUPER_ADMIN_EMAILS)
  * Super adminler için email doğrulama ve diğer kontroller bypass edilir
  * 
- * @returns {{ user, error: null } | { error: string, status: number }}
+ * @returns Success: { user } | Error: { error, status }
  */
-export async function requireSuperAdmin(req: NextRequest): Promise<
-  | { user: Awaited<ReturnType<typeof requireAuth>>; error: null }
+export async function requireSuperAdmin(
+  req: NextRequest
+): Promise<
+  | { user: Awaited<ReturnType<typeof requireAuth>> }
   | { error: string; status: number }
 > {
   try {
@@ -144,7 +155,7 @@ export async function requireSuperAdmin(req: NextRequest): Promise<
     const isSuperAdmin = superAdminEmails.includes(userEmail);
 
     if (!isSuperAdmin) {
-      logger.warn('Super admin access denied - not in super admin list', {
+      await logger.warn('Super admin access denied - not in super admin list', {
         uid: decodedToken.uid,
         email: decodedToken.email,
         path: req.nextUrl.pathname,
@@ -171,19 +182,15 @@ export async function requireSuperAdmin(req: NextRequest): Promise<
       ...userData,
     };
 
-    logger.info('Super admin authenticated', {
+    await logger.info('Super admin authenticated', {
       uid: user.uid,
       email: user.email,
       path: req.nextUrl.pathname,
     });
 
-    return { user, error: null };
-  } catch (error) {
-    logger.error('Super admin auth failed', { error });
-    return {
-      error: error instanceof Error ? error.message : 'Authentication failed',
-      status: 401,
-    };
+    return { user };
+  } catch {
+    return { error: 'Authentication failed', status: 401 };
   }
 }
 

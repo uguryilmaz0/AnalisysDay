@@ -12,7 +12,7 @@ import { requireAdmin } from '@/middleware/auth';
 import { withRateLimit } from '@/lib/rateLimitServer';
 import { CreateAnalysisSchema } from '@/lib/validationSchemas';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { logger } from '@/lib/logger';
+import { serverLogger as logger } from '@/lib/serverLogger';
 import { ZodError } from 'zod';
 
 /**
@@ -25,7 +25,11 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Parse & Validate body
     const body = await req.json();
@@ -106,7 +110,11 @@ export async function GET(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     // 2. Authentication & Authorization
-    const admin = await requireAdmin(req);
+    const authResult = await requireAdmin(req);
+    if ('error' in authResult) {
+      return Response.json({ error: authResult.error }, { status: authResult.status });
+    }
+    const admin = authResult.user as { uid: string; email: string | null };
 
     // 3. Parse query params
     const { searchParams } = req.nextUrl;
