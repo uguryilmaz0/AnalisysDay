@@ -4,25 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
-
-// Firebase Admin'i initialize et (singleton pattern)
-if (admin.apps.length === 0) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : {
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      };
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  });
-}
-
-const db = admin.firestore();
+import { adminDb } from '@/lib/firebaseAdmin';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -55,17 +37,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Firestore'a kaydet (Admin SDK ile - Security Rules bypass)
-    await db.collection('system_logs').add({
+    // Undefined değerleri filtrele
+    const logData: Record<string, any> = {
       level,
       message,
       context: context || {},
       timestamp,
       createdAt: new Date(),
-      userId: context?.userId,
-      action: context?.action,
-      component: context?.component,
       source: 'client',
-    });
+    };
+
+    // Optional fields - sadece tanımlıysa ekle
+    if (context?.userId) logData.userId = context.userId;
+    if (context?.action) logData.action = context.action;
+    if (context?.component) logData.component = context.component;
+
+    await adminDb.collection('system_logs').add(logData);
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {

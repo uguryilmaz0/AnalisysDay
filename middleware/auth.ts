@@ -110,7 +110,7 @@ export async function requireAdmin(
     const isAdminUser = await checkIsAdmin(user.uid);
 
     if (!isAdminUser) {
-      await logger.warn('Admin access denied', {
+      logger.warn('Admin access denied', {
         uid: user.uid,
         email: user.email,
         path: req.nextUrl.pathname,
@@ -118,15 +118,20 @@ export async function requireAdmin(
       return { error: 'Forbidden: Admin access required', status: 403 };
     }
 
-    await logger.info('Admin authenticated', {
-      uid: user.uid,
-      email: user.email,
-      path: req.nextUrl.pathname,
-    });
-
+    // Admin authenticated - log atma (her request'te log atılmasın)
     return { user };
-  } catch {
-    return { error: 'Authentication failed', status: 401 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Admin authentication failed', {
+      path: req.nextUrl.pathname,
+      error: errorMessage,
+    });
+    return { 
+      error: errorMessage.includes('Token missing') || errorMessage.includes('Invalid token')
+        ? errorMessage
+        : 'Authentication failed', 
+      status: 401 
+    };
   }
 }
 
@@ -155,7 +160,7 @@ export async function requireSuperAdmin(
     const isSuperAdmin = superAdminEmails.includes(userEmail);
 
     if (!isSuperAdmin) {
-      await logger.warn('Super admin access denied - not in super admin list', {
+      logger.warn('Super admin access denied - not in super admin list', {
         uid: decodedToken.uid,
         email: decodedToken.email,
         path: req.nextUrl.pathname,
@@ -182,15 +187,20 @@ export async function requireSuperAdmin(
       ...userData,
     };
 
-    await logger.info('Super admin authenticated', {
-      uid: user.uid,
-      email: user.email,
-      path: req.nextUrl.pathname,
-    });
-
+    // Super admin authenticated - log atma (her request'te log atılmasın)
     return { user };
-  } catch {
-    return { error: 'Authentication failed', status: 401 };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Super admin authentication failed', {
+      path: req.nextUrl.pathname,
+      error: errorMessage,
+    });
+    return { 
+      error: errorMessage.includes('Token missing') || errorMessage.includes('Invalid token')
+        ? errorMessage
+        : 'Authentication failed', 
+      status: 401 
+    };
   }
 }
 

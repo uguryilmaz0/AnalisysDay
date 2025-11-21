@@ -32,58 +32,61 @@ class ServerLogger {
     return `${emoji} [${timestamp}] [${level.toUpperCase()}] ${message}`;
   }
 
-  private async log(level: LogLevel, message: string, context?: LogContext) {
+  private log(level: LogLevel, message: string, context?: LogContext): void {
     const formattedMessage = this.formatMessage(level, message);
 
     // Console'a her zaman yaz
     const consoleMethod = level === 'debug' ? 'log' : level;
     console[consoleMethod](formattedMessage, context || '');
 
-    // Firestore'a kaydet
-    try {
-      await adminDb.collection('system_logs').add({
-        level,
-        message,
-        context: context || {},
-        timestamp: Date.now(),
-        createdAt: new Date(),
-        userId: context?.userId,
-        action: context?.action,
-        path: context?.path,
-      });
-    } catch (error) {
+    // Firestore'a kaydet (fire-and-forget)
+    // Undefined değerleri filtrele
+    const logData: Record<string, any> = {
+      level,
+      message,
+      context: context || {},
+      timestamp: Date.now(),
+      createdAt: new Date(),
+    };
+
+    // Optional fields - sadece tanımlıysa ekle
+    if (context?.userId) logData.userId = context.userId;
+    if (context?.action) logData.action = context.action;
+    if (context?.path) logData.path = context.path;
+
+    adminDb.collection('system_logs').add(logData).catch((error) => {
       // Firestore'a kaydedilemezse sadece console'a yaz
-      console.error('Failed to save log to Firestore:', error);
-    }
+      console.error('[ServerLogger] Failed to save log to Firestore:', error);
+    });
   }
 
   /**
    * Info log - Genel bilgi mesajları
    */
-  async info(message: string, context?: LogContext) {
-    await this.log('info', message, context);
+  info(message: string, context?: LogContext): void {
+    this.log('info', message, context);
   }
 
   /**
    * Warning log - Potansiyel problemler
    */
-  async warn(message: string, context?: LogContext) {
-    await this.log('warn', message, context);
+  warn(message: string, context?: LogContext): void {
+    this.log('warn', message, context);
   }
 
   /**
    * Error log - Hatalar
    */
-  async error(message: string, context?: LogContext) {
-    await this.log('error', message, context);
+  error(message: string, context?: LogContext): void {
+    this.log('error', message, context);
   }
 
   /**
    * Debug log - Sadece development'ta görünür
    */
-  async debug(message: string, context?: LogContext) {
+  debug(message: string, context?: LogContext): void {
     if (this.isDevelopment) {
-      await this.log('debug', message, context);
+      this.log('debug', message, context);
     }
   }
 }

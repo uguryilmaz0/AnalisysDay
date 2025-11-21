@@ -21,22 +21,25 @@ export async function GET(req: NextRequest) {
     const level = searchParams.get("level") || "all";
     const maxLogs = parseInt(searchParams.get("limit") || "100");
 
-    // Firestore Admin query
+    // Firestore Admin query (sadece sıralama - index gerekmez)
     const logsRef = adminDb.collection("system_logs");
-    let query = logsRef.orderBy("timestamp", "desc").limit(maxLogs);
-
-    if (level !== "all") {
-      query = logsRef
-        .where("level", "==", level)
-        .orderBy("timestamp", "desc")
-        .limit(maxLogs);
-    }
+    const query = logsRef.orderBy("timestamp", "desc").limit(maxLogs * 2); // Extra çek, filtreleme sonrası limit
 
     const snapshot = await query.get();
-    const logs = snapshot.docs.map((doc) => ({
+    
+    // Client-side filtreleme (index gerekmez)
+    let logs = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Level filtrelemesi (gerekirse)
+    if (level !== "all") {
+      logs = logs.filter((log: any) => log.level === level);
+    }
+
+    // Limit uygula
+    logs = logs.slice(0, maxLogs);
 
     return NextResponse.json({
       success: true,

@@ -63,6 +63,7 @@ service cloud.firestore {
     // System Logs koleksiyonu (Admin SDK only - API routes kullanır)
     match /system_logs/{logId} {
       // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
+      // Admin SDK security rules'u bypass eder, bu yüzden false bırakılabilir
       allow create: if false;
       
       // Sadece adminler okuyabilir
@@ -70,10 +71,10 @@ service cloud.firestore {
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
-      // Sadece adminler silebilir
-      allow delete: if request.auth != null &&
-                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Sadece adminler güncelleyebilir/silebilir
+      allow update, delete: if request.auth != null &&
+                               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }

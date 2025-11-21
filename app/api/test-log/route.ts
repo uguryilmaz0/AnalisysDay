@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
       case 'warn':
         logger.warn(message, { action: 'test', component: 'test-endpoint' });
         break;
+      case 'debug':
+        logger.debug(message, { action: 'test', component: 'test-endpoint' });
+        break;
       default:
         logger.info(message, { action: 'test', component: 'test-endpoint' });
     }

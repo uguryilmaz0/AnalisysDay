@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, onIdTokenChanged } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -22,6 +22,52 @@ const storage = getStorage(app);
 if (typeof window !== 'undefined') {
   setPersistence(auth, browserLocalPersistence).catch((error) => {
     console.error('Auth persistence error:', error);
+  });
+
+  // Token auto-refresh ve idle timeout yönetimi
+  let lastActivityTime = Date.now();
+  const IDLE_TIMEOUT = 2 * 60 * 60 * 1000; // 2 saat idle timeout
+  const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000; // 50 dakika (token 1 saat önce yenile)
+
+  // Kullanıcı aktivitesini takip et
+  const updateActivity = () => {
+    lastActivityTime = Date.now();
+  };
+
+  ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(event => {
+    document.addEventListener(event, updateActivity, true);
+  });
+
+  // Token yenileme ve idle timeout kontrolü
+  onIdTokenChanged(auth, async (user) => {
+    if (user) {
+      // Token'i otomatik yenile (1 saatten önce)
+      const tokenRefreshTimer = setInterval(async () => {
+        const now = Date.now();
+        const idleTime = now - lastActivityTime;
+
+        // Idle timeout kontrolü (2 saat)
+        if (idleTime > IDLE_TIMEOUT) {
+          console.log('User idle for 2 hours, logging out...');
+          clearInterval(tokenRefreshTimer);
+          await auth.signOut();
+          return;
+        }
+
+        // Token'ı yenile
+        try {
+          await user.getIdToken(true); // Force refresh
+          console.log('Token refreshed successfully');
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+          clearInterval(tokenRefreshTimer);
+          await auth.signOut();
+        }
+      }, TOKEN_REFRESH_INTERVAL);
+
+      // Component unmount'ta timer'ı temizle
+      return () => clearInterval(tokenRefreshTimer);
+    }
   });
 }
 

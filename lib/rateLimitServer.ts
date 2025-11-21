@@ -139,6 +139,37 @@ export async function checkRateLimit(
   userId?: string
 ) {
   try {
+    // Upstash Redis credentials kontrolü
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!url || !token) {
+      logger.warn('Upstash Redis not configured, rate limiting disabled', {
+        action,
+        hasUrl: !!url,
+        hasToken: !!token,
+      });
+      
+      // Redis yoksa fail open (dev) veya fail closed (prod)
+      if (process.env.NODE_ENV === 'production') {
+        return {
+          success: false,
+          limit: 0,
+          remaining: 0,
+          reset: Date.now(),
+          error: 'Rate limiting not available',
+        };
+      }
+      
+      // Development'ta devam et
+      return {
+        success: true,
+        limit: 999,
+        remaining: 999,
+        reset: Date.now() + 60000,
+      };
+    }
+
     const limiter = getRateLimiter(action);
     const identifier = getRequestIdentifier(req, userId);
 
@@ -172,6 +203,7 @@ export async function checkRateLimit(
         limit: 0,
         remaining: 0,
         reset: Date.now(),
+        error: 'Rate limiting error',
       };
     }
 
