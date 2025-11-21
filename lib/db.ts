@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, DailyAnalysis, PaymentRequest } from '@/types';
+import { logger } from '@/lib/logger';
 
 // ==================== USER İŞLEMLERİ ====================
 
@@ -21,11 +22,13 @@ export async function getUserById(uid: string): Promise<User | null> {
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
+      logger.debug('User fetched successfully', { userId: uid });
       return userDoc.data() as User;
     }
+    logger.warn('User not found', { userId: uid });
     return null;
   } catch (error) {
-    console.error('Kullanıcı bulunamadı:', error);
+    logger.error('Failed to fetch user', { userId: uid, error });
     return null;
   }
 }

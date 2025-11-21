@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [kvkkConsents, setKvkkConsents] = useState<{
     terms: boolean;
     privacy: boolean;
@@ -43,6 +44,12 @@ export default function RegisterPage() {
 
     // Check rate limit
     if (!rateLimit.checkAndNotify()) {
+      return;
+    }
+
+    // 18 Yaş Kontrolü - ZORUNLU
+    if (!ageConfirmed) {
+      showToast("18 yaşından büyük olduğunuzu onaylamalısınız", "error");
       return;
     }
 
@@ -222,6 +229,31 @@ export default function RegisterPage() {
               <p className="text-sm text-gray-400">
                 Yeni maç analizi yayınlandığında email ile bildirim almak
                 istiyorum
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* 18 Yaş Onayı - ZORUNLU */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+              className="mt-1 h-5 w-5 text-amber-600 rounded focus:ring-2 focus:ring-amber-500 bg-slate-700 border-slate-600"
+              required
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-4 w-4 text-amber-400" />
+                <span className="font-semibold text-white">
+                  Yaş Onayı <span className="text-red-400">*</span>
+                </span>
+              </div>
+              <p className="text-sm text-gray-400">
+                18 yaşından büyük olduğumu ve hizmet şartlarını kabul ettiğimi
+                onaylıyorum
               </p>
             </div>
           </label>

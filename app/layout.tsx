@@ -6,9 +6,23 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { ToastProvider } from "@/shared/hooks/useToast";
-import { ToastContainer } from "@/shared/components/ui";
+import { ToastContainer, ErrorBoundary } from "@/shared/components/ui";
+import { validateEnv } from "@/lib/validateEnv";
 
 const inter = Inter({ subsets: ["latin"] });
+
+// Validate environment variables on startup (server-side only)
+if (typeof window === "undefined") {
+  try {
+    validateEnv();
+  } catch (error) {
+    console.error("Environment validation failed:", error);
+    // In development, throw error. In production, just log it.
+    if (process.env.NODE_ENV === "development") {
+      throw error;
+    }
+  }
+}
 
 export const metadata: Metadata = {
   title: "AnalysisDay - Daily Match Analysis Predictions",
@@ -26,15 +40,17 @@ export default function RootLayout({
       <body
         className={`${inter.className} antialiased bg-slate-900 flex flex-col min-h-screen`}
       >
-        <ToastProvider>
-          <AuthProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-            <WhatsAppWidget />
-            <ToastContainer />
-          </AuthProvider>
-        </ToastProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <AuthProvider>
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+              <WhatsAppWidget />
+              <ToastContainer />
+            </AuthProvider>
+          </ToastProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

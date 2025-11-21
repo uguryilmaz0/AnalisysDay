@@ -22,3 +22,6 @@ export { ToastItem } from "./ToastItem";
 
 export { ToggleButton } from "./ToggleButton";
 export type { ToggleButtonProps } from "./ToggleButton";
+
+// ErrorBoundary
+export { ErrorBoundary } from "../ErrorBoundary";

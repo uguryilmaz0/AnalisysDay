@@ -1,84 +1,80 @@
 import { useEffect, useState, useCallback } from "react";
-import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
+import { EnhancedRateLimiter } from "@/lib/rateLimitEnhanced";
 import { useToast } from "./useToast";
 
 export interface UseRateLimitOptions {
-  key: "login" | "register"; // Type-safe keys
-  showToastOnMount?: boolean; // Show toast if blocked on mount
-  showToastOnCheck?: boolean; // Show toast if blocked on manual check
+  key: "login" | "register" | "payment" | "support" | "password-reset";
+  showToastOnMount?: boolean;
+  showToastOnCheck?: boolean;
 }
 
 export interface UseRateLimitReturn {
   isBlocked: boolean;
   remainingTime: number;
   remainingAttempts: number;
-  checkAndNotify: () => boolean; // Returns true if allowed, false if blocked
+  checkAndNotify: () => boolean;
   recordAttempt: () => void;
   reset: () => void;
+  getStatusMessage: () => string | null;
 }
 
 export function useRateLimit(
   options: UseRateLimitOptions
 ): UseRateLimitReturn {
   const { key, showToastOnMount = true, showToastOnCheck = true } = options;
-  const [rateLimiter] = useState(() => new RateLimiter(key));
+  const [rateLimiter] = useState(() => new EnhancedRateLimiter(key));
   const { showToast } = useToast();
   
-  // Initialize state with rate limiter check
-  const [state] = useState(() => {
-    const result = rateLimiter.check();
-    return {
-      isBlocked: result.isBlocked,
-      remainingTime: result.remainingTime,
-    };
-  });
-  
+  const [state] = useState(() => rateLimiter.check());
   const [isBlocked, setIsBlocked] = useState(state.isBlocked);
   const [remainingTime, setRemainingTime] = useState(state.remainingTime);
+  const [remainingAttempts, setRemainingAttempts] = useState(state.remainingAttempts);
 
-  // Show toast on mount if blocked
   useEffect(() => {
     if (state.isBlocked && showToastOnMount) {
       showToast(
-        `Çok fazla deneme. Lütfen ${formatRemainingTime(state.remainingTime)} sonra tekrar deneyin.`,
-        "warning"
+        `Çok fazla deneme. Lütfen ${rateLimiter.formatTime(state.remainingTime)} sonra tekrar deneyin.`,
+        "warning",
+        5000
       );
     }
-  }, [state.isBlocked, state.remainingTime, showToastOnMount, showToast]);
+  }, [state.isBlocked, state.remainingTime, showToastOnMount, showToast, rateLimiter]);
 
-  // Check rate limit and show toast if blocked
   const checkAndNotify = useCallback(() => {
-    const { isBlocked: blocked, remainingTime: time } = rateLimiter.check();
-    setIsBlocked(blocked);
-    setRemainingTime(time);
+    const result = rateLimiter.check();
+    setIsBlocked(result.isBlocked);
+    setRemainingTime(result.remainingTime);
+    setRemainingAttempts(result.remainingAttempts);
 
-    if (blocked && showToastOnCheck) {
+    if (result.isBlocked && showToastOnCheck) {
       showToast(
-        `Çok fazla deneme. Lütfen ${formatRemainingTime(time)} sonra tekrar deneyin.`,
-        "warning"
+        `Çok fazla deneme. Lütfen ${rateLimiter.formatTime(result.remainingTime)} sonra tekrar deneyin.`,
+        "warning",
+        5000
       );
     }
 
-    return !blocked; // Return true if allowed
+    return !result.isBlocked;
   }, [rateLimiter, showToastOnCheck, showToast]);
 
-  // Record failed attempt
   const recordAttempt = useCallback(() => {
     rateLimiter.recordAttempt();
-    const { isBlocked: blocked, remainingTime: time } = rateLimiter.check();
-    setIsBlocked(blocked);
-    setRemainingTime(time);
+    const result = rateLimiter.check();
+    setIsBlocked(result.isBlocked);
+    setRemainingTime(result.remainingTime);
+    setRemainingAttempts(result.remainingAttempts);
   }, [rateLimiter]);
 
-  // Reset rate limiter
   const reset = useCallback(() => {
     rateLimiter.reset();
     setIsBlocked(false);
     setRemainingTime(0);
+    setRemainingAttempts(rateLimiter.getRemainingAttempts());
   }, [rateLimiter]);
 
-  // Get remaining attempts
-  const remainingAttempts = rateLimiter.getRemainingAttempts();
+  const getStatusMessage = useCallback(() => {
+    return rateLimiter.getStatusMessage();
+  }, [rateLimiter]);
 
   return {
     isBlocked,
@@ -87,5 +83,7 @@ export function useRateLimit(
     checkAndNotify,
     recordAttempt,
     reset,
+    getStatusMessage,
   };
 }
+
