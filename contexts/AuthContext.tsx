@@ -57,6 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
+        // Email doğrulama durumunu Firestore'a senkronize et (önce)
+        if (user.emailVerified) {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && !userDoc.data().emailVerified) {
+            await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+          }
+        }
+        
+        // Sonra user data'yı çek
         await fetchUserData(user.uid);
       } else {
         setUserData(null);
@@ -89,10 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Email doğrulama kontrolü (Admin ve super admin hariç)
-    const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+    const userDocRef = doc(db, "users", userCredential.user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
     if (userDoc.exists()) {
       const userData = userDoc.data() as User;
-      // Admin değilse ve email doğrulanmamışsa hata ver
+      
+      // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
+      if (userCredential.user.emailVerified && !userData.emailVerified) {
+        await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+      }
+      
+      // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
       if (userData.role !== "admin" && !userCredential.user.emailVerified) {
         throw new Error("EMAIL_NOT_VERIFIED");
       }
@@ -171,9 +189,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
-  // Kullanıcı verisini yenile (Ödeme sonrası kullanılacak)
+  // Kullanıcı verisini yenile (Ödeme sonrası veya email doğrulama sonrası kullanılacak)
   const refreshUserData = async () => {
     if (user) {
+      // Firebase Auth'dan güncel bilgiyi al
+      await user.reload();
+
+      // Email doğrulama durumunu Firestore'a senkronize et
+      if (user.emailVerified) {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && !userDoc.data().emailVerified) {
+          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+        }
+      }
+
       await fetchUserData(user.uid);
     }
   };

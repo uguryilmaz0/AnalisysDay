@@ -11,42 +11,79 @@ import { sendEmailVerification } from "firebase/auth";
 
 export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const router = useRouter();
   const { showToast } = useToast();
 
-  // Email doğrulandıysa otomatik yönlendir
+  // Kullanıcı kontrolü ve email doğrulama takibi
   useEffect(() => {
+    // Kullanıcı yoksa login'e yönlendir
+    if (!auth.currentUser) {
+      router.push("/login");
+      return;
+    }
+
+    setUserEmail(auth.currentUser.email);
+
+    // Email doğrulandıysa otomatik yönlendir
     const checkEmailVerification = setInterval(async () => {
-      await auth.currentUser?.reload();
-      if (auth.currentUser?.emailVerified) {
+      if (!auth.currentUser) {
         clearInterval(checkEmailVerification);
-        router.push("/analysis");
+        return;
+      }
+
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        clearInterval(checkEmailVerification);
+        showToast(
+          "Email adresiniz doğrulandı! Giriş yapabilirsiniz.",
+          "success"
+        );
+
+        // Firestore'u güncelle
+        const { doc, setDoc } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase");
+        await setDoc(
+          doc(db, "users", auth.currentUser.uid),
+          { emailVerified: true },
+          { merge: true }
+        );
+
+        router.push("/login");
       }
     }, 3000); // Her 3 saniyede bir kontrol et
 
     return () => clearInterval(checkEmailVerification);
-  }, [router]);
+  }, [router, showToast]);
 
   const handleResendEmail = async () => {
     if (!auth.currentUser) {
       showToast("Oturum bulunamadı. Lütfen tekrar kayıt olun.", "error");
+      router.push("/register");
       return;
     }
 
     setResending(true);
 
     try {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/login?verified=true`,
-        handleCodeInApp: false,
-      };
-      await sendEmailVerification(auth.currentUser, actionCodeSettings);
-      showToast("Doğrulama emaili yeniden gönderildi!", "success");
-    } catch {
+      await sendEmailVerification(auth.currentUser);
       showToast(
-        "Email gönderilemedi. Lütfen daha sonra tekrar deneyin.",
-        "error"
+        "Doğrulama emaili yeniden gönderildi! Spam klasörünü kontrol edin.",
+        "success"
       );
+    } catch (error: unknown) {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === "auth/too-many-requests") {
+        showToast(
+          "Çok fazla deneme yaptınız. Lütfen birkaç dakika bekleyin.",
+          "error"
+        );
+      } else {
+        showToast(
+          "Email gönderilemedi. Lütfen daha sonra tekrar deneyin.",
+          "error"
+        );
+      }
     } finally {
       setResending(false);
     }
@@ -66,9 +103,15 @@ export default function VerifyEmailPage() {
             <p className="text-white font-semibold mb-2">
               Doğrulama linki gönderildi!
             </p>
+            {userEmail && (
+              <p className="text-emerald-400 text-sm font-mono mb-2">
+                📧 {userEmail}
+              </p>
+            )}
             <p className="text-gray-300 text-sm">
               Email adresinize bir doğrulama linki gönderdik. Sisteme giriş
-              yapabilmek için email adresinizi doğrulamanız gerekmektedir.
+              yapabilmek için email adresinizi doğrulamanız gerekmektedir. Spam
+              kutunuzu kontrol edin lütfen.
             </p>
           </div>
         </div>

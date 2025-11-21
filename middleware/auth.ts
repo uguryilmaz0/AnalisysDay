@@ -11,7 +11,7 @@
 
 import { NextRequest } from 'next/server';
 import { verifyIdToken, getUserData, isAdmin as checkIsAdmin } from '@/lib/firebaseAdmin';
-import { logger } from '@/lib/logger';
+import { serverLogger as logger } from '@/lib/serverLogger';
 
 /**
  * Request'ten auth token'ı çıkar
@@ -123,28 +123,68 @@ export async function requireAdmin(req: NextRequest) {
 
 /**
  * Super Admin kontrolü (NEXT_PUBLIC_SUPER_ADMIN_EMAILS)
+ * Super adminler için email doğrulama ve diğer kontroller bypass edilir
  * 
- * @throws {Error} User super admin değilse
+ * @returns {{ user, error: null } | { error: string, status: number }}
  */
-export async function requireSuperAdmin(req: NextRequest) {
-  const user = await requireAdmin(req);
+export async function requireSuperAdmin(req: NextRequest): Promise<
+  | { user: Awaited<ReturnType<typeof requireAuth>>; error: null }
+  | { error: string; status: number }
+> {
+  try {
+    // Önce token'ı doğrula
+    const decodedToken = await verifyAuth(req);
+    
+    // Super admin email listesi
+    const superAdminEmails = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS
+      ?.split(',')
+      .map(e => e.trim().toLowerCase()) || [];
 
-  const superAdminEmails = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS
-    ?.split(',')
-    .map(e => e.trim().toLowerCase()) || [];
+    const userEmail = decodedToken.email?.toLowerCase() || '';
+    const isSuperAdmin = superAdminEmails.includes(userEmail);
 
-  const isSuperAdmin = superAdminEmails.includes(user.email.toLowerCase());
+    if (!isSuperAdmin) {
+      logger.warn('Super admin access denied - not in super admin list', {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        path: req.nextUrl.pathname,
+      });
+      return {
+        error: 'Forbidden: Super admin access required',
+        status: 403,
+      };
+    }
 
-  if (!isSuperAdmin) {
-    logger.warn('Super admin access denied', {
+    // Super admin olduğu doğrulandı, user data al (email doğrulama bypass)
+    const userData = await getUserData(decodedToken.uid);
+    
+    if (!userData) {
+      return {
+        error: 'User data not found',
+        status: 404,
+      };
+    }
+
+    const user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email || userData.email,
+      ...userData,
+    };
+
+    logger.info('Super admin authenticated', {
       uid: user.uid,
       email: user.email,
       path: req.nextUrl.pathname,
     });
-    throw new Error('Forbidden: Super admin access required');
-  }
 
-  return user;
+    return { user, error: null };
+  } catch (error) {
+    logger.error('Super admin auth failed', { error });
+    return {
+      error: error instanceof Error ? error.message : 'Authentication failed',
+      status: 401,
+    };
+  }
 }
 
 /**

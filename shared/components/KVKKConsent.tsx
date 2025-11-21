@@ -39,11 +39,14 @@ export function KVKKConsent({
   });
 
   const handleConsentChange = (key: keyof Omit<ConsentState, "errors">) => {
-    setConsents((prev) => ({
-      ...prev,
-      [key]: !prev[key],
+    const newConsents = {
+      ...consents,
+      [key]: !consents[key],
       errors: [],
-    }));
+    };
+    setConsents(newConsents);
+    // Parent component'e her değişiklikte güncel state'i gönder
+    onAcceptAll?.(newConsents);
   };
 
   const handleAcceptAll = () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, Upload, TrendingUp, Users } from "lucide-react";
+import { Shield, Upload, TrendingUp, Users, Ban, FileText } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
 import { useAdminStore } from "@/features/admin/stores";
@@ -10,6 +10,8 @@ import {
   AnalysisListTab,
   UserManagementTab,
   AdminManagementTab,
+  RateLimitTab,
+  SystemLogsTab,
 } from "@/features/admin/components";
 
 export default function AdminPage() {
@@ -29,7 +31,7 @@ export default function AdminPage() {
   const loadAllData = useAdminStore((state) => state.loadAllData);
 
   const [activeTab, setActiveTab] = useState<
-    "upload" | "analyses" | "users" | "admins"
+    "upload" | "analyses" | "users" | "admins" | "ratelimits" | "logs"
   >("upload");
 
   useEffect(() => {
@@ -44,6 +46,9 @@ export default function AdminPage() {
     );
   }
 
+  // Super admin kontrolü
+  const isSuperAdmin = userData?.superAdmin || false;
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -53,7 +58,14 @@ export default function AdminPage() {
             <Shield className="h-12 w-12" />
             <div>
               <h1 className="text-3xl font-bold">Admin Panel</h1>
-              <p className="text-purple-200">AnalysisDay Yönetim Sistemi</p>
+              <p className="text-purple-200">
+                AnalysisDay Yönetim Sistemi
+                {isSuperAdmin && (
+                  <span className="ml-2 bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-sm">
+                    ⭐ Super Admin
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </div>
@@ -142,6 +154,34 @@ export default function AdminPage() {
               <Shield className="h-5 w-5" />
               Admin Yönetimi
             </button>
+
+            {/* Super Admin Only Tabs */}
+            {isSuperAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab("ratelimits")}
+                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                    activeTab === "ratelimits"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <Ban className="h-5 w-5" />
+                  Rate Limits
+                </button>
+                <button
+                  onClick={() => setActiveTab("logs")}
+                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                    activeTab === "logs"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <FileText className="h-5 w-5" />
+                  System Logs
+                </button>
+              </>
+            )}
           </div>
 
           <div className="p-8">
@@ -158,9 +198,13 @@ export default function AdminPage() {
             {activeTab === "admins" && (
               <AdminManagementTab
                 currentUserId={user?.uid}
-                isSuperAdmin={userData?.superAdmin}
+                isSuperAdmin={isSuperAdmin}
               />
             )}
+
+            {activeTab === "ratelimits" && isSuperAdmin && <RateLimitTab />}
+
+            {activeTab === "logs" && isSuperAdmin && <SystemLogsTab />}
           </div>
         </div>
       </div>

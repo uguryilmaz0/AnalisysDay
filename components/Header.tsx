@@ -18,7 +18,10 @@ export default function Header() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
+          <Link
+            href={user ? "/analysis" : "/"}
+            className="flex items-center space-x-2 group"
+          >
             <TrendingUp className="h-8 w-8 text-blue-500 group-hover:text-blue-400 transition" />
             <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
               AnalysisDay
