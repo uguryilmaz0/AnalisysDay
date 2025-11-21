@@ -60,10 +60,10 @@ service cloud.firestore {
                                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // System Logs koleksiyonu (Server-side only)
+    // System Logs koleksiyonu (Admin SDK only - API routes kullanır)
     match /system_logs/{logId} {
-      // Herkes yazabilir (server-side logger için)
-      allow create: if true;
+      // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
+      allow create: if false;
       
       // Sadece adminler okuyabilir
       allow read: if request.auth != null &&

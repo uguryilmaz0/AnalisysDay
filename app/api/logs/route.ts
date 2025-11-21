@@ -4,7 +4,25 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import * as admin from 'firebase-admin';
+
+// Firebase Admin'i initialize et (singleton pattern)
+if (admin.apps.length === 0) {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : {
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      };
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  });
+}
+
+const db = admin.firestore();
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -36,8 +54,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Firestore'a kaydet (Admin SDK ile)
-    await adminDb.collection('system_logs').add({
+    // Firestore'a kaydet (Admin SDK ile - Security Rules bypass)
+    await db.collection('system_logs').add({
       level,
       message,
       context: context || {},
@@ -51,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
-    console.error('Failed to save log:', error);
+    console.error('[API /logs] Failed to save log:', error);
     return NextResponse.json(
       { error: 'Failed to save log' },
       { status: 500 }

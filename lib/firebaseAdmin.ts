@@ -10,7 +10,6 @@
  */
 
 import * as admin from 'firebase-admin';
-import { logger } from './logger';
 
 // Singleton pattern - sadece bir kez initialize et
 let app: admin.app.App | undefined;
@@ -42,16 +41,14 @@ function initializeFirebaseAdmin() {
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       });
 
-      logger.info('Firebase Admin SDK initialized', {
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
+      console.log('[Firebase Admin] SDK initialized', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
     } else {
       app = admin.apps[0]!;
     }
 
     return app;
   } catch (error) {
-    logger.error('Failed to initialize Firebase Admin SDK', { error });
+    console.error('[Firebase Admin] Initialization failed:', error);
     throw new Error('Firebase Admin initialization failed');
   }
 }
@@ -74,7 +71,7 @@ export async function verifyIdToken(token: string) {
     const decodedToken = await adminAuth.verifyIdToken(token);
     return decodedToken;
   } catch (error) {
-    logger.warn('Token verification failed', { error });
+    console.warn('[Firebase Admin] Token verification failed:', error);
     throw new Error('Invalid or expired token');
   }
 }
@@ -92,7 +89,7 @@ export async function getUserData(uid: string) {
 
     return userDoc.data();
   } catch (error) {
-    logger.error('Failed to get user data', { uid, error });
+    console.error('[Firebase Admin] Failed to get user data:', uid, error);
     throw error;
   }
 }
