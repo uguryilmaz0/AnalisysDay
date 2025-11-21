@@ -22,44 +22,158 @@ export async function GET(req: NextRequest) {
     }
 
     // Redis'ten tüm rate limit key'lerini al
-    const keys = await redis.keys("@ratelimit/*");
-    
-    console.log('Found Redis keys:', keys.length, keys);
+    let keys: string[] = [];
+    try {
+      const scanResult = await redis.keys("@ratelimit/*");
+      keys = Array.isArray(scanResult) ? scanResult : [];
+    } catch (error) {
+      console.error('Redis KEYS error:', error);
+      keys = [];
+    }
     
     const bans = [];
+    
     for (const key of keys) {
-      const data = await redis.get(key);
-      console.log('Key:', key, 'Data:', data);
-      
-      if (data && typeof data === "object") {
-        const typedData = data as { reset?: number; count?: number };
-        if (typedData.reset && typedData.reset > Date.now()) {
-          // Key format: @ratelimit/{action}:{identifier}
-          const keyWithoutPrefix = key.replace('@ratelimit/', '');
-          const firstColonIndex = keyWithoutPrefix.indexOf(':');
+      try {
+        const keyType = await redis.type(key);
+        
+        if (keyType === 'zset') {
+          const now = Date.now();
+          const windowStart = now - (15 * 60 * 1000);
+          const count = await redis.zcount(key, windowStart, now);
           
-          const action = firstColonIndex !== -1 
-            ? keyWithoutPrefix.substring(0, firstColonIndex)
-            : keyWithoutPrefix;
-          const identifier = firstColonIndex !== -1
-            ? keyWithoutPrefix.substring(firstColonIndex + 1)
-            : 'unknown';
+          if (count >= 5) {
+            const allElements = await redis.zrange(key, 0, -1, { 
+              withScores: true,
+              rev: true
+            });
+            
+            let lastTimestamp = now;
+            if (Array.isArray(allElements) && allElements.length >= 2) {
+              const firstScore = allElements[1];
+              lastTimestamp = typeof firstScore === 'number' ? firstScore : 
+                             typeof firstScore === 'string' ? parseFloat(firstScore) : now;
+            }
+            
+            const bannedUntil = lastTimestamp + (15 * 60 * 1000);
+            
+            if (bannedUntil > now) {
+              const keyWithoutPrefix = key.replace('@ratelimit/', '');
+              const parts = keyWithoutPrefix.split(':');
+              const action = parts[0] || 'unknown';
+              const identifier = parts.slice(1).join(':') || 'unknown';
 
-          bans.push({
-            key,
-            identifier,
-            action,
-            bannedUntil: typedData.reset,
-            attempts: typedData.count || 0,
-          });
+              bans.push({
+                key,
+                identifier,
+                action,
+                bannedUntil,
+                attempts: count,
+              });
+            }
+          }
+        } else if (keyType === 'string') {
+          const data = await redis.get(key);
+          const ttl = await redis.ttl(key);
+          
+          if (typeof data === 'number' && ttl > 0) {
+            const count = data;
+            const now = Date.now();
+            const bannedUntil = now + (ttl * 1000);
+            
+            if (count >= 5 && bannedUntil > now) {
+              const keyWithoutPrefix = key.replace('@ratelimit/', '');
+              const firstColonIndex = keyWithoutPrefix.indexOf(':');
+              const action = firstColonIndex !== -1 
+                ? keyWithoutPrefix.substring(0, firstColonIndex)
+                : keyWithoutPrefix;
+              
+              const afterAction = keyWithoutPrefix.substring(firstColonIndex + 1);
+              const lastColonIndex = afterAction.lastIndexOf(':');
+              let identifier = 'unknown';
+              let userId = null;
+              
+              if (lastColonIndex !== -1) {
+                const lastPart = afterAction.substring(lastColonIndex + 1);
+                if (/^\d+$/.test(lastPart)) {
+                  identifier = afterAction.substring(0, lastColonIndex);
+                } else {
+                  identifier = afterAction;
+                }
+              } else {
+                identifier = afterAction;
+              }
+              
+              const identifierParts = identifier.split(':');
+              const ip = identifierParts.slice(0, -1).join(':') || identifier;
+              const potentialUserId = identifierParts[identifierParts.length - 1];
+              if (identifierParts.length > 1 && !/^\d+$/.test(potentialUserId)) {
+                userId = potentialUserId;
+              }
+
+              bans.push({
+                key,
+                identifier: ip,
+                action,
+                bannedUntil,
+                attempts: count,
+                userId: userId || undefined,
+              });
+            }
+          } else if (data && typeof data === "object") {
+            const typedData = data as { reset?: number; count?: number };
+            if (typedData.reset && typedData.reset > Date.now() && (typedData.count || 0) >= 5) {
+              const keyWithoutPrefix = key.replace('@ratelimit/', '');
+              const firstColonIndex = keyWithoutPrefix.indexOf(':');
+              const action = firstColonIndex !== -1 
+                ? keyWithoutPrefix.substring(0, firstColonIndex)
+                : keyWithoutPrefix;
+              const identifier = firstColonIndex !== -1
+                ? keyWithoutPrefix.substring(firstColonIndex + 1)
+                : 'unknown';
+
+              bans.push({
+                key,
+                identifier,
+                action,
+                bannedUntil: typedData.reset,
+                attempts: typedData.count || 0,
+              });
+            }
+          }
+        } else if (keyType === 'hash') {
+          const data = await redis.hgetall(key);
+          if (data && typeof data === 'object') {
+            const reset = Number(data.reset || data.r);
+            const count = Number(data.count || data.c || 0);
+            
+            if (reset && reset > Date.now() && count >= 5) {
+              const keyWithoutPrefix = key.replace('@ratelimit/', '');
+              const firstColonIndex = keyWithoutPrefix.indexOf(':');
+              const action = firstColonIndex !== -1 
+                ? keyWithoutPrefix.substring(0, firstColonIndex)
+                : keyWithoutPrefix;
+              const identifier = firstColonIndex !== -1
+                ? keyWithoutPrefix.substring(firstColonIndex + 1)
+                : 'unknown';
+
+              bans.push({
+                key,
+                identifier,
+                action,
+                bannedUntil: reset,
+                attempts: count,
+              });
+            }
+          }
         }
+      } catch (error) {
+        console.error('Error processing key:', key, error);
+        continue;
       }
     }
 
-    // Zamana göre sırala (en yakın biten önce)
     bans.sort((a, b) => a.bannedUntil - b.bannedUntil);
-
-    console.log('Returning bans:', bans.length);
 
     return NextResponse.json({
       success: true,

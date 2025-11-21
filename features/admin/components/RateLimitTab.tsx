@@ -8,10 +8,11 @@ import { authFetch } from "@/lib/authFetch";
 
 interface RateLimitBan {
   key: string;
-  identifier: string; // IP veya IP:userId
+  identifier: string; // IP adresi
   action: string;
   bannedUntil: number;
   attempts: number;
+  userId?: string; // Opsiyonel kullanıcı ID
 }
 
 export function RateLimitTab() {
@@ -170,11 +171,6 @@ export function RateLimitTab() {
             const minutesRemaining = Math.ceil(timeRemaining / 60000);
             const isExpired = timeRemaining <= 0;
 
-            // Identifier parse (IP veya IP:userId)
-            const parts = ban.identifier.split(":");
-            const ip = parts[0];
-            const userId = parts[1] || null;
-
             return (
               <div
                 key={ban.key}
@@ -203,16 +199,18 @@ export function RateLimitTab() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="bg-gray-900/50 rounded-lg p-3">
                         <p className="text-xs text-gray-500 mb-1">IP Adresi</p>
-                        <p className="text-white font-mono text-sm">{ip}</p>
+                        <p className="text-white font-mono text-sm">
+                          {ban.identifier}
+                        </p>
                       </div>
-                      {userId && (
+                      {ban.userId && (
                         <div className="bg-gray-900/50 rounded-lg p-3">
                           <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
                             <User className="h-3 w-3" />
                             Kullanıcı ID
                           </p>
                           <p className="text-white font-mono text-sm">
-                            {userId}
+                            {ban.userId}
                           </p>
                         </div>
                       )}

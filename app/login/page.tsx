@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogIn, User, Lock } from "lucide-react";
 import { Button, Input } from "@/shared/components/ui";
-import { useToast, useRateLimit } from "@/shared/hooks";
+import { useToast } from "@/shared/hooks";
 import { AuthLayout } from "@/shared/components/AuthLayout";
 import { logger } from "@/lib/logger";
 
@@ -18,7 +18,6 @@ export default function LoginPage() {
   const { signIn, user, userData } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
-  const rateLimit = useRateLimit({ key: "login" });
 
   // Eğer kullanıcı zaten giriş yapmışsa ve email doğrulanmışsa yönlendir
   useEffect(() => {
@@ -31,49 +30,48 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Client-side rate limit check (UI feedback)
-    if (!rateLimit.checkAndNotify()) {
-      return;
-    }
-
     setLoading(true);
 
     try {
-      // Server-side rate limit check
+      // Server-side rate limit + user validation check
       const checkResponse = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailOrUsername, password }),
       });
 
-      if (!checkResponse.ok) {
-        const errorData = await checkResponse.json();
+      const checkData = await checkResponse.json();
 
-        // Server-side rate limit exceeded
-        if (checkResponse.status === 429) {
-          rateLimit.recordAttempt(); // Sync client-side
-          showToast(errorData.message || "Çok fazla deneme!", "error", 5000);
-          setLoading(false);
-          return;
-        }
-
-        // User not found
-        if (errorData.error === "USER_NOT_FOUND") {
-          rateLimit.recordAttempt();
-          showToast("Kullanıcı adı veya email bulunamadı!", "error");
-          setLoading(false);
-          return;
-        }
+      // Rate limit exceeded (429)
+      if (checkResponse.status === 429) {
+        showToast(
+          checkData.message ||
+            "Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.",
+          "error",
+          5000
+        );
+        setLoading(false);
+        return;
       }
 
-      // Rate limit OK - proceed with Firebase auth
+      // User not found
+      if (checkData.error === "USER_NOT_FOUND") {
+        showToast("Kullanıcı adı veya email bulunamadı!", "error");
+        setLoading(false);
+        return;
+      }
+
+      // Other server errors
+      if (!checkResponse.ok) {
+        showToast(checkData.error || "Beklenmeyen bir hata oluştu", "error");
+        setLoading(false);
+        return;
+      }
+
+      // Server OK - proceed with Firebase auth
       await signIn(emailOrUsername, password);
-      rateLimit.reset(); // Reset on success
       router.push("/analysis");
     } catch (err) {
-      rateLimit.recordAttempt(); // Record failed attempt
-
       const error = err as { code?: string; message?: string };
 
       // Hatalı giriş denemesini logla
@@ -82,36 +80,30 @@ export default function LoginPage() {
         errorCode: error.code,
         errorMessage: error.message,
         action: "login_failed",
-        remainingAttempts: rateLimit.remainingAttempts,
       });
 
-      // Email doğrulama hatası kontrolü
+      // Email verification error
       if (error.message === "EMAIL_NOT_VERIFIED") {
         showToast(
-          "⚠️ Email adresiniz doğrulanmamış! Lütfen email kutunuzu kontrol edin ve doğrulama linkine tıklayın.",
+          "⚠️ Email adresiniz doğrulanmamış! Lütfen email kutunuzu kontrol edin.",
           "warning",
           5000
         );
-        // 3 saniye sonra verify sayfasına yönlendir
         setTimeout(() => {
           router.push("/register/verify-email");
         }, 3000);
         return;
-      } else if (error.message === "Kullanıcı bulunamadı") {
+      }
+
+      // Firebase auth errors
+      if (error.message === "Kullanıcı bulunamadı") {
         showToast("Kullanıcı adı veya email bulunamadı!", "error");
       } else if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/wrong-password" ||
         error.code === "auth/invalid-credential"
       ) {
-        showToast(
-          `Kullanıcı adı/email veya şifre hatalı! ${
-            rateLimit.remainingAttempts > 0
-              ? `(Kalan deneme: ${rateLimit.remainingAttempts})`
-              : ""
-          }`,
-          "error"
-        );
+        showToast("Kullanıcı adı/email veya şifre hatalı!", "error");
       } else if (error.code === "auth/invalid-email") {
         showToast("Geçersiz email adresi!", "error");
       } else {

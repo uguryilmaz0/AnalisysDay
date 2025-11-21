@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { UserPlus, Mail, Lock, CheckCircle2, Bell, User } from "lucide-react";
 import { Button, Input } from "@/shared/components/ui";
-import { useFormValidation, useToast, useRateLimit } from "@/shared/hooks";
+import { useFormValidation, useToast } from "@/shared/hooks";
 import { AuthLayout } from "@/shared/components/AuthLayout";
 import { KVKKConsent } from "@/shared/components/KVKKConsent";
 import { logger } from "@/lib/logger";
@@ -38,15 +38,9 @@ export default function RegisterPage() {
   const { showToast } = useToast();
   const router = useRouter();
   const { validate } = useFormValidation();
-  const rateLimit = useRateLimit({ key: "register" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Client-side rate limit check (UI feedback)
-    if (!rateLimit.checkAndNotify()) {
-      return;
-    }
 
     // 18 Yaş Kontrolü - ZORUNLU
     if (!ageConfirmed) {
@@ -84,7 +78,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Server-side rate limit check
+      // Her denemede server-side rate limit check
       const checkResponse = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,8 +90,12 @@ export default function RegisterPage() {
 
         // Server-side rate limit exceeded
         if (checkResponse.status === 429) {
-          rateLimit.recordAttempt(); // Sync client-side
-          showToast(errorData.message || "Çok fazla deneme!", "error", 5000);
+          showToast(
+            errorData.message ||
+              "Çok fazla kayıt denemesi. Lütfen daha sonra tekrar deneyin.",
+            "error",
+            5000
+          );
           setLoading(false);
           return;
         }
@@ -119,7 +117,6 @@ export default function RegisterPage() {
         password,
         emailNotifications
       );
-      rateLimit.reset(); // Reset on success
 
       // Super admin kontrolü
       const superAdminEmails =
@@ -135,7 +132,16 @@ export default function RegisterPage() {
         router.push("/register/verify-email");
       }
     } catch (err) {
-      rateLimit.recordAttempt(); // Record failed attempt
+      // Başarısız Firebase auth - server'a bildir (rate limit için)
+      try {
+        await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, username }),
+        });
+      } catch {
+        // Server iletişim hatası, client-side rate limit devam eder
+      }
 
       const error = err as { code?: string; message?: string };
 
@@ -146,7 +152,6 @@ export default function RegisterPage() {
         errorCode: error.code,
         errorMessage: error.message,
         action: "register_failed",
-        remainingAttempts: rateLimit.remainingAttempts,
       });
 
       if (error.message === "Bu kullanıcı adı zaten kullanılıyor") {
