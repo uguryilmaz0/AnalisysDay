@@ -2,43 +2,35 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
 import { getLatestAnalysis, checkSubscriptionExpiry } from "@/lib/db";
 import { DailyAnalysis } from "@/types";
-import { Lock, Calendar, AlertCircle, Loader2, TrendingUp } from "lucide-react";
+import { Lock, Calendar, AlertCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import ImageModal from "@/components/ImageModal";
+import { LoadingSpinner, EmptyState, Button } from "@/shared/components/ui";
+import { useRequireAuth, usePermissions, useModal } from "@/shared/hooks";
 
 export default function AnalysisPage() {
-  const { user, userData, loading: authLoading, refreshUserData } = useAuth();
-  const router = useRouter();
+  const { userData, loading: authLoading } = useRequireAuth({
+    requireEmailVerified: true,
+  });
+  const { hasPremiumAccess } = usePermissions();
+  const { refreshUserData } = useAuth();
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscriptionValid, setSubscriptionValid] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
     title: string;
   } | null>(null);
+  const modal = useModal();
 
   useEffect(() => {
     const loadData = async () => {
       if (authLoading) return;
 
-      // Kullanıcı giriş yapmamışsa login'e yönlendir
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
-      if (userData && userData.role !== "admin" && !user.emailVerified) {
-        router.push("/register/verify-email");
-        return;
-      }
-
-      // Admin her zaman erişebilir, diğerleri için abonelik kontrolü yap
+      // Abonelik kontrolü (admin değilse)
       if (userData?.role !== "admin" && userData?.isPaid && userData.uid) {
         const isValid = await checkSubscriptionExpiry(userData.uid);
         setSubscriptionValid(isValid);
@@ -49,15 +41,12 @@ export default function AnalysisPage() {
         }
       }
 
-      // Admin otomatik erişir veya premium kullanıcılar için analiz çek
-      const canViewAnalysis =
-        userData?.role === "admin" || (userData?.isPaid && subscriptionValid);
-
-      if (canViewAnalysis) {
+      // Premium erişimi varsa analiz çek
+      if (hasPremiumAccess) {
         try {
           const latestAnalysis = await getLatestAnalysis();
           setAnalysis(latestAnalysis);
-        } catch (error) {
+        } catch {
           // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
         }
       }
@@ -66,23 +55,21 @@ export default function AnalysisPage() {
     };
 
     loadData();
-  }, [user, userData, authLoading, router, refreshUserData, subscriptionValid]);
+  }, [
+    authLoading,
+    userData,
+    hasPremiumAccess,
+    refreshUserData,
+    subscriptionValid,
+  ]);
 
   // Loading state
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner fullScreen size="xl" text="Analiz yükleniyor..." />;
   }
 
-  // Admin kullanıcıları her zaman görebilir
-  const canViewAnalysis =
-    userData?.role === "admin" || (userData?.isPaid && subscriptionValid);
-
-  // Eğer kullanıcı premium değilse ve admin değilse - KİLİT EKRANI
-  if (!canViewAnalysis) {
+  // Premium erişimi yoksa - KİLİT EKRANI
+  if (!hasPremiumAccess) {
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
         {/* Arka Plan Bulanık Efekti */}
@@ -166,11 +153,10 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              <Link
-                href="/pricing"
-                className="inline-block bg-linear-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl"
-              >
-                Ücretleri İncele & Premium Ol
+              <Link href="/pricing">
+                <Button variant="premium" size="lg">
+                  Ücretleri İncele & Premium Ol
+                </Button>
               </Link>
             </div>
 
@@ -207,7 +193,7 @@ export default function AnalysisPage() {
               </p>
             </div>
 
-            {userData.subscriptionEndDate && (
+            {userData?.subscriptionEndDate && (
               <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
                 <p className="text-sm text-blue-100">Abonelik Bitiş</p>
                 <p className="font-semibold">
@@ -255,9 +241,9 @@ export default function AnalysisPage() {
                   onClick={() => {
                     setSelectedImage({
                       url,
-                      title: `${analysis.title} - Görsel ${index + 1}`,
+                      title: `${analysis.title}`,
                     });
-                    setModalOpen(true);
+                    modal.open();
                   }}
                 >
                   <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
@@ -280,23 +266,19 @@ export default function AnalysisPage() {
             </div>
           </div>
         ) : (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-12 text-center">
-            <TrendingUp className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-white mb-2">
-              Henüz Analiz Yayınlanmadı
-            </h3>
-            <p className="text-gray-400">
-              Yeni analizler yayınlandığında burada görünecektir.
-            </p>
-          </div>
+          <EmptyState
+            icon={<TrendingUp className="h-16 w-16" />}
+            title="Henüz Analiz Yayınlanmadı"
+            description="Yeni analizler yayınlandığında burada görünecektir."
+          />
         )}
 
         {/* Image Modal */}
         {selectedImage && (
           <ImageModal
-            isOpen={modalOpen}
+            isOpen={modal.isOpen}
             onClose={() => {
-              setModalOpen(false);
+              modal.close();
               setSelectedImage(null);
             }}
             imageUrl={selectedImage.url}

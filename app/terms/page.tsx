@@ -8,6 +8,7 @@ import {
   Scale,
   Clock,
 } from "lucide-react";
+import { PageSection } from "@/shared/components/PageSection";
 
 export default function TermsPage() {
   return (
@@ -32,33 +33,27 @@ export default function TermsPage() {
         {/* İçerik */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 space-y-8">
           {/* 1. Kabul */}
-          <section>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">
-                1. Koşulların Kabulü
-              </h2>
-            </div>
-            <div className="text-gray-300 space-y-3 leading-relaxed">
-              <p>
-                AnalysisDay platformuna erişerek ve hizmetlerimizi kullanarak,
-                bu Kullanım Koşullarını okuduğunuzu, anladığınızı ve kabul
-                ettiğinizi beyan edersiniz.
+          <PageSection
+            title="1. Koşulların Kabulü"
+            icon={CheckCircle}
+            iconBgColor="bg-blue-600"
+          >
+            <p>
+              AnalysisDay platformuna erişerek ve hizmetlerimizi kullanarak, bu
+              Kullanım Koşullarını okuduğunuzu, anladığınızı ve kabul ettiğinizi
+              beyan edersiniz.
+            </p>
+            <p>
+              Bu koşulları kabul etmiyorsanız, lütfen platformumuzu
+              kullanmayınız.
+            </p>
+            <div className="bg-yellow-900/30 border border-yellow-700/30 rounded-lg p-4 mt-4">
+              <p className="text-sm text-yellow-200">
+                <strong>⚠️ Önemli:</strong> 18 yaşından küçükseniz, bu hizmeti
+                kullanmanız yasaktır.
               </p>
-              <p>
-                Bu koşulları kabul etmiyorsanız, lütfen platformumuzu
-                kullanmayınız.
-              </p>
-              <div className="bg-yellow-900/30 border border-yellow-700/30 rounded-lg p-4 mt-4">
-                <p className="text-sm text-yellow-200">
-                  <strong>⚠️ Önemli:</strong> 18 yaşından küçükseniz, bu hizmeti
-                  kullanmanız yasaktır.
-                </p>
-              </div>
             </div>
-          </section>
+          </PageSection>
 
           {/* 2. Hizmet Tanımı */}
           <section>
@@ -78,23 +73,23 @@ export default function TermsPage() {
                     ✅ Sunulan Hizmetler:
                   </h3>
                   <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Günlük spor analizi içerikleri</li>
-                    <li>Teknik analiz raporları</li>
-                    <li>Analiz ve öneriler</li>
-                    <li>Premium içerik erişimi</li>
+                    <li>Günlük spor istatistik analizi eğitimleri</li>
+                    <li>Teknik veri analizi metodolojileri</li>
+                    <li>İstatistiksel değerlendirme örnekleri</li>
+                    <li>Premium eğitim içeriği erişimi</li>
                     <li>Email bildirimleri</li>
                     <li>WhatsApp destek hizmeti</li>
                   </ul>
                 </div>
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <div className="bg-red-900/30 border border-red-700/30 rounded-lg p-4">
                   <h3 className="font-semibold text-white mb-2">
-                    ❌ Sunmadığımız:
+                    ❌ ÖNEMLİ: Sunmadığımız Hizmetler
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li>Garantili kazanç vaadi</li>
-                    <li>Yatırım danışmanlığı</li>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-red-200">
+                    <li>Bahis önerisi veya tahmini</li>
+                    <li>Yatırım danışmanlığı (SPK lisansı gerektirir)</li>
                     <li>Mali tavsiye</li>
-                    <li>Lisanslı bahis hizmeti</li>
+                    <li>Garantili kazanç vaadi</li>
                     <li>Kesin sonuç garantisi</li>
                   </ul>
                 </div>
@@ -220,33 +215,42 @@ export default function TermsPage() {
               </h2>
             </div>
             <div className="text-gray-300 space-y-3 leading-relaxed">
-              <div className="bg-orange-900/30 border border-orange-500/50 rounded-lg p-5 space-y-3">
+              <div className="bg-red-900/40 border border-red-500/50 rounded-lg p-5 space-y-3">
                 <p className="font-semibold text-white text-lg">
-                  ⚠️ ÖNEMLİ UYARI
+                  ⚠️ YASAL UYARI - EĞİTİM PLATFORMU
                 </p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>
-                    Bu platformda sunulan analizler, tahminler ve öneriler
-                    <strong> yalnızca bilgilendirme amaçlıdır</strong>
+                    Bu platform <strong>SADECE EĞİTİM AMAÇLIDIR</strong>. Spor
+                    istatistik analizi ve veri okuma metodolojileri öğretir.
                   </li>
                   <li>
                     İçeriklerimiz{" "}
-                    <strong>yatırım tavsiyesi niteliği taşımaz</strong>
+                    <strong className="text-red-300">
+                      BAHİS ÖNERİSİ, YATIRIM TAVSİYESİ VE MALİ TAVSİYE İÇERMEZ
+                    </strong>
                   </li>
                   <li>
-                    Geçmiş performans, gelecekteki sonuçların garantisi değildir
+                    Hiçbir şekilde{" "}
+                    <strong className="text-red-300">
+                      KAZANC GARANTİSİ VERİLMEZ
+                    </strong>
                   </li>
                   <li>
-                    Tüm yatırım kararları <strong>size aittir</strong>
+                    Tüm kararlar <strong>TAMAMiYLE SIZE AİTTİR</strong> ve
+                    öğrenilen bilgilerin kullanımından AnalysisDay sorumlu
+                    değildir
                   </li>
                   <li>
-                    AnalysisDay, kararlarınızdan kaynaklanan mali kayıplardan
-                    <strong> sorumlu tutulamaz</strong>
+                    Platform, <strong>akademik eğitim içeriği</strong> sunmakta
+                    olup herhangi bir finansal karar için yeterli bilgi sağlamaz
                   </li>
                 </ul>
-                <p className="text-sm mt-3 bg-red-900/30 border border-red-700/30 rounded p-3">
-                  <strong>18 yaş altı kişiler</strong> bu platformu kullanamaz.
-                  Platformumuz yalnızca analiz amaçlıdır.
+                <p className="text-sm mt-3 bg-red-900/50 border border-red-700/50 rounded p-3">
+                  <strong className="text-red-200">18 yaş altı kişiler</strong>{" "}
+                  bu platformu kullanamaz. Bu bir{" "}
+                  <strong>eğitim platformudur</strong>, bahis/kumar platformu
+                  değildir.
                 </p>
               </div>
             </div>

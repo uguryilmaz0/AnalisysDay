@@ -4,6 +4,8 @@ export interface User {
   uid: string;
   email: string;
   username: string;
+  firstName: string;
+  lastName: string;
   role: 'user' | 'admin';
   superAdmin?: boolean; // Super adminler diğer adminleri yönetebilir
   isPaid: boolean;

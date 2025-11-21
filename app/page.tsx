@@ -23,16 +23,16 @@ export default function Home() {
             {/* Sol Taraf - Metin */}
             <div className="space-y-8">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                Günlük Maç Analizlerinde
+                Spor İstatistik Analizi ve
                 <span className="block text-emerald-400">
-                  Bir Adım Önde Olun
+                  Veri Okuma Eğitimi
                 </span>
               </h1>
 
               <p className="text-xl text-gray-300">
-                Profesyonel maç analizleri ve istatistikler ile bahislerinizi
-                doğru yapın. Detaylı tahminler, güncel formlar ve kazandıran
-                stratejiler.
+                Profesyonel spor analizleri ve istatistiksel değerlendirme
+                eğitimi. Detaylı veri analizi metodolojileri, güncel
+                istatistikler ve teknik analiz stratejileri öğrenin.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -40,7 +40,7 @@ export default function Home() {
                   href="/register"
                   className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
-                  Hemen Üye Ol ve Kazanmaya Başla
+                  Hemen Üye Ol ve Öğrenmeye Başla
                   <ArrowRight className="h-5 w-5" />
                 </Link>
 
@@ -48,7 +48,7 @@ export default function Home() {
                   href="/analysis"
                   className="bg-slate-800 hover:bg-slate-700 border-2 border-emerald-500/50 text-white px-8 py-4 rounded-lg font-bold text-lg transition flex items-center justify-center gap-2"
                 >
-                  Analizleri İncele
+                  Eğitim İçeriklerini İncele
                   <Trophy className="h-5 w-5" />
                 </Link>
               </div>
@@ -105,7 +105,7 @@ export default function Home() {
                 </div>
 
                 <p className="text-center mt-6 text-sm text-gray-400">
-                  Premium maç analizleri sadece üyelerimize özel
+                  Premium eğitim içerikleri sadece üyelerimize özel
                 </p>
               </div>
             </div>
@@ -121,7 +121,7 @@ export default function Home() {
               Neden AnalysisDay?
             </h2>
             <p className="text-xl text-gray-400">
-              Bahislerinizde fark yaratan 3 neden
+              Spor istatistik eğitiminde fark yaratan 3 neden
             </p>
           </div>
 
@@ -132,11 +132,12 @@ export default function Home() {
                 <Trophy className="h-8 w-8 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">
-                Günlük Maç Analizleri
+                Günlük İstatistik Analiz Eğitimleri
               </h3>
               <p className="text-gray-300 leading-relaxed">
-                Her gün güncellenen detaylı maç analizleri, istatistikler ve
-                tahminler. Form analizi, kadro durumu ve iddaa önerileri.
+                Her gün güncellenen detaylı spor istatistikleri, veri analizi
+                metodolojileri ve teknik değerlendirme örnekleri. Kapsamlı
+                eğitim içerikleri.
               </p>
             </div>
 
@@ -146,11 +147,12 @@ export default function Home() {
                 <Target className="h-8 w-8 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">
-                Yüksek Başarı Oranı
+                Profesyonel Eğitim İçeriği
               </h3>
               <p className="text-gray-300 leading-relaxed">
-                Uzman ekibimizin yıllara dayanan deneyimi ve kanıtlanmış
-                stratejileriyle kazanma şansınızı maksimuma çıkarın.
+                Uzman ekibimizin yıllara dayanan deneyimi ve akademik
+                metodolojilerle hazırlanmış kapsamlı eğitim içerikleri. Veri
+                analizi becerilerinizi geliştirin.
               </p>
             </div>
 
@@ -175,10 +177,11 @@ export default function Home() {
       <section className="bg-linear-to-r from-emerald-600 to-blue-600 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Kazanmaya Bugün Başlayın
+            Öğrenmeye Bugün Başlayın
           </h2>
           <p className="text-xl text-emerald-100 mb-8">
-            Sadece ayda 600 TL ile profesyonel maç analizlerine sınırsız erişim
+            Sadece ayda 600 TL ile profesyonel spor istatistik analizi
+            eğitimlerine sınırsız erişim
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link

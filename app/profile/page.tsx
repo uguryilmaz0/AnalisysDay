@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { deleteUser } from "firebase/auth";
@@ -8,65 +8,50 @@ import { deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import {
   User as UserIcon,
-  Mail,
-  Calendar,
   CheckCircle2,
   XCircle,
   Trash2,
   AlertTriangle,
   Bell,
   BellOff,
-  Shield,
-  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  useRequireAuth,
+  usePermissions,
+  useToast,
+  useSubscriptionStatus,
+  useToggle,
+} from "@/shared/hooks";
+import { LoadingSpinner, ToggleButton, Button } from "@/shared/components/ui";
+import { Loader2 } from "lucide-react";
+import { ProfileEditForm } from "./components/ProfileEditForm";
+import { PasswordChangeForm } from "./components/PasswordChangeForm";
+import { AccountInfo } from "./components/AccountInfo";
 
 export default function ProfilePage() {
-  const { user, userData, refreshUserData } = useAuth();
+  const { user, userData, loading } = useRequireAuth({
+    requireEmailVerified: true,
+  });
+  const { hasPremiumAccess } = usePermissions();
+  const { showToast } = useToast();
+  const { refreshUserData } = useAuth();
   const router = useRouter();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteConfirm, toggleDeleteConfirm, setShowDeleteConfirm] =
+    useToggle(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [updatingNotifications, setUpdatingNotifications] = useState(false);
+  const { getDaysRemaining } = useSubscriptionStatus();
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
-    if (userData && userData.role !== "admin" && !user.emailVerified) {
-      router.push("/register/verify-email");
-      return;
-    }
-  }, [user, userData, router]);
-
-  // Show nothing while checking auth or if no user data
-  if (!user || !userData) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
-      </div>
-    );
+  // Show loading spinner while auth is being checked
+  if (loading || !user || !userData) {
+    return <LoadingSpinner fullScreen size="xl" text="Profil yükleniyor..." />;
   }
-
-  // Admin her zaman premium sayılır
-  const isActive =
-    userData.role === "admin" ||
-    (userData.isPaid && userData.subscriptionEndDate);
-  const daysRemaining =
-    isActive && userData.subscriptionEndDate
-      ? Math.ceil(
-          (userData.subscriptionEndDate.toDate().getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
-      : 0;
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "SİL") {
-      alert("Lütfen 'SİL' yazarak onaylayın");
+      showToast("Lütfen 'SİL' yazarak onaylayın", "warning");
       return;
     }
 
@@ -97,9 +82,10 @@ export default function ProfilePage() {
       // Check if re-authentication is required
       if (firebaseError.code === "auth/requires-recent-login") {
         setDeleting(false);
-        alert(
-          "Güvenlik nedeniyle hesabınızı silmek için yeniden giriş yapmanız gerekiyor. " +
-            "Lütfen çıkış yapıp tekrar giriş yapın ve hesap silme işlemini tekrarlayın."
+        showToast(
+          "Güvenlik nedeniyle yeniden giriş yapmanız gerekiyor. Lütfen çıkış yapıp tekrar giriş yapın.",
+          "warning",
+          7000
         );
       } else {
         // Hesap silindi ama Firestore hatası olabilir (permission error after auth deleted)
@@ -116,8 +102,9 @@ export default function ProfilePage() {
         emailNotifications: !userData.emailNotifications,
       });
       await refreshUserData();
+      showToast("Bildirim ayarları güncellendi!", "success");
     } catch {
-      alert("Bildirim ayarları güncellenemedi");
+      showToast("Bildirim ayarları güncellenemedi", "error");
     } finally {
       setUpdatingNotifications(false);
     }
@@ -140,112 +127,52 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Sol Kolon - Hesap Bilgileri */}
+          {/* Sol Kolon */}
           <div className="space-y-6">
-            {/* Genel Bilgiler */}
+            {/* Profil Düzenleme */}
+            <ProfileEditForm userData={userData} userId={user.uid} />
+
+            {/* Hesap Bilgileri */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <UserIcon className="h-5 w-5 text-blue-400" />
-                Hesap Bilgileri
+                Diğer Bilgiler
               </h2>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-                  <UserIcon className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-400">Kullanıcı Adı</p>
-                    <p className="text-white font-medium">
-                      @{userData.username}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-400">Email</p>
-                    <p className="text-white font-medium">{userData.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-                  <Shield className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-400">Rol</p>
-                    <p className="text-white font-medium">
-                      {userData.role === "admin" ? (
-                        <span className="flex items-center gap-2">
-                          <span className="text-orange-400">⚡ Admin</span>
-                          {userData.superAdmin && (
-                            <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs">
-                              ⭐ Super
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        "Kullanıcı"
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-xs text-gray-400">Kayıt Tarihi</p>
-                    <p className="text-white font-medium">
-                      {userData.createdAt.toDate().toLocaleDateString("tr-TR")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <AccountInfo userData={userData} />
             </div>
+
+            {/* Şifre Değiştirme */}
+            <PasswordChangeForm />
 
             {/* Bildirim Ayarları */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <Bell className="h-5 w-5 text-purple-400" />
+                <Bell className="h-5 w-5 text-emerald-400" />
                 Bildirim Ayarları
               </h2>
 
-              <button
-                onClick={handleToggleNotifications}
-                disabled={updatingNotifications}
-                className="w-full flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-lg p-4 transition"
-              >
-                <div className="flex items-center gap-3">
-                  {userData.emailNotifications ? (
-                    <Bell className="h-5 w-5 text-green-400" />
-                  ) : (
-                    <BellOff className="h-5 w-5 text-gray-400" />
-                  )}
-                  <div className="text-left">
-                    <p className="text-white font-medium">Email Bildirimleri</p>
-                    <p className="text-xs text-gray-400">
-                      Yeni analiz yayınlandığında email al
-                    </p>
-                  </div>
-                </div>
-                {updatingNotifications ? (
+              {updatingNotifications ? (
+                <div className="w-full flex items-center justify-center bg-gray-800 rounded-lg p-4">
                   <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
-                ) : (
-                  <div
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      userData.emailNotifications
-                        ? "bg-green-600"
-                        : "bg-gray-600"
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 bg-white rounded-full transition-transform transform ${
-                        userData.emailNotifications
-                          ? "translate-x-6"
-                          : "translate-x-1"
-                      } mt-0.5`}
-                    ></div>
-                  </div>
-                )}
-              </button>
+                </div>
+              ) : (
+                <ToggleButton
+                  checked={userData.emailNotifications}
+                  onChange={handleToggleNotifications}
+                  disabled={updatingNotifications}
+                  variant="success"
+                  size="md"
+                  label="Email Bildirimleri"
+                  description="Yeni analiz yayınlandığında email al"
+                  icon={
+                    userData.emailNotifications ? (
+                      <Bell className="h-5 w-5 text-green-400" />
+                    ) : (
+                      <BellOff className="h-5 w-5 text-gray-400" />
+                    )
+                  }
+                />
+              )}
             </div>
           </div>
 
@@ -258,7 +185,7 @@ export default function ProfilePage() {
                 Üyelik Durumu
               </h2>
 
-              {userData.role === "admin" || isActive ? (
+              {hasPremiumAccess ? (
                 <div className="space-y-4">
                   <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -314,18 +241,17 @@ export default function ProfilePage() {
                     <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4">
                       <p className="text-sm text-blue-100">
                         <span className="font-bold text-blue-400">
-                          {daysRemaining} gün
+                          {getDaysRemaining()} gün
                         </span>{" "}
                         premium erişiminiz kaldı
                       </p>
                     </div>
                   )}
 
-                  <Link
-                    href="/analysis"
-                    className="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-lg font-semibold transition"
-                  >
-                    Analizlere Git
+                  <Link href="/analysis" className="block w-full">
+                    <Button variant="primary" size="lg" fullWidth>
+                      Analizlere Git
+                    </Button>
                   </Link>
                 </div>
               ) : (
@@ -342,11 +268,10 @@ export default function ProfilePage() {
                     </p>
                   </div>
 
-                  <Link
-                    href="/pricing"
-                    className="block w-full bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-center py-3 rounded-lg font-semibold transition shadow-lg"
-                  >
-                    💎 Premium Ol
+                  <Link href="/pricing" className="block w-full">
+                    <Button variant="premium" size="lg" fullWidth>
+                      💎 Premium Ol
+                    </Button>
                   </Link>
                 </div>
               )}
@@ -361,7 +286,7 @@ export default function ProfilePage() {
 
               {!showDeleteConfirm ? (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onClick={toggleDeleteConfirm}
                   className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
                 >
                   <Trash2 className="h-5 w-5" />

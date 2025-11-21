@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
   X,
@@ -9,7 +9,9 @@ import {
   RotateCw,
   Download,
   Maximize2,
-  Copy,
+  ChevronLeft,
+  ChevronRight,
+  Minimize2,
 } from "lucide-react";
 
 interface ImageModalProps {
@@ -25,8 +27,23 @@ export default function ImageModal({
   imageUrl,
   title,
 }: ImageModalProps) {
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
+  const [zoom, setZoom] = useState<number>(1);
+  const [rotation, setRotation] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [position, setPosition] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [lastPinchDistance, setLastPinchDistance] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // ESC tuşuyla kapatma
   useEffect(() => {
@@ -49,6 +66,35 @@ export default function ImageModal({
     };
   }, [isOpen]);
 
+  // Kontrolleri otomatik gizle
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const hideControls = () => {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    hideControls();
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isOpen, zoom, rotation]);
+
+  const handleContainerMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
+
   if (!isOpen) return null;
 
   const handleZoomIn = () => {
@@ -66,175 +112,303 @@ export default function ImageModal({
   const handleReset = () => {
     setZoom(1);
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
   };
 
   const handleClose = () => {
     setZoom(1);
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
     onClose();
+  };
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      await document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = title.replace(/[^a-z0-9]/gi, "_") + ".png";
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Mouse drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || zoom <= 1) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Touch handlers for pan and pinch-to-zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && zoom > 1) {
+      // Single touch - pan
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - position.x,
+        y: e.touches[0].clientY - position.y,
+      });
+    } else if (e.touches.length === 2) {
+      // Two fingers - pinch zoom
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setLastPinchDistance(distance);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isDragging && zoom > 1) {
+      // Single touch - pan
+      e.preventDefault();
+      setPosition({
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y,
+      });
+    } else if (e.touches.length === 2) {
+      // Two fingers - pinch zoom
+      e.preventDefault();
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+
+      if (lastPinchDistance > 0) {
+        const delta = distance - lastPinchDistance;
+        const zoomDelta = delta * 0.01;
+        setZoom((prev) => Math.max(0.5, Math.min(3, prev + zoomDelta)));
+      }
+
+      setLastPinchDistance(distance);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setLastPinchDistance(0);
+  };
+
+  // Wheel zoom
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom((prev) => Math.max(0.5, Math.min(3, prev + delta)));
   };
 
   return (
     <div
-      className="fixed inset-0 z-100 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+      ref={containerRef}
+      className="fixed inset-0 z-9999 bg-black/98 backdrop-blur-sm flex items-center justify-center"
       onClick={handleClose}
+      onMouseMove={handleContainerMouseMove}
+      onTouchStart={() => setShowControls(true)}
     >
-      {/* Kontrol Paneli */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-gray-900/90 backdrop-blur-md rounded-full px-4 py-2 border border-gray-700 shadow-2xl">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleZoomOut();
-          }}
-          disabled={zoom <= 0.5}
-          className="p-2 rounded-full hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="Uzaklaştır"
-        >
-          <ZoomOut className="h-5 w-5 text-white" />
-        </button>
-
-        <span className="text-white font-semibold min-w-[60px] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleZoomIn();
-          }}
-          disabled={zoom >= 3}
-          className="p-2 rounded-full hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="Yakınlaştır"
-        >
-          <ZoomIn className="h-5 w-5 text-white" />
-        </button>
-
-        <div className="w-px h-6 bg-gray-700 mx-2"></div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRotate();
-          }}
-          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
-          title="Döndür"
-        >
-          <RotateCw className="h-5 w-5 text-white" />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleReset();
-          }}
-          className="px-3 py-2 rounded-full hover:bg-gray-800 transition-colors text-white text-sm font-medium"
-          title="Sıfırla"
-        >
-          Sıfırla
-        </button>
-
-        <div className="w-px h-6 bg-gray-700 mx-2"></div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const link = document.createElement("a");
-            link.href = imageUrl;
-            link.download = title.replace(/[^a-z0-9]/gi, "_") + ".png";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }}
-          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
-          title="İndir"
-        >
-          <Download className="h-5 w-5 text-white" />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (document.fullscreenElement) {
-              document.exitFullscreen();
-            } else {
-              document.documentElement.requestFullscreen();
-            }
-          }}
-          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
-          title="Tam Ekran"
-        >
-          <Maximize2 className="h-5 w-5 text-white" />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            navigator.clipboard.writeText(imageUrl);
-            alert("Görsel URL'si kopyalandı!");
-          }}
-          className="p-2 rounded-full hover:bg-gray-800 transition-colors"
-          title="URL Kopyala"
-        >
-          <Copy className="h-5 w-5 text-white" />
-        </button>
-      </div>
-
-      {/* Kapatma Butonu */}
-      <button
-        onClick={handleClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-900/90 hover:bg-red-600 border border-gray-700 transition-all duration-200 group"
-        title="Kapat (ESC)"
-      >
-        <X className="h-6 w-6 text-white" />
-      </button>
-
-      {/* Başlık */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-gray-900/90 backdrop-blur-md rounded-full px-6 py-3 border border-gray-700 max-w-2xl mx-4">
-        <p className="text-white font-medium text-center truncate">{title}</p>
-      </div>
-
-      {/* Görsel Container */}
+      {/* Üst Kontrol Paneli - Mobil ve Desktop */}
       <div
-        className="relative max-w-6xl max-h-[90vh] overflow-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent cursor-grab active:cursor-grabbing"
+        className={`absolute top-0 left-0 right-0 z-20 bg-linear-to-b from-black/80 to-transparent p-4 transition-all duration-300 ${
+          showControls
+            ? "translate-y-0 opacity-100"
+            : "-translate-y-full opacity-0"
+        }`}
         onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => {
-          const container = e.currentTarget;
-          const startX = e.pageX - container.offsetLeft;
-          const startY = e.pageY - container.offsetTop;
-          const scrollLeft = container.scrollLeft;
-          const scrollTop = container.scrollTop;
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          {/* Başlık */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-semibold text-sm md:text-base truncate">
+              {title}
+            </h3>
+          </div>
 
-          const handleMouseMove = (e: MouseEvent) => {
-            const x = e.pageX - container.offsetLeft;
-            const y = e.pageY - container.offsetTop;
-            const walkX = (x - startX) * 2;
-            const walkY = (y - startY) * 2;
-            container.scrollLeft = scrollLeft - walkX;
-            container.scrollTop = scrollTop - walkY;
-          };
+          {/* Desktop Kontroller */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={handleZoomOut}
+              disabled={zoom <= 0.5}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="Uzaklaştır"
+            >
+              <ZoomOut className="h-4 w-4 text-white" />
+            </button>
 
-          const handleMouseUp = () => {
-            document.removeEventListener("mousemove", handleMouseMove);
-            document.removeEventListener("mouseup", handleMouseUp);
-          };
+            <span className="text-white font-medium text-sm min-w-[50px] text-center bg-white/10 px-3 py-2 rounded-lg">
+              {Math.round(zoom * 100)}%
+            </span>
 
-          document.addEventListener("mousemove", handleMouseMove);
-          document.addEventListener("mouseup", handleMouseUp);
-        }}
+            <button
+              onClick={handleZoomIn}
+              disabled={zoom >= 3}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              title="Yakınlaştır"
+            >
+              <ZoomIn className="h-4 w-4 text-white" />
+            </button>
+
+            <div className="w-px h-6 bg-white/20"></div>
+
+            <button
+              onClick={handleRotate}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+              title="Döndür (90°)"
+            >
+              <RotateCw className="h-4 w-4 text-white" />
+            </button>
+
+            <button
+              onClick={handleReset}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white text-sm font-medium"
+              title="Sıfırla"
+            >
+              Sıfırla
+            </button>
+
+            <div className="w-px h-6 bg-white/20"></div>
+
+            <button
+              onClick={handleDownload}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+              title="İndir"
+            >
+              <Download className="h-4 w-4 text-white" />
+            </button>
+
+            <button
+              onClick={toggleFullscreen}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+              title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran"}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4 text-white" />
+              ) : (
+                <Maximize2 className="h-4 w-4 text-white" />
+              )}
+            </button>
+          </div>
+
+          {/* Kapat Butonu */}
+          <button
+            onClick={handleClose}
+            className="p-2 rounded-lg bg-red-600/90 hover:bg-red-700 transition-all"
+            title="Kapat (ESC)"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+        </div>
+      </div>
+
+      {/* Alt Kontrol Paneli - Sadece Mobil */}
+      <div
+        className={`md:hidden absolute bottom-0 left-0 right-0 z-20 bg-linear-to-t from-black/80 to-transparent p-4 transition-all duration-300 ${
+          showControls
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={handleZoomOut}
+            disabled={zoom <= 0.5}
+            className="p-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 active:scale-95 transition-all"
+          >
+            <ZoomOut className="h-5 w-5 text-white" />
+          </button>
+
+          <span className="text-white font-medium px-4 py-2 rounded-lg bg-white/10 min-w-[70px] text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+
+          <button
+            onClick={handleZoomIn}
+            disabled={zoom >= 3}
+            className="p-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 active:scale-95 transition-all"
+          >
+            <ZoomIn className="h-5 w-5 text-white" />
+          </button>
+
+          <div className="w-px h-8 bg-white/20 mx-1"></div>
+
+          <button
+            onClick={handleRotate}
+            className="p-3 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
+          >
+            <RotateCw className="h-5 w-5 text-white" />
+          </button>
+
+          <button
+            onClick={handleDownload}
+            className="p-3 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
+          >
+            <Download className="h-5 w-5 text-white" />
+          </button>
+
+          <button
+            onClick={handleReset}
+            className="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all text-white text-sm font-medium"
+          >
+            Sıfırla
+          </button>
+        </div>
+      </div>
+
+      {/* Görsel Container - Pinch Zoom ve Touch Desteği */}
+      <div
+        className="relative w-full h-full flex items-center justify-center p-4 md:p-8 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={handleWheel}
       >
         <div
+          ref={imageRef}
+          className={`relative max-w-full max-h-full touch-none select-none ${
+            zoom > 1 ? "cursor-move" : "cursor-default"
+          }`}
           style={{
-            transform: `scale(${zoom}) rotate(${rotation}deg)`,
-            transition: "transform 0.3s ease-out",
+            transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+            transition: isDragging
+              ? "none"
+              : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
-          className="relative"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <Image
             src={imageUrl}
             alt={title}
             width={1920}
             height={1080}
-            className="max-w-full h-auto rounded-lg shadow-2xl select-none"
+            className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
             quality={100}
             priority
             draggable={false}

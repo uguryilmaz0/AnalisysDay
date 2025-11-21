@@ -27,16 +27,18 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
-            <Link
-              href="/"
-              className={`${
-                isActive("/")
-                  ? "text-blue-400 font-semibold"
-                  : "text-gray-300 hover:text-blue-400"
-              } transition-all duration-200`}
-            >
-              Ana Sayfa
-            </Link>
+            {!user && (
+              <Link
+                href="/"
+                className={`${
+                  isActive("/")
+                    ? "text-blue-400 font-semibold"
+                    : "text-gray-300 hover:text-blue-400"
+                } transition-all duration-200`}
+              >
+                Ana Sayfa
+              </Link>
+            )}
             <Link
               href="/analysis"
               className={`${
@@ -156,17 +158,19 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden pb-4 pt-2 space-y-3 border-t border-gray-800 mt-2">
             {/* Mobile Navigation Links */}
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block py-2 ${
-                isActive("/")
-                  ? "text-blue-400 font-semibold"
-                  : "text-gray-300 hover:text-blue-400"
-              } transition-colors`}
-            >
-              Ana Sayfa
-            </Link>
+            {!user && (
+              <Link
+                href="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block py-2 ${
+                  isActive("/")
+                    ? "text-blue-400 font-semibold"
+                    : "text-gray-300 hover:text-blue-400"
+                } transition-colors`}
+              >
+                Ana Sayfa
+              </Link>
+            )}
             <Link
               href="/analysis"
               onClick={() => setMobileMenuOpen(false)}

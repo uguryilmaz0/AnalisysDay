@@ -21,6 +21,8 @@ interface AuthContextType {
   signUp: (
     email: string,
     username: string,
+    firstName: string,
+    lastName: string,
     password: string,
     emailNotifications: boolean
   ) => Promise<void>;
@@ -101,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (
     email: string,
     username: string,
+    firstName: string,
+    lastName: string,
     password: string,
     emailNotifications: boolean
   ) => {
@@ -136,6 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       uid: userCredential.user.uid,
       email: email,
       username: username.toLowerCase(),
+      firstName: firstName,
+      lastName: lastName,
       role: isSuperAdmin ? "admin" : "user",
       superAdmin: isSuperAdmin,
       isPaid: false, // Admin rolü zaten premium erişim sağlar

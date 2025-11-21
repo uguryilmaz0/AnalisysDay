@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend API key optional (environment variable yoksa çalışmaz)
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,9 +40,10 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      // Resend ile email gönder
-      await resend.emails.send({
-        from: fromEmail,
+      // Resend ile email gönder (API key yoksa atlayıp sadece log)
+      if (resend) {
+        await resend.emails.send({
+          from: fromEmail,
         to: supportEmail,
         replyTo: email,
         subject: `[Destek Talebi] ${categoryLabels[category] || category.toUpperCase()}: ${subject}`,
@@ -95,14 +99,25 @@ export async function POST(request: NextRequest) {
             </body>
           </html>
         `,
-      });
+        });
 
-      console.log("✅ Destek emaili başarıyla gönderildi:", { email, subject });
+        console.log("✅ Destek emaili başarıyla gönderildi:", { email, subject });
+      } else {
+        console.warn("⚠️ Resend API key tanımlı değil. Email gönderilemiyor.");
+      }
+
+      // Email gönderilse de gönderilmese de başarılı yanıt dön
+      console.log("📝 Destek talebi kaydedildi:", {
+        name,
+        email,
+        subject,
+        category,
+      });
 
       return NextResponse.json(
         { 
           success: true, 
-          message: "Destek talebiniz başarıyla alındı" 
+          message: "Destek talebiniz başarıyla alındı. En kısa sürede size dönüş yapacağız." 
         },
         { status: 200 }
       );
@@ -110,15 +125,6 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error("❌ Email gönderme hatası:", emailError);
       
-      // Email gönderilemezse bile isteği kaydet
-      console.log("📝 Email gönderilemedi ama talep kaydedildi:", {
-        name,
-        email,
-        subject,
-        category,
-        message: message.substring(0, 100),
-      });
-
       return NextResponse.json(
         { 
           success: true, 

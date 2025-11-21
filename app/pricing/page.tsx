@@ -1,8 +1,5 @@
 "use client";
-
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import {
   CreditCard,
   CheckCircle2,
@@ -13,17 +10,20 @@ import {
   Target,
   Sparkles,
 } from "lucide-react";
+import { Button, Card } from "@/shared/components/ui";
+import {
+  useRequireAuth,
+  usePermissions,
+  useToast,
+  useCopyToClipboard,
+} from "@/shared/hooks";
 
 export default function PricingPage() {
-  const { user, userData } = useAuth();
+  const { user, userData } = useRequireAuth({ requireEmailVerified: true });
+  const { hasPremiumAccess } = usePermissions();
+  const { showToast } = useToast();
+  const { copy } = useCopyToClipboard();
   const router = useRouter();
-
-  // Email doğrulanmamışsa ve admin değilse verify sayfasına yönlendir
-  useEffect(() => {
-    if (user && userData && userData.role !== "admin" && !user.emailVerified) {
-      router.push("/register/verify-email");
-    }
-  }, [user, userData, router]);
 
   const price = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE || "500";
   const iban =
@@ -33,16 +33,18 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_ACCOUNT_HOLDER || "Hesap Sahibi";
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "905xxxxxxxxx";
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Kopyalandı!");
+  const copyToClipboard = async (text: string) => {
+    const success = await copy(text);
+    if (success) {
+      showToast("Kopylandı!", "success");
+    }
   };
 
   // Zaten premium ise
-  if (userData?.isPaid) {
+  if (hasPremiumAccess) {
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center px-4 py-12">
-        <div className="max-w-2xl w-full bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 text-center">
+        <Card padding="lg" className="max-w-2xl w-full text-center">
           <div className="bg-green-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="h-10 w-10 text-white" />
           </div>
@@ -52,7 +54,7 @@ export default function PricingPage() {
           <p className="text-gray-400 mb-6">
             Günlük analizlere sınırsız erişiminiz bulunmaktadır.
           </p>
-          {userData.subscriptionEndDate && (
+          {userData?.subscriptionEndDate && (
             <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-400">Abonelik Bitiş Tarihi</p>
               <p className="text-xl font-bold text-blue-400">
@@ -62,13 +64,14 @@ export default function PricingPage() {
               </p>
             </div>
           )}
-          <button
+          <Button
             onClick={() => router.push("/analysis")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition"
+            variant="primary"
+            size="lg"
           >
             Analizlere Git
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -92,8 +95,8 @@ export default function PricingPage() {
             <span className="text-white">Sınırsız Erişim</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Günlük teknik analizler, hedef fiyatlar ve profesyonel tahminlerle
-            kazanmaya başlayın
+            Günlük teknik analizler, veri okuma dersleri ve profesyonel eğitim
+            içerikleriyle öğrenmeye başlayın
           </p>
         </div>
 

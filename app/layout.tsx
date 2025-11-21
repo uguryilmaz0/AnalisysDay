@@ -5,13 +5,15 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
+import { ToastProvider } from "@/shared/hooks/useToast";
+import { ToastContainer } from "@/shared/components/ui";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AnalysisDay - Daily Match Analysis and Betting Predictions",
+  title: "AnalysisDay - Daily Match Analysis Predictions",
   description:
-    "Start winning with professional daily match analysis and betting predictions.",
+    "Start winning with professional daily match analysis predictions.",
 };
 
 export default function RootLayout({
@@ -24,12 +26,15 @@ export default function RootLayout({
       <body
         className={`${inter.className} antialiased bg-slate-900 flex flex-col min-h-screen`}
       >
-        <AuthProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <WhatsAppWidget />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <WhatsAppWidget />
+            <ToastContainer />
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -8,10 +8,12 @@ import {
   MessageCircle,
   Search,
 } from "lucide-react";
+import { useDebounce } from "@/shared/hooks";
 
 export default function FAQPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const faqs = [
     {
@@ -21,7 +23,7 @@ export default function FAQPage() {
         {
           question: "AnalysisDay nedir?",
           answer:
-            "AnalysisDay, profesyonel spor analizi platformudur. Günlük olarak güncellenen teknik analizler, hedef fiyatlar ve uzman tahminleri sunar. Premium üyelerimiz tüm analiz içeriklerine sınırsız erişim sağlar.",
+            "AnalysisDay, profesyonel spor istatistik analizi eğitim platformudur. Günlük olarak güncellenen teknik analiz eğitimleri, veri okuma dersleri ve istatistiksel değerlendirme metodolojileri sunar. Premium üyelerimiz tüm eğitim içeriklerine sınırsız erişim sağlar.",
         },
         {
           question: "Nasıl üye olabilirim?",
@@ -103,9 +105,9 @@ export default function FAQPage() {
             "Günlük analizler her gün düzenli olarak yayınlanır. Email bildirimlerini açtıysanız, yeni analiz yayınlandığında anında haberdar olursunuz.",
         },
         {
-          question: "Analizler garantili kazanç sağlar mı?",
+          question: "Eğitim içerikleri garantili kazanç sağlar mı?",
           answer:
-            "Hayır. Analizlerimiz bilgilendirme amaçlıdır ve yatırım tavsiyesi niteliği taşımaz. Geçmiş performans gelecekteki sonuçların garantisi değildir. Tüm kararlar size aittir ve sorumluluğu kabul edersiniz.",
+            "Hayır. Platformumuz SADECE EĞİTİM AMAÇLIDIR. İçeriklerimiz spor istatistik analizi öğretmek için hazırlanmıştır. Yatırım tavsiyesi, bahis önerisi veya kazanç garantisi VERİLMEZ. Tüm kararlar size aittir. Bu bir eğitim platformudur.",
         },
         {
           question: "Analiz görsellerini paylaşabilir miyim?",
@@ -176,8 +178,10 @@ export default function FAQPage() {
       ...category,
       questions: category.questions.filter(
         (q) =>
-          q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.answer.toLowerCase().includes(searchQuery.toLowerCase())
+          q.question
+            .toLowerCase()
+            .includes(debouncedSearchQuery.toLowerCase()) ||
+          q.answer.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
       ),
     }))
     .filter((category) => category.questions.length > 0);
@@ -266,7 +270,7 @@ export default function FAQPage() {
           ))}
         </div>
 
-        {searchQuery && filteredFAQs.length === 0 && (
+        {debouncedSearchQuery && filteredFAQs.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-400 text-lg mb-4">
               Aradığınız soruyu bulamadık.

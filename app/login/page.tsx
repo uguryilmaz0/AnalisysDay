@@ -1,48 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogIn, User, Lock, AlertCircle, Shield } from "lucide-react";
-import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
+import { LogIn, User, Lock } from "lucide-react";
+import { Button, Input } from "@/shared/components/ui";
+import { useToast, useRateLimit } from "@/shared/hooks";
+import { AuthLayout } from "@/shared/components/AuthLayout";
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [rateLimitError, setRateLimitError] = useState("");
 
   const { signIn } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
-  const rateLimiter = new RateLimiter("login");
-
-  // Check rate limit on mount
-  useEffect(() => {
-    const { isBlocked, remainingTime } = rateLimiter.check();
-    if (isBlocked) {
-      setRateLimitError(
-        `Çok fazla başarısız deneme. Lütfen ${formatRemainingTime(
-          remainingTime
-        )} sonra tekrar deneyin.`
-      );
-    }
-  }, []);
+  const rateLimit = useRateLimit({ key: "login" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setRateLimitError("");
 
     // Check rate limit
-    const { isBlocked, remainingTime } = rateLimiter.check();
-    if (isBlocked) {
-      setRateLimitError(
-        `Çok fazla başarısız deneme. Lütfen ${formatRemainingTime(
-          remainingTime
-        )} sonra tekrar deneyin.`
-      );
+    if (!rateLimit.checkAndNotify()) {
       return;
     }
 
@@ -50,17 +31,19 @@ export default function LoginPage() {
 
     try {
       await signIn(emailOrUsername, password);
-      rateLimiter.reset(); // Reset on success
+      rateLimit.reset(); // Reset on success
       router.push("/analysis");
     } catch (err) {
-      rateLimiter.recordAttempt(); // Record failed attempt
+      rateLimit.recordAttempt(); // Record failed attempt
 
       const error = err as { code?: string; message?: string };
 
       // Email doğrulama hatası kontrolü
       if (error.message === "EMAIL_NOT_VERIFIED") {
-        setError(
-          "⚠️ Email adresiniz doğrulanmamış! Lütfen email kutunuzu kontrol edin ve doğrulama linkine tıklayın."
+        showToast(
+          "⚠️ Email adresiniz doğrulanmamış! Lütfen email kutunuzu kontrol edin ve doğrulama linkine tıklayın.",
+          "warning",
+          5000
         );
         // 3 saniye sonra verify sayfasına yönlendir
         setTimeout(() => {
@@ -68,22 +51,24 @@ export default function LoginPage() {
         }, 3000);
         return;
       } else if (error.message === "Kullanıcı bulunamadı") {
-        setError("Kullanıcı adı veya email bulunamadı!");
+        showToast("Kullanıcı adı veya email bulunamadı!", "error");
       } else if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/wrong-password" ||
         error.code === "auth/invalid-credential"
       ) {
-        const remaining = rateLimiter.getRemainingAttempts();
-        setError(
+        showToast(
           `Kullanıcı adı/email veya şifre hatalı! ${
-            remaining > 0 ? `(Kalan deneme: ${remaining})` : ""
-          }`
+            rateLimit.remainingAttempts > 0
+              ? `(Kalan deneme: ${rateLimit.remainingAttempts})`
+              : ""
+          }`,
+          "error"
         );
       } else if (error.code === "auth/invalid-email") {
-        setError("Geçersiz email adresi!");
+        showToast("Geçersiz email adresi!", "error");
       } else {
-        setError("Giriş yapılamadı. Lütfen tekrar deneyin.");
+        showToast("Giriş yapılamadı. Lütfen tekrar deneyin.", "error");
       }
     } finally {
       setLoading(false);
@@ -91,89 +76,57 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-r from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-emerald-500/20">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-emerald-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LogIn className="h-8 w-8 text-white" />
+    <AuthLayout
+      title="Giriş Yap"
+      description="AnalysisDay hesabınıza giriş yapın"
+      icon={LogIn}
+    >
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Input
+          label="Kullanıcı Adı veya Email"
+          type="text"
+          value={emailOrUsername}
+          onChange={(e) => setEmailOrUsername(e.target.value)}
+          icon={<User className="h-5 w-5" />}
+          placeholder="kullaniciadi veya ornek@email.com"
+          helperText="Kullanıcı adınız veya email adresiniz ile giriş yapabilirsiniz"
+          required
+          fullWidth
+        />
+
+        <div>
+          <Input
+            label="Şifre"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            icon={<Lock className="h-5 w-5" />}
+            placeholder="••••••••"
+            required
+            minLength={6}
+            fullWidth
+          />
+          <div className="text-right mt-2">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-emerald-400 hover:text-emerald-300"
+            >
+              Şifremi Unuttum
+            </Link>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Giriş Yap</h1>
-          <p className="text-gray-400">AnalysisDay hesabınıza giriş yapın</p>
         </div>
 
-        {/* Rate Limit Error */}
-        {rateLimitError && (
-          <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <Shield className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
-            <p className="text-orange-200 text-sm">{rateLimitError}</p>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && !rateLimitError && (
-          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-            <p className="text-red-200 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Kullanıcı Adı veya Email
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="text"
-                value={emailOrUsername}
-                onChange={(e) => setEmailOrUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="kullaniciadi veya ornek@email.com"
-                required
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Kullanıcı adınız veya email adresiniz ile giriş yapabilirsiniz
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Şifre
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            <div className="text-right mt-2">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-emerald-400 hover:text-emerald-300"
-              >
-                Şifremi Unuttum
-              </Link>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !!rateLimitError}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
-          >
-            {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
-          </button>
-        </form>
+        <Button
+          type="submit"
+          disabled={loading}
+          variant="success"
+          size="lg"
+          loading={loading}
+          fullWidth
+        >
+          Giriş Yap
+        </Button>
 
         {/* Footer Links */}
         <div className="mt-6 text-center space-y-2">
@@ -187,7 +140,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }

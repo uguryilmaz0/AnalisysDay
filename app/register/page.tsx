@@ -1,89 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  UserPlus,
-  Mail,
-  Lock,
-  AlertCircle,
-  CheckCircle2,
-  Bell,
-  Shield,
-  User,
-} from "lucide-react";
-import { RateLimiter, formatRemainingTime } from "@/lib/rateLimit";
+import { UserPlus, Mail, Lock, CheckCircle2, Bell, User } from "lucide-react";
+import { Button, Input } from "@/shared/components/ui";
+import { useFormValidation, useToast, useRateLimit } from "@/shared/hooks";
+import { AuthLayout } from "@/shared/components/AuthLayout";
+import { KVKKConsent } from "@/shared/components/KVKKConsent";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [error, setError] = useState("");
+  const [kvkkConsents, setKvkkConsents] = useState<{
+    terms: boolean;
+    privacy: boolean;
+    kvkk: boolean;
+    explicitConsent: boolean;
+    errors: string[];
+  }>({
+    terms: false,
+    privacy: false,
+    kvkk: false,
+    explicitConsent: false,
+    errors: [],
+  });
   const [loading, setLoading] = useState(false);
-  const [rateLimitError, setRateLimitError] = useState("");
 
   const { signUp } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
-  const rateLimiter = new RateLimiter("register");
-
-  // Check rate limit on mount
-  useEffect(() => {
-    const { isBlocked, remainingTime } = rateLimiter.check();
-    if (isBlocked) {
-      setRateLimitError(
-        `Çok fazla kayıt denemesi. Lütfen ${formatRemainingTime(
-          remainingTime
-        )} sonra tekrar deneyin.`
-      );
-    }
-  }, []);
+  const { validate } = useFormValidation();
+  const rateLimit = useRateLimit({ key: "register" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setRateLimitError("");
 
     // Check rate limit
-    const { isBlocked, remainingTime } = rateLimiter.check();
-    if (isBlocked) {
-      setRateLimitError(
-        `Çok fazla kayıt denemesi. Lütfen ${formatRemainingTime(
-          remainingTime
-        )} sonra tekrar deneyin.`
-      );
+    if (!rateLimit.checkAndNotify()) {
       return;
     }
 
-    // Validasyon
-    if (password !== confirmPassword) {
-      setError("Şifreler eşleşmiyor!");
+    // KVKK Validation - ZORUNLU
+    if (
+      !kvkkConsents.terms ||
+      !kvkkConsents.privacy ||
+      !kvkkConsents.kvkk ||
+      !kvkkConsents.explicitConsent
+    ) {
+      showToast("Lütfen tüm zorunlu onayları kabul edin", "error");
       return;
     }
 
-    if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalıdır!");
-      return;
-    }
+    // Validation with useFormValidation hook
+    const validationResult = validate(
+      { email, username, firstName, lastName, password, confirmPassword },
+      {
+        validateEmail: true,
+        validateUsername: true,
+        validatePassword: true,
+        validateConfirmPassword: true,
+      }
+    );
 
-    if (username.length < 3) {
-      setError("Kullanıcı adı en az 3 karakter olmalıdır!");
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      setError("Kullanıcı adı sadece harf, rakam ve alt çizgi içerebilir!");
+    if (!validationResult.isValid) {
+      showToast(validationResult.errors[0].message, "error");
       return;
     }
 
     setLoading(true);
 
     try {
-      await signUp(email, username, password, emailNotifications);
-      rateLimiter.reset(); // Reset on success
+      await signUp(
+        email,
+        username,
+        firstName,
+        lastName,
+        password,
+        emailNotifications
+      );
+      rateLimit.reset(); // Reset on success
 
       // Super admin kontrolü
       const superAdminEmails =
@@ -99,19 +100,19 @@ export default function RegisterPage() {
         router.push("/register/verify-email");
       }
     } catch (err) {
-      rateLimiter.recordAttempt(); // Record failed attempt
+      rateLimit.recordAttempt(); // Record failed attempt
 
       const error = err as { code?: string; message?: string };
       if (error.message === "Bu kullanıcı adı zaten kullanılıyor") {
-        setError("Bu kullanıcı adı zaten kullanılıyor!");
+        showToast("Bu kullanıcı adı zaten kullanılıyor!", "error");
       } else if (error.code === "auth/email-already-in-use") {
-        setError("Bu email adresi zaten kullanılıyor!");
+        showToast("Bu email adresi zaten kullanılıyor!", "error");
       } else if (error.code === "auth/invalid-email") {
-        setError("Geçersiz email adresi!");
+        showToast("Geçersiz email adresi!", "error");
       } else if (error.code === "auth/weak-password") {
-        setError("Şifre çok zayıf. Daha güçlü bir şifre seçin.");
+        showToast("Şifre çok zayıf. Daha güçlü bir şifre seçin.", "error");
       } else {
-        setError("Kayıt olunamadı. Lütfen tekrar deneyin.");
+        showToast("Kayıt olunamadı. Lütfen tekrar deneyin.", "error");
       }
     } finally {
       setLoading(false);
@@ -119,146 +120,134 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-r from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-emerald-500/20">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-emerald-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserPlus className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Kayıt Ol</h1>
-          <p className="text-gray-400">Ücretsiz hesap oluşturun ve başlayın</p>
+    <AuthLayout
+      title="Kayıt Ol"
+      description="Ücretsiz hesap oluşturun ve başlayın"
+      icon={UserPlus}
+    >
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Input
+          label="Email Adresi"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          icon={<Mail className="h-5 w-5" />}
+          placeholder="ornek@email.com"
+          required
+          fullWidth
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Ad"
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            icon={<User className="h-5 w-5" />}
+            placeholder="Adınız"
+            required
+            minLength={2}
+            fullWidth
+          />
+
+          <Input
+            label="Soyad"
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            icon={<User className="h-5 w-5" />}
+            placeholder="Soyadınız"
+            required
+            minLength={2}
+            fullWidth
+          />
         </div>
 
-        {/* Rate Limit Error */}
-        {rateLimitError && (
-          <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <Shield className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
-            <p className="text-orange-200 text-sm">{rateLimitError}</p>
-          </div>
-        )}
+        <Input
+          label="Kullanıcı Adı"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value.toLowerCase())}
+          icon={<User className="h-5 w-5" />}
+          placeholder="kullaniciadi"
+          helperText="En az 3 karakter, sadece harf, rakam ve alt çizgi"
+          required
+          minLength={3}
+          pattern="[a-zA-Z0-9_]+"
+          fullWidth
+        />
 
-        {/* Error Message */}
-        {error && !rateLimitError && (
-          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-            <p className="text-red-200 text-sm">{error}</p>
-          </div>
-        )}
+        <Input
+          label="Şifre"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          icon={<Lock className="h-5 w-5" />}
+          placeholder="••••••••"
+          helperText="En az 6 karakter olmalıdır"
+          required
+          minLength={6}
+          fullWidth
+        />
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email Adresi
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="ornek@email.com"
-                required
-              />
-            </div>
-          </div>
+        <Input
+          label="Şifre Tekrar"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          icon={<Lock className="h-5 w-5" />}
+          placeholder="••••••••"
+          required
+          minLength={6}
+          fullWidth
+        />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Kullanıcı Adı
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="kullaniciadi"
-                required
-                minLength={3}
-                pattern="[a-zA-Z0-9_]+"
-                title="Sadece harf, rakam ve alt çizgi kullanılabilir"
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              En az 3 karakter, sadece harf, rakam ve alt çizgi
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Şifre
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              En az 6 karakter olmalıdır
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Şifre Tekrar
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-500"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-          </div>
-
-          {/* Email Bildirimleri */}
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={emailNotifications}
-                onChange={(e) => setEmailNotifications(e.target.checked)}
-                className="mt-1 h-5 w-5 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 bg-slate-700 border-slate-600"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Bell className="h-4 w-4 text-emerald-400" />
-                  <span className="font-semibold text-white">
-                    Email Bildirimleri
-                  </span>
-                </div>
-                <p className="text-sm text-gray-400">
-                  Yeni maç analizi yayınlandığında email ile bildirim almak
-                  istiyorum
-                </p>
+        {/* Email Bildirimleri */}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={emailNotifications}
+              onChange={(e) => setEmailNotifications(e.target.checked)}
+              className="mt-1 h-5 w-5 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 bg-slate-700 border-slate-600"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Bell className="h-4 w-4 text-emerald-400" />
+                <span className="font-semibold text-white">
+                  Email Bildirimleri
+                </span>
               </div>
-            </label>
-          </div>
+              <p className="text-sm text-gray-400">
+                Yeni maç analizi yayınlandığında email ile bildirim almak
+                istiyorum
+              </p>
+            </div>
+          </label>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading || !!rateLimitError}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition shadow-lg hover:shadow-xl"
-          >
-            {loading ? "Kayıt Oluşturuluyor..." : "Kayıt Ol"}
-          </button>
-        </form>
+        {/* KVKK Onayları - ZORUNLU */}
+        <KVKKConsent
+          onAcceptAll={(consents) => setKvkkConsents(consents)}
+          requiredConsents={{
+            terms: true,
+            privacy: true,
+            kvkk: true,
+            explicitConsent: true,
+          }}
+        />
+
+        <Button
+          type="submit"
+          disabled={loading}
+          variant="success"
+          size="lg"
+          loading={loading}
+          fullWidth
+        >
+          Kayıt Ol
+        </Button>
 
         {/* Success Info */}
         <div className="mt-6 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
@@ -293,7 +282,7 @@ export default function RegisterPage() {
             </button>
           </p>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }

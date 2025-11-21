@@ -1,6 +1,6 @@
-# AnalysisDay - Daily Match Analysis & Betting Predictions
+# AnalysisDay - Sports Statistics Analysis & Data Reading Education Platform
 
-**AnalysisDay**, premium kullanıcılara günlük profesyonel maç analizleri ve iddaa tahminleri sunan bir Next.js 15 uygulamasıdır.
+**AnalysisDay**, kullanıcılara spor istatistik analizi ve veri okuma eğitimi sunan profesyonel bir Next.js 15 eğitim platformudur.
 
 ## 🚀 Özellikler
 

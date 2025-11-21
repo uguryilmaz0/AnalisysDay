@@ -19,8 +19,9 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-gray-400 text-sm mb-4 max-w-md">
-              Profesyonel spor analizi platformu. Günlük teknik analizler, hedef
-              fiyatlar ve uzman tahminleri ile kazanmaya başlayın.
+              Profesyonel spor istatistik analizi eğitim platformu. Günlük
+              teknik analizler, veri okuma dersleri ve istatistiksel
+              değerlendirme metodolojileri.
             </p>
             <div className="flex items-center space-x-4">
               <a
