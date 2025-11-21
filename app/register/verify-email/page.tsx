@@ -35,10 +35,6 @@ export default function VerifyEmailPage() {
       await auth.currentUser.reload();
       if (auth.currentUser.emailVerified) {
         clearInterval(checkEmailVerification);
-        showToast(
-          "Email adresiniz doğrulandı! Giriş yapabilirsiniz.",
-          "success"
-        );
 
         // Firestore'u güncelle
         const { doc, setDoc } = await import("firebase/firestore");
@@ -48,6 +44,15 @@ export default function VerifyEmailPage() {
           { emailVerified: true },
           { merge: true }
         );
+
+        showToast(
+          "Email adresiniz doğrulandı! Giriş yapabilirsiniz.",
+          "success"
+        );
+
+        // Çıkış yap ve login sayfasına yönlendir
+        const { signOut } = await import("firebase/auth");
+        await signOut(auth);
 
         router.push("/login");
       }

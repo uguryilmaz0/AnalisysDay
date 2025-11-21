@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,10 +14,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { signIn } = useAuth();
+  const { signIn, user, userData } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
   const rateLimit = useRateLimit({ key: "login" });
+
+  // Eğer kullanıcı zaten giriş yapmışsa ve email doğrulanmışsa yönlendir
+  useEffect(() => {
+    if (user && userData) {
+      if (userData.role === "admin" || user.emailVerified) {
+        router.push("/analysis");
+      }
+    }
+  }, [user, userData, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
