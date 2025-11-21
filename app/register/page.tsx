@@ -43,7 +43,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check rate limit
+    // Client-side rate limit check (UI feedback)
     if (!rateLimit.checkAndNotify()) {
       return;
     }
@@ -84,6 +84,33 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // Server-side rate limit check
+      const checkResponse = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, username }),
+      });
+
+      if (!checkResponse.ok) {
+        const errorData = await checkResponse.json();
+
+        // Server-side rate limit exceeded
+        if (checkResponse.status === 429) {
+          rateLimit.recordAttempt(); // Sync client-side
+          showToast(errorData.message || "Çok fazla deneme!", "error", 5000);
+          setLoading(false);
+          return;
+        }
+
+        // Username already taken
+        if (errorData.error === "USERNAME_TAKEN") {
+          showToast(errorData.message, "error");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Rate limit OK - proceed with Firebase auth
       await signUp(
         email,
         username,

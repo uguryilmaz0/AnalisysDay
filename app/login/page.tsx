@@ -32,7 +32,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check rate limit
+    // Client-side rate limit check (UI feedback)
     if (!rateLimit.checkAndNotify()) {
       return;
     }
@@ -40,6 +40,34 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Server-side rate limit check
+      const checkResponse = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailOrUsername, password }),
+      });
+
+      if (!checkResponse.ok) {
+        const errorData = await checkResponse.json();
+
+        // Server-side rate limit exceeded
+        if (checkResponse.status === 429) {
+          rateLimit.recordAttempt(); // Sync client-side
+          showToast(errorData.message || "Çok fazla deneme!", "error", 5000);
+          setLoading(false);
+          return;
+        }
+
+        // User not found
+        if (errorData.error === "USER_NOT_FOUND") {
+          rateLimit.recordAttempt();
+          showToast("Kullanıcı adı veya email bulunamadı!", "error");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Rate limit OK - proceed with Firebase auth
       await signIn(emailOrUsername, password);
       rateLimit.reset(); // Reset on success
       router.push("/analysis");
