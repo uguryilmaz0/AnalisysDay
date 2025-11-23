@@ -175,11 +175,22 @@ export async function createAnalysis(
   createdBy: string
 ): Promise<string> {
   try {
+    const now = new Date();
+    const createdAt = Timestamp.now();
+    
+    // Ertesi günün saat 04:00'ünü hesapla
+    const expiresDate = new Date(now);
+    expiresDate.setDate(expiresDate.getDate() + 1);
+    expiresDate.setHours(4, 0, 0, 0);
+    const expiresAt = Timestamp.fromDate(expiresDate);
+    
     const analysisData: Omit<DailyAnalysis, 'id'> = {
       title,
       imageUrls,
       description,
-      date: Timestamp.now(),
+      date: createdAt,
+      createdAt,
+      expiresAt,
       isVisible: true,
       createdBy,
     };
@@ -189,6 +200,34 @@ export async function createAnalysis(
   } catch (error) {
     console.error('Analiz oluşturulamadı:', error);
     throw error;
+  }
+}
+
+/**
+ * Bugünün tüm analizlerini getir
+ */
+export async function getTodayAnalyses(): Promise<DailyAnalysis[]> {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    
+    const q = query(
+      collection(db, 'daily_analysis'),
+      where('isVisible', '==', true),
+      where('date', '>=', Timestamp.fromDate(todayStart)),
+      where('date', '<=', Timestamp.fromDate(todayEnd)),
+      orderBy('date', 'desc')
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as DailyAnalysis));
+  } catch (error) {
+    console.error('Bugünün analizleri alınamadı:', error);
+    return [];
   }
 }
 
@@ -235,6 +274,28 @@ export async function deleteAnalysis(id: string): Promise<void> {
     await deleteDoc(doc(db, 'daily_analysis', id));
   } catch (error) {
     console.error('Analiz silinemedi:', error);
+    throw error;
+  }
+}
+
+/**
+ * Expired analizleri sil (Cron job için)
+ */
+export async function deleteExpiredAnalyses(): Promise<number> {
+  try {
+    const now = Timestamp.now();
+    const q = query(
+      collection(db, 'daily_analysis'),
+      where('expiresAt', '<=', now)
+    );
+
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    return snapshot.size; // Silinen analiz sayısı
+  } catch (error) {
+    console.error('Expired analizler silinemedi:', error);
     throw error;
   }
 }

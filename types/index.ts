@@ -6,8 +6,8 @@ export interface User {
   username: string;
   firstName: string;
   lastName: string;
-  role: 'user' | 'admin';
-  superAdmin?: boolean; // Super adminler diğer adminleri yönetebilir
+  role: 'user' | 'admin' | 'moderator'; // moderator: sadece analiz yükleme yetkisi
+  superAdmin?: boolean; // Super adminler tüm yetkilere sahip
   isPaid: boolean;
   subscriptionEndDate: Timestamp | null;
   lastPaymentDate: Timestamp | null;
@@ -18,12 +18,14 @@ export interface User {
 
 export interface DailyAnalysis {
   id: string;
-  imageUrls: string[]; // Birden fazla görsel için
+  imageUrls: string[]; // Birden fazla görsel
   title: string;
   description?: string;
-  date: Timestamp;
+  date: Timestamp; // Oluşturulma tarihi
+  expiresAt: Timestamp; // Otomatik silinme zamanı (ertesi gün 04:00)
   isVisible: boolean;
-  createdBy: string; // Admin UID
+  createdBy: string; // Admin/Moderator UID
+  createdAt: Timestamp; // Oluşturulma zamanı
 }
 
 export interface PaymentRequest {

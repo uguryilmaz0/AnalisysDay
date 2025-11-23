@@ -94,14 +94,14 @@ export async function requireAuth(req: NextRequest) {
 }
 
 /**
- * Admin kontrolü yapar
+ * Admin kontrolü yapar (admin veya moderator)
  * 
  * @returns Success: { user } | Error: { error, status }
  */
 export async function requireAdmin(
   req: NextRequest
 ): Promise<
-  | { user: { uid: string; email: string | null } }
+  | { user: { uid: string; email: string | null; role: string } }
   | { error: string; status: number }
 > {
   try {
@@ -118,11 +118,52 @@ export async function requireAdmin(
       return { error: 'Forbidden: Admin access required', status: 403 };
     }
 
-    // Admin authenticated - log atma (her request'te log atılmasın)
-    return { user };
+    return { user: { uid: user.uid, email: user.email, role: user.role } };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Admin authentication failed', {
+      path: req.nextUrl.pathname,
+      error: errorMessage,
+    });
+    return { 
+      error: errorMessage.includes('Token missing') || errorMessage.includes('Invalid token')
+        ? errorMessage
+        : 'Authentication failed', 
+      status: 401 
+    };
+  }
+}
+
+/**
+ * Moderator kontrolü (moderator veya üstü)
+ * Moderator: Sadece analiz yükleme yetkisi
+ * 
+ * @returns Success: { user } | Error: { error, status }
+ */
+export async function requireModerator(
+  req: NextRequest
+): Promise<
+  | { user: { uid: string; email: string | null; role: string } }
+  | { error: string; status: number }
+> {
+  try {
+    const user = await requireAuth(req);
+
+    // moderator, admin, veya superAdmin olmalı
+    if (user.role !== 'moderator' && user.role !== 'admin') {
+      logger.warn('Moderator access denied', {
+        uid: user.uid,
+        email: user.email,
+        role: user.role,
+        path: req.nextUrl.pathname,
+      });
+      return { error: 'Forbidden: Moderator access required', status: 403 };
+    }
+
+    return { user: { uid: user.uid, email: user.email, role: user.role } };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Moderator authentication failed', {
       path: req.nextUrl.pathname,
       error: errorMessage,
     });

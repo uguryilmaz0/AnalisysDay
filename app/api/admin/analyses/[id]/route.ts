@@ -8,7 +8,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAdmin } from '@/middleware/auth';
+import { requireModerator } from '@/middleware/auth';
 import { withRateLimit } from '@/lib/rateLimitServer';
 import { UpdateAnalysisSchema } from '@/lib/validationSchemas';
 import { adminDb } from '@/lib/firebaseAdmin';
@@ -33,12 +33,12 @@ export async function GET(
     const rateLimitError = await withRateLimit(req, 'api-general');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization
-    const authResult = await requireAdmin(req);
+    // 2. Authentication & Authorization (Moderator+)
+    const authResult = await requireModerator(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
-    const admin = authResult.user as { uid: string; email: string | null };
+    const moderator = authResult.user as { uid: string; email: string | null };
 
     // 3. Get analysis
     const doc = await adminDb.collection('daily_analysis').doc(id).get();
@@ -52,7 +52,7 @@ export async function GET(
 
     logger.info('Analysis retrieved', {
       id,
-      requestedBy: admin.uid,
+      requestedBy: moderator.uid,
     });
 
     return Response.json({
@@ -86,12 +86,12 @@ export async function PUT(
     const rateLimitError = await withRateLimit(req, 'admin-update');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization
-    const authResult = await requireAdmin(req);
+    // 2. Authentication & Authorization (Moderator+)
+    const authResult = await requireModerator(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
-    const admin = authResult.user as { uid: string; email: string | null };
+    const moderator = authResult.user as { uid: string; email: string | null };
 
     // 3. Validate body
     const body = await req.json();
@@ -110,14 +110,14 @@ export async function PUT(
     const updateData = {
       ...validatedData,
       updatedAt: new Date().toISOString(),
-      updatedBy: admin.uid,
+      updatedBy: moderator.uid,
     };
 
     await adminDb.collection('daily_analysis').doc(id).update(updateData);
 
     logger.info('Analysis updated', {
       id,
-      updatedBy: admin.uid,
+      updatedBy: moderator.uid,
       fields: Object.keys(validatedData),
     });
 
@@ -159,12 +159,12 @@ export async function DELETE(
     const rateLimitError = await withRateLimit(req, 'admin-delete');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization
-    const authResult = await requireAdmin(req);
+    // 2. Authentication & Authorization (Moderator+)
+    const authResult = await requireModerator(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
-    const admin = authResult.user as { uid: string; email: string | null };
+    const moderator = authResult.user as { uid: string; email: string | null };
 
     // 3. Check if exists
     const doc = await adminDb.collection('daily_analysis').doc(id).get();
@@ -180,7 +180,7 @@ export async function DELETE(
 
     logger.info('Analysis deleted', {
       id,
-      deletedBy: admin.uid,
+      deletedBy: moderator.uid,
     });
 
     return Response.json({

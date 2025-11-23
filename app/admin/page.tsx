@@ -48,6 +48,8 @@ export default function AdminPage() {
 
   // Super admin kontrolü
   const isSuperAdmin = userData?.superAdmin || false;
+  const isModerator = userData?.role === "moderator";
+  const isRegularAdmin = userData?.role === "admin" && !isSuperAdmin;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-8 px-4">
@@ -65,13 +67,27 @@ export default function AdminPage() {
                     ⭐ Super Admin
                   </span>
                 )}
+                {isRegularAdmin && (
+                  <span className="ml-2 bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-sm">
+                    👨‍💼 Admin
+                  </span>
+                )}
+                {isModerator && (
+                  <span className="ml-2 bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-sm">
+                    📝 Moderator
+                  </span>
+                )}
               </p>
             </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div
+          className={`grid gap-6 mb-8 ${
+            isSuperAdmin ? "md:grid-cols-3" : "md:grid-cols-1 max-w-md mx-auto"
+          }`}
+        >
           <Card padding="md" hover>
             <div className="flex items-center gap-3 mb-2">
               <TrendingUp className="h-8 w-8 text-blue-500" />
@@ -82,29 +98,34 @@ export default function AdminPage() {
             <p className="text-gray-400">Toplam Analiz</p>
           </Card>
 
-          <Card padding="md" hover>
-            <div className="flex items-center gap-3 mb-2">
-              <Users className="h-8 w-8 text-green-500" />
-              <span className="text-2xl font-bold text-white">
-                {
-                  users.filter(
-                    (u) => (u.isPaid || u.role === "admin") && !u.superAdmin
-                  ).length
-                }
-              </span>
-            </div>
-            <p className="text-gray-400">Premium Üyeler</p>
-          </Card>
+          {/* Super Admin only stats */}
+          {isSuperAdmin && (
+            <>
+              <Card padding="md" hover>
+                <div className="flex items-center gap-3 mb-2">
+                  <Users className="h-8 w-8 text-green-500" />
+                  <span className="text-2xl font-bold text-white">
+                    {
+                      users.filter(
+                        (u) => (u.isPaid || u.role === "admin") && !u.superAdmin
+                      ).length
+                    }
+                  </span>
+                </div>
+                <p className="text-gray-400">Premium Üyeler</p>
+              </Card>
 
-          <Card padding="md" hover>
-            <div className="flex items-center gap-3 mb-2">
-              <Users className="h-8 w-8 text-gray-500" />
-              <span className="text-2xl font-bold text-white">
-                {users.filter((u) => !u.superAdmin).length}
-              </span>
-            </div>
-            <p className="text-gray-400">Toplam Kullanıcı</p>
-          </Card>
+              <Card padding="md" hover>
+                <div className="flex items-center gap-3 mb-2">
+                  <Users className="h-8 w-8 text-gray-500" />
+                  <span className="text-2xl font-bold text-white">
+                    {users.filter((u) => !u.superAdmin).length}
+                  </span>
+                </div>
+                <p className="text-gray-400">Toplam Kullanıcı</p>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Tabs */}
@@ -132,30 +153,36 @@ export default function AdminPage() {
               <TrendingUp className="h-5 w-5" />
               Tüm Analizler
             </button>
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-                activeTab === "users"
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`}
-            >
-              <Users className="h-5 w-5" />
-              Kullanıcılar
-            </button>
-            <button
-              onClick={() => setActiveTab("admins")}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-                activeTab === "admins"
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-              }`}
-            >
-              <Shield className="h-5 w-5" />
-              Admin Yönetimi
-            </button>
 
             {/* Super Admin Only Tabs */}
+            {isSuperAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab("users")}
+                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                    activeTab === "users"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <Users className="h-5 w-5" />
+                  Kullanıcılar
+                </button>
+                <button
+                  onClick={() => setActiveTab("admins")}
+                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                    activeTab === "admins"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <Shield className="h-5 w-5" />
+                  Admin Yönetimi
+                </button>
+              </>
+            )}
+
+            {/* Super Admin Only - System Tabs */}
             {isSuperAdmin && (
               <>
                 <button
@@ -191,11 +218,11 @@ export default function AdminPage() {
 
             {activeTab === "analyses" && <AnalysisListTab />}
 
-            {activeTab === "users" && (
+            {activeTab === "users" && isSuperAdmin && (
               <UserManagementTab currentUserId={user?.uid} />
             )}
 
-            {activeTab === "admins" && (
+            {activeTab === "admins" && isSuperAdmin && (
               <AdminManagementTab
                 currentUserId={user?.uid}
                 isSuperAdmin={isSuperAdmin}

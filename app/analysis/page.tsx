@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getLatestAnalysis, checkSubscriptionExpiry } from "@/lib/db";
+import { getTodayAnalyses, checkSubscriptionExpiry } from "@/lib/db";
 import { DailyAnalysis } from "@/types";
 import { Lock, Calendar, AlertCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
@@ -17,7 +17,7 @@ export default function AnalysisPage() {
   });
   const { hasPremiumAccess } = usePermissions();
   const { refreshUserData } = useAuth();
-  const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null);
+  const [analyses, setAnalyses] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscriptionValid, setSubscriptionValid] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{
@@ -44,8 +44,8 @@ export default function AnalysisPage() {
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
         try {
-          const latestAnalysis = await getLatestAnalysis();
-          setAnalysis(latestAnalysis);
+          const todayAnalyses = await getTodayAnalyses();
+          setAnalyses(todayAnalyses);
         } catch {
           // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
         }
@@ -207,63 +207,75 @@ export default function AnalysisPage() {
         </div>
 
         {/* Analiz İçeriği */}
-        {analysis ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden hover:border-gray-700 transition-all duration-300">
-            {/* Başlık */}
-            <div className="bg-linear-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-800">
-              <div className="flex items-center gap-3 mb-2">
-                <Calendar className="h-5 w-5 text-blue-400" />
-                <span className="text-sm text-gray-400">
-                  {new Date(analysis.date.toDate()).toLocaleDateString(
-                    "tr-TR",
-                    {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    }
-                  )}
-                </span>
-              </div>
-              <h2 className="text-2xl font-bold text-white">
-                {analysis.title}
-              </h2>
-              {analysis.description && (
-                <p className="text-gray-400 mt-2">{analysis.description}</p>
-              )}
-            </div>
-
-            {/* Görseller */}
-            <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
-              {analysis.imageUrls.map((url, index) => (
-                <div
-                  key={index}
-                  className="relative group cursor-pointer"
-                  onClick={() => {
-                    setSelectedImage({
-                      url,
-                      title: `${analysis.title}`,
-                    });
-                    modal.open();
-                  }}
-                >
-                  <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                  <Image
-                    src={url}
-                    alt={`${analysis.title} - Görsel ${index + 1}`}
-                    width={1200}
-                    height={800}
-                    className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
-                    priority={index === 0}
-                  />
-                  {/* Zoom İkonu */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
-                    <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
-                      🔍 Yakından İncele
-                    </div>
+        {analyses.length > 0 ? (
+          <div className="space-y-8">
+            {analyses.map((analysis, analysisIndex) => (
+              <div
+                key={analysis.id}
+                className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden hover:border-gray-700 transition-all duration-300"
+              >
+                {/* Başlık */}
+                <div className="bg-linear-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-800">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Calendar className="h-5 w-5 text-blue-400" />
+                    <span className="text-sm text-gray-400">
+                      {new Date(analysis.date.toDate()).toLocaleDateString(
+                        "tr-TR",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
+                    </span>
+                    {analyses.length > 1 && (
+                      <span className="ml-auto bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+                        Analiz {analysisIndex + 1}/{analyses.length}
+                      </span>
+                    )}
                   </div>
+                  <h2 className="text-2xl font-bold text-white">
+                    {analysis.title}
+                  </h2>
+                  {analysis.description && (
+                    <p className="text-gray-400 mt-2">{analysis.description}</p>
+                  )}
                 </div>
-              ))}
-            </div>
+
+                {/* Görseller */}
+                <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
+                  {analysis.imageUrls.map((url, index) => (
+                    <div
+                      key={index}
+                      className="relative group cursor-pointer"
+                      onClick={() => {
+                        setSelectedImage({
+                          url,
+                          title: `${analysis.title}`,
+                        });
+                        modal.open();
+                      }}
+                    >
+                      <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                      <Image
+                        src={url}
+                        alt={`${analysis.title} - Görsel ${index + 1}`}
+                        width={1200}
+                        height={800}
+                        className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
+                        priority={analysisIndex === 0 && index === 0}
+                      />
+                      {/* Zoom İkonu */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
+                        <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
+                          🔍 Yakından İncele
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <EmptyState

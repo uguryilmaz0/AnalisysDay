@@ -8,7 +8,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { requireAdmin } from '@/middleware/auth';
+import { requireModerator } from '@/middleware/auth';
 import { withRateLimit } from '@/lib/rateLimitServer';
 import { CreateAnalysisSchema } from '@/lib/validationSchemas';
 import { adminDb } from '@/lib/firebaseAdmin';
@@ -24,12 +24,12 @@ export async function POST(req: NextRequest) {
     const rateLimitError = await withRateLimit(req, 'admin-create');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization
-    const authResult = await requireAdmin(req);
+    // 2. Authentication & Authorization (Moderator+)
+    const authResult = await requireModerator(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
-    const admin = authResult.user as { uid: string; email: string | null };
+    const moderator = authResult.user as { uid: string; email: string | null };
 
     // 3. Parse & Validate body
     const body = await req.json();
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
     // 4. Create analysis in Firestore
     const analysisData = {
       ...validatedData,
-      createdBy: admin.uid,
-      createdByEmail: admin.email,
+      createdBy: moderator.uid,
+      createdByEmail: moderator.email,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     logger.info('Analysis created', {
       id: docRef.id,
-      createdBy: admin.uid,
+      createdBy: moderator.uid,
       title: validatedData.title,
     });
 
@@ -109,12 +109,12 @@ export async function GET(req: NextRequest) {
     const rateLimitError = await withRateLimit(req, 'admin-update');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization
-    const authResult = await requireAdmin(req);
+    // 2. Authentication & Authorization (Moderator+)
+    const authResult = await requireModerator(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
-    const admin = authResult.user as { uid: string; email: string | null };
+    const moderator = authResult.user as { uid: string; email: string | null };
 
     // 3. Parse query params
     const { searchParams } = req.nextUrl;
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
 
     logger.info('Analyses listed', {
       count: analyses.length,
-      requestedBy: admin.uid,
+      requestedBy: moderator.uid,
       filters: { visible, limit, offset },
     });
 
