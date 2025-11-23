@@ -67,6 +67,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Vercel Cron: Edge runtime gerektirir
-export const runtime = 'edge';
+// Vercel Cron: Node.js runtime (Firebase Admin SDK için)
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

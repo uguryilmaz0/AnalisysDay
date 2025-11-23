@@ -1,36 +1,45 @@
 # Rate Limit Vercel Deployment Hatası Çözümü
 
 ## 🔴 Problem
+
 Rate limiting **localhost'ta çalışıyor** ama **Vercel production'da çalışmıyor** - kullanıcılar rate limite takılmıyor.
 
 ## 🔍 Muhtemel Sebepler
 
 ### 1. **Environment Variables Eksik** ⚠️ (En Olası)
+
 Vercel Dashboard'da Upstash Redis credentials tanımlanmamış olabilir.
 
 **Çözüm:**
+
 1. Vercel Dashboard > Project Settings > Environment Variables
 2. Şu değerleri ekleyin:
+
 ```bash
 UPSTASH_REDIS_REST_URL=https://tough-locust-35218.upstash.io
 UPSTASH_REDIS_REST_TOKEN=AYmSAAIncDEyNjE0ODFlYThiZmE0NDcyYjVhNWEwNDEyZmNmN2UwMnAxMzUyMTg
 ```
+
 3. **Production, Preview, Development** üçüne de ekleyin
 4. Redeploy yapın: `vercel --prod`
 
 ### 2. **Redis Connection Timeout**
+
 Upstash Redis free plan rate limit'i aşılmış olabilir.
 
 **Kontrol:**
+
 1. Upstash Dashboard'a girin: https://console.upstash.com/
 2. Database > **tough-locust-35218** > Metrics
 3. Command count ve connection count kontrol edin
 4. Eğer limit aşıldıysa **Upgrade** veya **yeni DB oluşturun**
 
 ### 3. **IP Detection Problemi**
+
 Vercel Edge Network IP'leri farklı header'lardan alıyor olabilir.
 
 **Test:**
+
 ```bash
 # Vercel production'da test endpoint'ini çağır
 curl https://your-domain.vercel.app/api/test-rate-limit \
@@ -38,6 +47,7 @@ curl https://your-domain.vercel.app/api/test-rate-limit \
 ```
 
 Expected output:
+
 ```json
 {
   "success": true,
@@ -61,9 +71,11 @@ Eğer `redis.connected = false` ise → **Environment variables eksik**
 Eğer `request.ip = "unknown"` ise → **IP detection sorunu**
 
 ### 4. **Production'da Fail Open Mode**
+
 `lib/rateLimitServer.ts` production'da hata durumunda "fail open" (izin ver) yapıyor olabilir.
 
 **Kontrol:**
+
 ```typescript
 // lib/rateLimitServer.ts line 124-130
 if (process.env.NODE_ENV === 'production') {
@@ -75,6 +87,7 @@ if (process.env.NODE_ENV === 'production') {
 ## 🧪 Test Adımları
 
 ### 1. Local Test (Çalışıyor mu?)
+
 ```bash
 # Terminal 1: Dev server
 npm run dev
@@ -91,6 +104,7 @@ done
 **Expected:** 6. istekte `429 Too Many Requests`
 
 ### 2. Vercel Production Test
+
 ```bash
 # Aynı testi production'da dene
 for i in {1..6}; do
@@ -105,6 +119,7 @@ done
 **Actual (şu an):** Hepsi `401 Unauthorized` (rate limit yok)
 
 ### 3. Redis Connection Test
+
 ```bash
 # Production'da Redis testi
 curl https://your-domain.vercel.app/api/test-rate-limit \
@@ -131,6 +146,7 @@ curl https://your-domain.vercel.app/api/test-rate-limit \
 ```
 
 Eğer limit aşıldıysa:
+
 1. Yeni database oluştur (Free tier = 1 DB)
 2. Veya **Pay as you go** plan'e geç ($0.2/100K commands)
 
@@ -192,18 +208,23 @@ if (!redis) {
   const ip = getRequestIdentifier(req);
   const limit = inMemoryLimits.get(ip);
   const now = Date.now();
-  
+
   if (!limit || now > limit.resetAt) {
     inMemoryLimits.set(ip, { count: 1, resetAt: now + 900000 }); // 15 min
     return { success: true, limit: 5, remaining: 4, reset: now + 900000 };
   }
-  
+
   if (limit.count >= 5) {
     return { success: false, limit: 5, remaining: 0, reset: limit.resetAt };
   }
-  
+
   limit.count++;
-  return { success: true, limit: 5, remaining: 5 - limit.count, reset: limit.resetAt };
+  return {
+    success: true,
+    limit: 5,
+    remaining: 5 - limit.count,
+    reset: limit.resetAt,
+  };
 }
 ```
 

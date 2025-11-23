@@ -82,6 +82,7 @@ export async function requireAuth(req: NextRequest) {
     return {
       uid: decodedToken.uid,
       email: decodedToken.email || userData.email,
+      role: userData.role || 'user',
       ...userData,
     };
   } catch (error) {
@@ -225,6 +226,7 @@ export async function requireSuperAdmin(
     const user = {
       uid: decodedToken.uid,
       email: decodedToken.email || userData.email,
+      role: userData.role || 'admin',
       ...userData,
     };
 
