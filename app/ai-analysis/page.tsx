@@ -47,17 +47,18 @@ export default function AIAnalysisPage() {
 
     // Tab filtrelemesi
     if (activeTab === "analizler") {
-      // Analizler tab: Sadece bugünün pending analizleri
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Analizler tab: Son 2 günün pending AI analizleri
+      const now = new Date();
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+      twoDaysAgo.setHours(0, 0, 0, 0);
 
       result = result.filter((a) => {
         const analysisDate = a.date.toDate();
         analysisDate.setHours(0, 0, 0, 0);
 
-        // Bugün oluşturulmuş VE (status yok veya pending)
+        // Son 2 gün içinde oluşturulmuş VE (status yok veya pending)
         return (
-          analysisDate.getTime() === today.getTime() &&
+          analysisDate.getTime() >= twoDaysAgo.getTime() &&
           (!a.status || a.status === "pending")
         );
       });
@@ -308,7 +309,7 @@ export default function AIAnalysisPage() {
                 </h1>
               </div>
               <p className="text-purple-100">
-                AI destekli gelişmiş tablo tahminleri
+                AI destekli gelişmiş tablo tahminleri • 2 gün yayında
               </p>
             </div>
 
@@ -342,12 +343,15 @@ export default function AIAnalysisPage() {
             {
               analyses.filter((a) => {
                 if (a.type !== "ai") return false;
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                const now = new Date();
+                const twoDaysAgo = new Date(
+                  now.getTime() - 2 * 24 * 60 * 60 * 1000
+                );
+                twoDaysAgo.setHours(0, 0, 0, 0);
                 const analysisDate = a.date.toDate();
                 analysisDate.setHours(0, 0, 0, 0);
                 return (
-                  analysisDate.getTime() === today.getTime() &&
+                  analysisDate.getTime() >= twoDaysAgo.getTime() &&
                   (!a.status || a.status === "pending")
                 );
               }).length
@@ -478,11 +482,7 @@ export default function AIAnalysisPage() {
               <EmptyState
                 icon={<Sparkles className="h-16 w-16" />}
                 title="Bekleyen AI analizi yok"
-                description={
-                  timeFilter !== "all"
-                    ? "Bu zaman aralığında AI analizi yok."
-                    : "Şu anda beklemede olan AI analizi bulunmuyor."
-                }
+                description="Son 2 gün içinde beklemede olan AI analizi bulunmuyor."
               />
             ) : (
               filteredAnalyses.map((analysis, analysisIndex) => (

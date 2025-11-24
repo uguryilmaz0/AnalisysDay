@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, Mail, MessageCircle, Shield, Heart } from "lucide-react";
+import {
+  TrendingUp,
+  Mail,
+  MessageCircle,
+  Shield,
+  Heart,
+  Send,
+} from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -34,6 +41,17 @@ export default function Footer() {
               >
                 <MessageCircle className="h-5 w-5" />
                 <span className="text-sm">WhatsApp Destek</span>
+              </a>
+              <a
+                href={`https://t.me/${
+                  process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL || "analysisday"
+                }`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition"
+              >
+                <Send className="h-5 w-5" />
+                <span className="text-sm">Telegram Kanalı</span>
               </a>
             </div>
           </div>

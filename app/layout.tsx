@@ -25,9 +25,9 @@ if (typeof window === "undefined") {
 }
 
 export const metadata: Metadata = {
-  title: "AnalysisDay - Daily Match Analysis Predictions",
+  title: "AnalysisDay - Daily Match Analysis With AI",
   description:
-    "Start winning with professional daily match analysis predictions.",
+    "Get daily match analysis and predictions using advanced AI technology. Stay ahead with insights and data-driven forecasts for your favorite sports.",
 };
 
 export default function RootLayout({
