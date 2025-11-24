@@ -215,7 +215,11 @@ export async function createAnalysis(
   title: string,
   imageUrls: string[],
   description: string,
-  createdBy: string
+  createdBy: string,
+  type: 'daily' | 'ai' = 'daily',
+  mainChoice?: string,
+  alternative?: string,
+  iyGoal?: string
 ): Promise<string> {
   try {
     // Kullanıcı bilgisini al (username için)
@@ -231,7 +235,8 @@ export async function createAnalysis(
     expiresDate.setHours(8, 0, 0, 0); // 04:00 → 08:00
     const expiresAt = Timestamp.fromDate(expiresDate);
     
-    const analysisData: Omit<DailyAnalysis, 'id'> = {
+    const analysisData: Partial<DailyAnalysis> = {
+      type,
       title,
       imageUrls,
       description,
@@ -243,6 +248,13 @@ export async function createAnalysis(
       createdByUsername,
       status: 'pending', // Başlangıçta beklemede
     };
+
+    // Yapay zeka analizi ise ek alanları ekle
+    if (type === 'ai') {
+      analysisData.mainChoice = mainChoice;
+      analysisData.alternative = alternative;
+      analysisData.iyGoal = iyGoal;
+    }
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);
     return docRef.id;

@@ -9,11 +9,17 @@ interface AnalysisUploadTabProps {
   userId: string;
 }
 
+type AnalysisType = "daily" | "ai";
+
 export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
   const { showToast } = useToast();
   const loadAnalyses = useAdminStore((state) => state.loadAnalyses);
+  const [analysisType, setAnalysisType] = useState<AnalysisType>("daily");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [mainChoice, setMainChoice] = useState("");
+  const [alternative, setAlternative] = useState("");
+  const [iyGoal, setIyGoal] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -32,16 +38,39 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
       return;
     }
 
+    // Yapay zeka analizi için ek validasyon
+    if (analysisType === "ai") {
+      if (!mainChoice || !alternative || !iyGoal) {
+        showToast(
+          "Yapay zeka analizi için tüm tahmin alanlarını doldurun!",
+          "warning"
+        );
+        return;
+      }
+    }
+
     setUploading(true);
     setUploadSuccess(false);
 
     try {
       // Servis katmanını kullan
-      await analysisService.create(title, imageFiles, description, userId);
+      await analysisService.create(
+        title,
+        imageFiles,
+        description,
+        userId,
+        analysisType,
+        mainChoice,
+        alternative,
+        iyGoal
+      );
 
       setUploadSuccess(true);
       setTitle("");
       setDescription("");
+      setMainChoice("");
+      setAlternative("");
+      setIyGoal("");
       setImageFiles([]);
 
       // Store'u güncelle
@@ -69,19 +98,95 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
       )}
 
       <form onSubmit={handleUploadAnalysis} className="space-y-6">
+        {/* Analiz Tipi Seçici */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-300 mb-3">
+            Analiz Tipi *
+          </label>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setAnalysisType("daily")}
+              className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+                analysisType === "daily"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+              }`}
+            >
+              📊 Günlük Analiz
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnalysisType("ai")}
+              className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+                analysisType === "ai"
+                  ? "bg-linear-to-r from-purple-600 to-pink-600 text-white shadow-lg"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+              }`}
+            >
+              🤖 Yapay Zeka Analizi
+            </button>
+          </div>
+        </div>
+
         <Input
           label="Başlık *"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Örn: 19 Kasım 2025 BIST Analizi"
+          placeholder={
+            analysisType === "daily"
+              ? "Örn: 19 Kasım 2025 BIST Analizi"
+              : "Örn: Chelsea - Arsenal Maç Analizi"
+          }
           required
           fullWidth
         />
 
+        {/* Yapay Zeka Analizi için özel alanlar */}
+        {analysisType === "ai" && (
+          <div className="bg-linear-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-bold text-purple-300 mb-4">
+              🎯 Tahmin Tablosu
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                label="Ana Tercih *"
+                type="text"
+                value={mainChoice}
+                onChange={(e) => setMainChoice(e.target.value)}
+                placeholder="Örn: Chelsea Kazanır"
+                maxLength={30}
+                fullWidth
+              />
+              <Input
+                label="Alternatif *"
+                type="text"
+                value={alternative}
+                onChange={(e) => setAlternative(e.target.value)}
+                placeholder="Örn: Beraberlik"
+                maxLength={30}
+                fullWidth
+              />
+              <Input
+                label="İY Gol *"
+                type="text"
+                value={iyGoal}
+                onChange={(e) => setIyGoal(e.target.value)}
+                placeholder="Örn: Var"
+                maxLength={30}
+                fullWidth
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              * Her alan en fazla 3 kelime olmalıdır
+            </p>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-semibold text-gray-300 mb-2">
-            Açıklama (Opsiyonel)
+            Açıklama {analysisType === "ai" ? "*" : "(Opsiyonel)"}
           </label>
           <textarea
             value={description}
@@ -89,6 +194,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-500"
             rows={3}
             placeholder="Kısa bir açıklama ekleyebilirsiniz..."
+            required={analysisType === "ai"}
           />
         </div>
 

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, Upload, TrendingUp, Users, Ban, FileText } from "lucide-react";
+import {
+  Shield,
+  Upload,
+  TrendingUp,
+  Users,
+  Ban,
+  FileText,
+  Sparkles,
+} from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
 import { useAdminStore } from "@/features/admin/stores";
@@ -31,7 +39,13 @@ export default function AdminPage() {
   const loadAllData = useAdminStore((state) => state.loadAllData);
 
   const [activeTab, setActiveTab] = useState<
-    "upload" | "analyses" | "users" | "admins" | "ratelimits" | "logs"
+    | "upload"
+    | "analyses"
+    | "ai-analyses"
+    | "users"
+    | "admins"
+    | "ratelimits"
+    | "logs"
   >("upload");
 
   useEffect(() => {
@@ -151,7 +165,18 @@ export default function AdminPage() {
               }`}
             >
               <TrendingUp className="h-5 w-5" />
-              Tüm Analizler
+              Günlük Analizler
+            </button>
+            <button
+              onClick={() => setActiveTab("ai-analyses")}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                activeTab === "ai-analyses"
+                  ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <Sparkles className="h-5 w-5" />
+              Yapay Zeka Analizleri
             </button>
 
             {/* Super Admin Only Tabs */}
@@ -216,7 +241,13 @@ export default function AdminPage() {
               <AnalysisUploadTab userId={user.uid} />
             )}
 
-            {activeTab === "analyses" && <AnalysisListTab />}
+            {activeTab === "analyses" && (
+              <AnalysisListTab analysisType="daily" />
+            )}
+
+            {activeTab === "ai-analyses" && (
+              <AnalysisListTab analysisType="ai" />
+            )}
 
             {activeTab === "users" && isSuperAdmin && (
               <UserManagementTab currentUserId={user?.uid} />

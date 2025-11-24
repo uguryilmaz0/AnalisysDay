@@ -36,14 +36,27 @@ class AnalysisService extends BaseService {
     title: string,
     imageFiles: File[],
     description: string,
-    userId: string
+    userId: string,
+    type: 'daily' | 'ai' = 'daily',
+    mainChoice?: string,
+    alternative?: string,
+    iyGoal?: string
   ): Promise<void> {
     return this.executeWithErrorHandling(async () => {
       // Önce görselleri yükle
       const imageUrls = await uploadMultipleImages(imageFiles);
 
       // Sonra analizi oluştur
-      await createAnalysis(title, imageUrls, description, userId);
+      await createAnalysis(
+        title,
+        imageUrls,
+        description,
+        userId,
+        type,
+        mainChoice,
+        alternative,
+        iyGoal
+      );
     }, "create");
   }
 

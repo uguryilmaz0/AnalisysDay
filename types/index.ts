@@ -20,6 +20,7 @@ export interface User {
 
 export interface DailyAnalysis {
   id: string;
+  type: 'daily' | 'ai'; // Analiz tipi
   imageUrls: string[]; // Birden fazla görsel
   title: string;
   description?: string;
@@ -32,6 +33,10 @@ export interface DailyAnalysis {
   status: 'pending' | 'won' | 'lost'; // Analiz sonucu
   resultConfirmedBy?: string; // Sonucu onaylayan admin UID
   resultConfirmedAt?: Timestamp; // Onay zamanı
+  // Yapay Zeka Analizi için ek alanlar
+  mainChoice?: string; // Ana Tercih (max 3 kelime)
+  alternative?: string; // Alternatif (max 3 kelime)
+  iyGoal?: string; // İY Gol (max 3 kelime)
 }
 
 export interface PaymentRequest {

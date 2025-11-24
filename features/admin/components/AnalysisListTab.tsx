@@ -22,7 +22,13 @@ type TimeFilter = "1day" | "1week" | "1month" | "all";
 type StatusFilter = "all" | "won" | "lost";
 type ViewTab = "pending" | "completed";
 
-export function AnalysisListTab() {
+interface AnalysisListTabProps {
+  analysisType?: "daily" | "ai";
+}
+
+export function AnalysisListTab({
+  analysisType = "daily",
+}: AnalysisListTabProps) {
   const { showToast } = useToast();
   const { userData } = useAuth();
   const analyses = useAdminStore((state) => state.analyses);
@@ -39,6 +45,9 @@ export function AnalysisListTab() {
   // Filtrelenmiş analizler
   const filteredAnalyses = useMemo(() => {
     let result = analyses;
+
+    // Analiz tipine göre filtrele
+    result = result.filter((a) => (a.type || "daily") === analysisType);
 
     // Tab filtrelemesi - pending veya completed
     if (activeTab === "pending") {
@@ -169,7 +178,14 @@ export function AnalysisListTab() {
           }`}
         >
           ⏳ Bekleyen Analizler (
-          {analyses.filter((a) => !a.status || a.status === "pending").length})
+          {
+            analyses.filter(
+              (a) =>
+                (a.type || "daily") === analysisType &&
+                (!a.status || a.status === "pending")
+            ).length
+          }
+          )
         </button>
         <button
           onClick={() => {
@@ -185,8 +201,11 @@ export function AnalysisListTab() {
         >
           ✓ Sonuçlananlar (
           {
-            analyses.filter((a) => a.status === "won" || a.status === "lost")
-              .length
+            analyses.filter(
+              (a) =>
+                (a.type || "daily") === analysisType &&
+                (a.status === "won" || a.status === "lost")
+            ).length
           }
           )
         </button>
@@ -194,7 +213,8 @@ export function AnalysisListTab() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-bold text-white">
-          {activeTab === "pending" ? "Bekleyen" : "Sonuçlanan"} Analizler (
+          {activeTab === "pending" ? "Bekleyen" : "Sonuçlanan"}{" "}
+          {analysisType === "ai" ? "Yapay Zeka" : "Günlük"} Analizler (
           {filteredAnalyses.length})
         </h2>
 
@@ -290,11 +310,15 @@ export function AnalysisListTab() {
       {filteredAnalyses.length === 0 ? (
         <EmptyState
           icon={<TrendingUp className="h-16 w-16" />}
-          title="Analiz bulunamadı"
+          title={`${
+            analysisType === "ai" ? "Yapay Zeka" : "Günlük"
+          } Analiz bulunamadı`}
           description={
             timeFilter !== "all"
               ? "Bu zaman aralığında analiz yok. Farklı bir filtre deneyin."
-              : "Henüz analiz yüklenmemiş."
+              : `Henüz ${
+                  analysisType === "ai" ? "yapay zeka" : "günlük"
+                } analiz yüklenmemiş.`
           }
         />
       ) : (
