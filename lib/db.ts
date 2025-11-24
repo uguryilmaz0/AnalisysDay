@@ -225,10 +225,10 @@ export async function createAnalysis(
     const now = new Date();
     const createdAt = Timestamp.now();
     
-    // Ertesi günün saat 04:00'ünü hesapla (local timezone)
+    // Ertesi günün saat 08:00'ünü hesapla (local timezone)
     const expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     expiresDate.setDate(expiresDate.getDate() + 1);
-    expiresDate.setHours(4, 0, 0, 0);
+    expiresDate.setHours(8, 0, 0, 0); // 04:00 → 08:00
     const expiresAt = Timestamp.fromDate(expiresDate);
     
     const analysisData: Omit<DailyAnalysis, 'id'> = {
@@ -241,6 +241,7 @@ export async function createAnalysis(
       isVisible: true,
       createdBy,
       createdByUsername,
+      status: 'pending', // Başlangıçta beklemede
     };
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);
@@ -263,6 +264,23 @@ export async function updateAnalysis(
     });
   } catch (error) {
     console.error('Analiz güncellenemedi:', error);
+    throw error;
+  }
+}
+
+export async function updateAnalysisStatus(
+  id: string,
+  status: 'pending' | 'won' | 'lost',
+  confirmedBy: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'daily_analysis', id), {
+      status,
+      resultConfirmedBy: confirmedBy,
+      resultConfirmedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error('Analiz durumu güncellenemedi:', error);
     throw error;
   }
 }

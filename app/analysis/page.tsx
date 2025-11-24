@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTodayAnalyses, checkSubscriptionExpiry } from "@/lib/db";
+import { getAllAnalyses, checkSubscriptionExpiry } from "@/lib/db";
 import { DailyAnalysis } from "@/types";
-import { Lock, Calendar, AlertCircle, TrendingUp } from "lucide-react";
+import { Lock, Calendar, AlertCircle, TrendingUp, Filter } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import ImageModal from "@/components/ImageModal";
 import { LoadingSpinner, EmptyState, Button } from "@/shared/components/ui";
 import { useRequireAuth, usePermissions, useModal } from "@/shared/hooks";
+
+type AnalysisTab = "analizler" | "sonuçlananlar";
+type TimeFilter = "1day" | "1week" | "1month" | "all";
+type StatusFilter = "all" | "won" | "lost";
 
 export default function AnalysisPage() {
   const { userData, loading: authLoading } = useRequireAuth({
@@ -20,11 +24,73 @@ export default function AnalysisPage() {
   const [analyses, setAnalyses] = useState<DailyAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscriptionValid, setSubscriptionValid] = useState(false);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("analizler");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
     title: string;
   } | null>(null);
   const modal = useModal();
+
+  // Filtrelenmiş analizler
+  const filteredAnalyses = useMemo(() => {
+    let result = analyses;
+
+    // Tab filtrelemesi
+    if (activeTab === "analizler") {
+      // Analizler tab: Sadece bugünün pending analizleri
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      result = result.filter((a) => {
+        const analysisDate = a.date.toDate();
+        analysisDate.setHours(0, 0, 0, 0);
+
+        // Bugün oluşturulmuş VE (status yok veya pending)
+        return (
+          analysisDate.getTime() === today.getTime() &&
+          (!a.status || a.status === "pending")
+        );
+      });
+    } else {
+      // Sonuçlananlar tab: Tüm kazanan/kaybeden analizler
+      result = result.filter((a) => a.status === "won" || a.status === "lost");
+
+      // Status filter (sadece completed tab'de)
+      if (statusFilter !== "all") {
+        result = result.filter((a) => a.status === statusFilter);
+      }
+
+      // Zaman filtrelemesi (Sadece sonuçlananlar için, resultConfirmedAt kullan)
+      if (timeFilter !== "all") {
+        const now = new Date();
+        let cutoffDate: Date;
+
+        switch (timeFilter) {
+          case "1day":
+            cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            break;
+          case "1week":
+            cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case "1month":
+            cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+        }
+
+        result = result.filter((analysis) => {
+          // Sonuçlanma tarihini kullan, yoksa date kullan
+          const dateToCheck = analysis.resultConfirmedAt
+            ? analysis.resultConfirmedAt.toDate()
+            : analysis.date.toDate();
+          return dateToCheck >= cutoffDate!;
+        });
+      }
+    }
+
+    return result;
+  }, [analyses, activeTab, timeFilter, statusFilter]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,8 +110,8 @@ export default function AnalysisPage() {
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
         try {
-          const todayAnalyses = await getTodayAnalyses();
-          setAnalyses(todayAnalyses);
+          const allAnalyses = await getAllAnalyses();
+          setAnalyses(allAnalyses);
         } catch {
           // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
         }
@@ -249,119 +315,267 @@ export default function AnalysisPage() {
           </div>
         </div>
 
-        {/* Analiz İçeriği */}
-        {analyses.length > 0 ? (
-          <div className="space-y-8">
-            {analyses.map((analysis, analysisIndex) => (
-              <div
-                key={analysis.id}
-                className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden hover:border-gray-700 transition-all duration-300"
-              >
-                {/* Başlık */}
-                <div className="bg-linear-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-800">
-                  <div className="flex items-center gap-3 mb-3 flex-wrap">
-                    <Calendar className="h-5 w-5 text-blue-400" />
-                    <span className="text-sm text-gray-400">
-                      {new Date(analysis.date.toDate()).toLocaleDateString(
-                        "tr-TR",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }
-                      )}
-                      {" • "}
-                      <span className="text-blue-400 font-semibold">
-                        {new Date(
-                          analysis.createdAt.toDate()
-                        ).toLocaleTimeString("tr-TR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </span>
+        {/* Sekmeler */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => {
+              setActiveTab("analizler");
+              setTimeFilter("all");
+            }}
+            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+              activeTab === "analizler"
+                ? "bg-blue-600 text-white shadow-lg"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            📊 Analizler (
+            {
+              analyses.filter((a) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const analysisDate = a.date.toDate();
+                analysisDate.setHours(0, 0, 0, 0);
+                return (
+                  analysisDate.getTime() === today.getTime() &&
+                  (!a.status || a.status === "pending")
+                );
+              }).length
+            }
+            )
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("sonuçlananlar");
+              setTimeFilter("all");
+              setStatusFilter("all");
+            }}
+            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+              activeTab === "sonuçlananlar"
+                ? "bg-blue-600 text-white shadow-lg"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            🎯 Sonuçlananlar (
+            {
+              analyses.filter((a) => a.status === "won" || a.status === "lost")
+                .length
+            }
+            )
+          </button>
+        </div>
 
-                    {analyses.length > 1 && (
-                      <span className="ml-auto bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
-                        Analiz {analysisIndex + 1}/{analyses.length}
-                      </span>
-                    )}
-                  </div>
-
-                  <h2 className="text-2xl font-bold text-white mb-3">
-                    {analysis.title}
-                  </h2>
-
-                  {/* Editör Bilgisi */}
-                  {analysis.createdByUsername && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm text-gray-400 font-medium">
-                        Editör:
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 bg-linear-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                        <span className="relative flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-                        </span>
-                        @{analysis.createdByUsername}
-                      </span>
-                    </div>
-                  )}
-                  {analysis.description && (
-                    <div
-                      className="text-gray-400 mt-2 prose prose-invert max-w-none"
-                      style={{ whiteSpace: "pre-wrap" }}
-                      dangerouslySetInnerHTML={{
-                        __html: analysis.description
-                          .replace(/\n/g, "<br />")
-                          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                          .replace(/\*(.*?)\*/g, "<em>$1</em>"),
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Görseller */}
-                <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
-                  {analysis.imageUrls.map((url, index) => (
-                    <div
-                      key={index}
-                      className="relative group cursor-pointer"
-                      onClick={() => {
-                        setSelectedImage({
-                          url,
-                          title: `${analysis.title}`,
-                        });
-                        modal.open();
-                      }}
-                    >
-                      <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                      <Image
-                        src={url}
-                        alt={`${analysis.title} - Görsel ${index + 1}`}
-                        width={1200}
-                        height={800}
-                        className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
-                        priority={analysisIndex === 0 && index === 0}
-                      />
-                      {/* Zoom İkonu */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
-                        <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
-                          🔍 Yakından İncele
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {/* Filtreler - Sadece Sonuçlananlar sekmesinde göster */}
+        {activeTab === "sonuçlananlar" && (
+          <div className="bg-gray-900 rounded-lg p-4 mb-6">
+            {/* Zaman Filtreleri */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Filter className="h-4 w-4 text-gray-400" />
+                <p className="text-sm text-gray-400 font-medium">
+                  Zaman Aralığı:
+                </p>
               </div>
-            ))}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setTimeFilter("1day")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    timeFilter === "1day"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Son 1 Gün
+                </button>
+                <button
+                  onClick={() => setTimeFilter("1week")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    timeFilter === "1week"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Son 1 Hafta
+                </button>
+                <button
+                  onClick={() => setTimeFilter("1month")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    timeFilter === "1month"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Son 1 Ay
+                </button>
+                <button
+                  onClick={() => setTimeFilter("all")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    timeFilter === "all"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Tümü
+                </button>
+              </div>
+            </div>
+
+            {/* Durum Filtreleri */}
+            <div>
+              <p className="text-sm text-gray-400 font-medium mb-2">Durum:</p>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setStatusFilter("all")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    statusFilter === "all"
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Tümü
+                </button>
+                <button
+                  onClick={() => setStatusFilter("won")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    statusFilter === "won"
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  ✓ Kazananlar
+                </button>
+                <button
+                  onClick={() => setStatusFilter("lost")}
+                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                    statusFilter === "lost"
+                      ? "bg-red-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  ✗ Kaybedenler
+                </button>
+              </div>
+            </div>
           </div>
-        ) : (
-          <EmptyState
-            icon={<TrendingUp className="h-16 w-16" />}
-            title="Henüz Analiz Yayınlanmadı"
-            description="Yeni analizler yayınlandığında burada görünecektir."
-          />
+        )}
+
+        {/* Analizler Sekmesi */}
+        {activeTab === "analizler" && (
+          <div className="space-y-8">
+            {filteredAnalyses.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp className="h-16 w-16" />}
+                title="Bekleyen analiz yok"
+                description={
+                  timeFilter !== "all"
+                    ? "Bu zaman aralığında analiz yok."
+                    : "Şu anda beklemede olan analiz bulunmuyor."
+                }
+              />
+            ) : (
+              filteredAnalyses.map((analysis, analysisIndex) => (
+                <AnalysisCard
+                  key={analysis.id}
+                  analysis={analysis}
+                  analysisIndex={analysisIndex}
+                  totalCount={filteredAnalyses.length}
+                  onImageClick={(url, title) => {
+                    setSelectedImage({ url, title });
+                    modal.open();
+                  }}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Sonuçlananlar Sekmesi */}
+        {activeTab === "sonuçlananlar" && (
+          <div className="space-y-6">
+            {filteredAnalyses.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp className="h-16 w-16" />}
+                title="Sonuçlanmış analiz yok"
+                description={
+                  timeFilter !== "all" || statusFilter !== "all"
+                    ? "Bu filtrelere uygun analiz bulunamadı."
+                    : "Henüz sonuçlanmış analiz bulunmuyor."
+                }
+              />
+            ) : (
+              <>
+                {/* Kazananlar */}
+                {filteredAnalyses.filter((a) => a.status === "won").length >
+                  0 && (
+                  <div>
+                    <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
+                      <span className="text-2xl">✅</span> Kazananlar (
+                      {
+                        filteredAnalyses.filter((a) => a.status === "won")
+                          .length
+                      }
+                      )
+                    </h3>
+                    <div className="space-y-4">
+                      {filteredAnalyses
+                        .filter((a) => a.status === "won")
+                        .map((analysis, index) => (
+                          <AnalysisCard
+                            key={analysis.id}
+                            analysis={analysis}
+                            analysisIndex={index}
+                            totalCount={
+                              filteredAnalyses.filter((a) => a.status === "won")
+                                .length
+                            }
+                            onImageClick={(url, title) => {
+                              setSelectedImage({ url, title });
+                              modal.open();
+                            }}
+                            showStatusBadge
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Kaybedenler */}
+                {filteredAnalyses.filter((a) => a.status === "lost").length >
+                  0 && (
+                  <div>
+                    <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2 mt-8">
+                      <span className="text-2xl">❌</span> Kaybedenler (
+                      {
+                        filteredAnalyses.filter((a) => a.status === "lost")
+                          .length
+                      }
+                      )
+                    </h3>
+                    <div className="space-y-4">
+                      {filteredAnalyses
+                        .filter((a) => a.status === "lost")
+                        .map((analysis, index) => (
+                          <AnalysisCard
+                            key={analysis.id}
+                            analysis={analysis}
+                            analysisIndex={index}
+                            totalCount={
+                              filteredAnalyses.filter(
+                                (a) => a.status === "lost"
+                              ).length
+                            }
+                            onImageClick={(url, title) => {
+                              setSelectedImage({ url, title });
+                              modal.open();
+                            }}
+                            showStatusBadge
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* Image Modal */}
@@ -376,6 +590,130 @@ export default function AnalysisPage() {
             title={selectedImage.title}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+// Analiz Card Component
+interface AnalysisCardProps {
+  analysis: DailyAnalysis;
+  analysisIndex: number;
+  totalCount: number;
+  onImageClick: (url: string, title: string) => void;
+  showStatusBadge?: boolean;
+}
+
+function AnalysisCard({
+  analysis,
+  analysisIndex,
+  totalCount,
+  onImageClick,
+  showStatusBadge = false,
+}: AnalysisCardProps) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden hover:border-gray-700 transition-all duration-300">
+      {/* Başlık */}
+      <div className="bg-linear-to-r from-gray-800 to-gray-900 p-6 border-b border-gray-800">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <Calendar className="h-5 w-5 text-blue-400" />
+          <span className="text-sm text-gray-400">
+            {new Date(analysis.date.toDate()).toLocaleDateString("tr-TR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+            {" • "}
+            <span className="text-blue-400 font-semibold">
+              {new Date(analysis.createdAt.toDate()).toLocaleTimeString(
+                "tr-TR",
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }
+              )}
+            </span>
+          </span>
+
+          {totalCount > 1 && (
+            <span className="ml-auto bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">
+              {analysisIndex + 1}/{totalCount}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <h2 className="text-2xl font-bold text-white mb-3">
+            {analysis.title}
+          </h2>
+
+          {/* Status Badge */}
+          {showStatusBadge && (
+            <span
+              className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${
+                analysis.status === "won"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            >
+              {analysis.status === "won" ? "✓ Kazandı" : "✗ Kaybetti"}
+            </span>
+          )}
+        </div>
+
+        {/* Editör Bilgisi */}
+        {analysis.createdByUsername && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm text-gray-400 font-medium">Editör:</span>
+            <span className="inline-flex items-center gap-1.5 bg-linear-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg animate-pulse">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+              </span>
+              @{analysis.createdByUsername}
+            </span>
+          </div>
+        )}
+
+        {analysis.description && (
+          <div
+            className="text-gray-400 mt-2 prose prose-invert max-w-none"
+            style={{ whiteSpace: "pre-wrap" }}
+            dangerouslySetInnerHTML={{
+              __html: analysis.description
+                .replace(/\n/g, "<br />")
+                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                .replace(/\*(.*?)\*/g, "<em>$1</em>"),
+            }}
+          />
+        )}
+      </div>
+
+      {/* Görseller */}
+      <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
+        {analysis.imageUrls.map((url, index) => (
+          <div
+            key={index}
+            className="relative group cursor-pointer"
+            onClick={() => onImageClick(url, analysis.title)}
+          >
+            <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+            <Image
+              src={url}
+              alt={`${analysis.title} - Görsel ${index + 1}`}
+              width={1200}
+              height={800}
+              className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
+              priority={analysisIndex === 0 && index === 0}
+            />
+            {/* Zoom İkonu */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
+              <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
+                🔍 Yakınlaştır
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

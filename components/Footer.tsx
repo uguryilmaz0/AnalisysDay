@@ -117,6 +117,22 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href="/kvkk"
+                  className="text-gray-400 hover:text-blue-400 transition text-sm"
+                >
+                  KVKK Aydınlatma Metni
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/cookies"
+                  className="text-gray-400 hover:text-blue-400 transition text-sm"
+                >
+                  Çerez Politikası
+                </Link>
+              </li>
+              <li>
                 <a
                   href={`mailto:${
                     process.env.NEXT_PUBLIC_CONTACT_EMAIL ||

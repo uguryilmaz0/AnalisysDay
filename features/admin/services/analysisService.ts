@@ -3,6 +3,7 @@ import {
   deleteAnalysis,
   createAnalysis,
   updateAnalysis,
+  updateAnalysisStatus,
 } from "@/lib/db";
 import { uploadMultipleImages } from "@/lib/cloudinary";
 import { DailyAnalysis } from "@/types";
@@ -67,6 +68,20 @@ class AnalysisService extends BaseService {
     return this.executeWithErrorHandling(
       () => updateAnalysis(id, title, description),
       "update"
+    );
+  }
+
+  /**
+   * Analiz durumunu günceller (kazandı/kaybetti)
+   */
+  async updateStatus(
+    id: string,
+    status: 'pending' | 'won' | 'lost',
+    userId: string
+  ): Promise<void> {
+    return this.executeWithErrorHandling(
+      () => updateAnalysisStatus(id, status, userId),
+      "updateStatus"
     );
   }
 

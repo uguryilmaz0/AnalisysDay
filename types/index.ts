@@ -24,11 +24,14 @@ export interface DailyAnalysis {
   title: string;
   description?: string;
   date: Timestamp; // Oluşturulma tarihi
-  expiresAt: Timestamp; // Otomatik silinme zamanı (ertesi gün 04:00)
+  expiresAt: Timestamp; // Otomatik silinme zamanı (ertesi gün 08:00)
   isVisible: boolean;
   createdBy: string; // Admin/Moderator UID
   createdByUsername: string; // Admin/Moderator kullanıcı adı
   createdAt: Timestamp; // Oluşturulma zamanı
+  status: 'pending' | 'won' | 'lost'; // Analiz sonucu
+  resultConfirmedBy?: string; // Sonucu onaylayan admin UID
+  resultConfirmedAt?: Timestamp; // Onay zamanı
 }
 
 export interface PaymentRequest {

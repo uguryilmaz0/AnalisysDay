@@ -4,8 +4,9 @@ import {
   Trash2,
   Filter,
   Edit2,
-  Save,
-  X,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 import Image from "next/image";
 import { useState, useMemo } from "react";
@@ -13,44 +14,73 @@ import { Button, EmptyState } from "@/shared/components/ui";
 import { useToast } from "@/shared/hooks";
 import { analysisService } from "@/features/admin/services";
 import { useAdminStore } from "@/features/admin/stores";
+import { EditAnalysisModal } from "./EditAnalysisModal";
+import { DailyAnalysis } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 type TimeFilter = "1day" | "1week" | "1month" | "all";
+type StatusFilter = "all" | "won" | "lost";
+type ViewTab = "pending" | "completed";
 
 export function AnalysisListTab() {
   const { showToast } = useToast();
+  const { userData } = useAuth();
   const analyses = useAdminStore((state) => state.analyses);
   const removeAnalysis = useAdminStore((state) => state.removeAnalysis);
   const loadAnalyses = useAdminStore((state) => state.loadAnalyses);
+  const [activeTab, setActiveTab] = useState<ViewTab>("pending");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("1day");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [editModal, setEditModal] = useState<{
+    open: boolean;
+    analysis: DailyAnalysis | null;
+  }>({ open: false, analysis: null });
 
   // Filtrelenmiş analizler
   const filteredAnalyses = useMemo(() => {
-    const now = new Date();
-    let cutoffDate: Date;
+    let result = analyses;
 
-    switch (timeFilter) {
-      case "1day":
-        cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "1week":
-        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "1month":
-        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "all":
-      default:
-        return analyses;
+    // Tab filtrelemesi - pending veya completed
+    if (activeTab === "pending") {
+      result = result.filter((a) => !a.status || a.status === "pending");
+    } else {
+      result = result.filter((a) => a.status === "won" || a.status === "lost");
     }
 
-    return analyses.filter((analysis) => {
-      const analysisDate = analysis.date.toDate();
-      return analysisDate >= cutoffDate;
-    });
-  }, [analyses, timeFilter]);
+    // Status filter (sadece completed tab'de aktif)
+    if (activeTab === "completed" && statusFilter !== "all") {
+      result = result.filter((a) => a.status === statusFilter);
+    }
+
+    // Zaman filtrelemesi
+    if (timeFilter !== "all") {
+      const now = new Date();
+      let cutoffDate: Date;
+
+      switch (timeFilter) {
+        case "1day":
+          cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case "1week":
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "1month":
+          cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+      }
+
+      result = result.filter((analysis) => {
+        // Completed tab'de resultConfirmedAt, pending tab'de date kullan
+        const dateToCheck =
+          activeTab === "completed" && analysis.resultConfirmedAt
+            ? analysis.resultConfirmedAt.toDate()
+            : analysis.date.toDate();
+        return dateToCheck >= cutoffDate!;
+      });
+    }
+
+    return result;
+  }, [analyses, timeFilter, activeTab, statusFilter]);
 
   const handleDownloadImage = (url: string, index: number) => {
     analysisService.downloadImage(url, index);
@@ -67,51 +97,117 @@ export function AnalysisListTab() {
     }
   };
 
-  const handleEditStart = (id: string, title: string, description: string) => {
-    setEditingId(id);
-    setEditTitle(title);
-    setEditDescription(description || "");
+  const handleEditOpen = (analysis: DailyAnalysis) => {
+    setEditModal({ open: true, analysis });
   };
 
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditTitle("");
-    setEditDescription("");
+  const handleEditClose = () => {
+    setEditModal({ open: false, analysis: null });
   };
 
-  const handleEditSave = async (id: string) => {
-    if (!editTitle.trim()) {
-      showToast("Başlık boş olamaz!", "warning");
-      return;
-    }
+  const handleEditSave = async (title: string, description: string) => {
+    if (!editModal.analysis) return;
 
     try {
-      await analysisService.update(id, editTitle, editDescription);
+      await analysisService.update(editModal.analysis.id, title, description);
       await loadAnalyses();
       showToast("Analiz başarıyla güncellendi!", "success");
-      handleEditCancel();
     } catch {
       showToast("Analiz güncellenemedi!", "error");
+      throw new Error("Update failed");
+    }
+  };
+
+  const handleStatusUpdate = async (
+    id: string,
+    status: "pending" | "won" | "lost"
+  ) => {
+    if (!userData?.uid) return;
+
+    const statusText =
+      status === "won"
+        ? "Kazandı"
+        : status === "lost"
+        ? "Kaybetti"
+        : "Beklemede";
+
+    if (
+      !confirm(`Bu analizi "${statusText}" olarak işaretlemek istiyor musunuz?`)
+    )
+      return;
+
+    try {
+      await analysisService.updateStatus(id, status, userData.uid);
+      await loadAnalyses();
+      showToast(`Analiz "${statusText}" olarak güncellendi!`, "success");
+    } catch {
+      showToast("Durum güncellenemedi!", "error");
     }
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Edit Modal */}
+      <EditAnalysisModal
+        isOpen={editModal.open}
+        analysis={editModal.analysis}
+        onSave={handleEditSave}
+        onClose={handleEditClose}
+      />
+
+      {/* Tab Seçimi */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => {
+            setActiveTab("pending");
+            setTimeFilter("1day");
+          }}
+          className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+            activeTab === "pending"
+              ? "bg-blue-600 text-white shadow-lg"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+          }`}
+        >
+          ⏳ Bekleyen Analizler (
+          {analyses.filter((a) => !a.status || a.status === "pending").length})
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("completed");
+            setTimeFilter("1day");
+            setStatusFilter("all");
+          }}
+          className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+            activeTab === "completed"
+              ? "bg-blue-600 text-white shadow-lg"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+          }`}
+        >
+          ✓ Sonuçlananlar (
+          {
+            analyses.filter((a) => a.status === "won" || a.status === "lost")
+              .length
+          }
+          )
+        </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-bold text-white">
-          Analizler ({filteredAnalyses.length})
+          {activeTab === "pending" ? "Bekleyen" : "Sonuçlanan"} Analizler (
+          {filteredAnalyses.length})
         </h2>
 
         {/* Filtre Butonları */}
-        <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5 text-gray-400" />
-          <div className="flex gap-2 bg-gray-800 rounded-lg p-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="h-5 w-5 text-gray-400 shrink-0" />
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setTimeFilter("1day")}
               className={`px-3 py-1 rounded text-sm font-semibold transition ${
                 timeFilter === "1day"
                   ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
             >
               Son 1 Gün
@@ -121,7 +217,7 @@ export function AnalysisListTab() {
               className={`px-3 py-1 rounded text-sm font-semibold transition ${
                 timeFilter === "1week"
                   ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
             >
               Son 1 Hafta
@@ -131,7 +227,7 @@ export function AnalysisListTab() {
               className={`px-3 py-1 rounded text-sm font-semibold transition ${
                 timeFilter === "1month"
                   ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
             >
               Son 1 Ay
@@ -141,7 +237,7 @@ export function AnalysisListTab() {
               className={`px-3 py-1 rounded text-sm font-semibold transition ${
                 timeFilter === "all"
                   ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
             >
               Tümü
@@ -149,6 +245,47 @@ export function AnalysisListTab() {
           </div>
         </div>
       </div>
+
+      {/* Durum Filtreleri (sadece Sonuçlananlar tab'inde) */}
+      {activeTab === "completed" && (
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          <span className="text-sm text-gray-400 font-medium shrink-0">
+            Durum:
+          </span>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                statusFilter === "all"
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              Tümü
+            </button>
+            <button
+              onClick={() => setStatusFilter("won")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                statusFilter === "won"
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              ✓ Kazananlar
+            </button>
+            <button
+              onClick={() => setStatusFilter("lost")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                statusFilter === "lost"
+                  ? "bg-red-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              ✗ Kaybedenler
+            </button>
+          </div>
+        </div>
+      )}
 
       {filteredAnalyses.length === 0 ? (
         <EmptyState
@@ -189,45 +326,23 @@ export function AnalysisListTab() {
               {filteredAnalyses.map((analysis) => (
                 <tr key={analysis.id} className="hover:bg-gray-800/50">
                   <td className="px-4 py-3">
-                    {editingId === analysis.id ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded text-sm focus:ring-2 focus:ring-blue-500"
-                          placeholder="Başlık"
+                    <div>
+                      <p className="text-white font-semibold">
+                        {analysis.title}
+                      </p>
+                      {analysis.description && (
+                        <div
+                          className="text-sm text-gray-400 line-clamp-2 mt-1"
+                          style={{ whiteSpace: "pre-wrap" }}
+                          dangerouslySetInnerHTML={{
+                            __html: analysis.description
+                              .replace(/\n/g, "<br />")
+                              .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                              .replace(/\*(.*?)\*/g, "<em>$1</em>"),
+                          }}
                         />
-                        <textarea
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded text-sm focus:ring-2 focus:ring-blue-500"
-                          placeholder="Açıklama (opsiyonel)"
-                          rows={3}
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-white font-semibold">
-                          {analysis.title}
-                        </p>
-                        {analysis.description && (
-                          <div
-                            className="text-sm text-gray-400 line-clamp-2 mt-1"
-                            style={{ whiteSpace: "pre-wrap" }}
-                            dangerouslySetInnerHTML={{
-                              __html: analysis.description
-                                .replace(/\n/g, "<br />")
-                                .replace(
-                                  /\*\*(.*?)\*\*/g,
-                                  "<strong>$1</strong>"
-                                )
-                                .replace(/\*(.*?)\*/g, "<em>$1</em>"),
-                            }}
-                          />
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-300">
                     <div>
@@ -251,11 +366,30 @@ export function AnalysisListTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    {analysis.createdByUsername && (
-                      <span className="inline-flex items-center gap-1 bg-purple-600/20 text-purple-400 px-2 py-1 rounded text-xs font-semibold">
-                        @{analysis.createdByUsername}
-                      </span>
-                    )}
+                    <div className="space-y-1">
+                      {analysis.createdByUsername && (
+                        <span className="inline-flex items-center gap-1 bg-purple-600/20 text-purple-400 px-2 py-1 rounded text-xs font-semibold">
+                          @{analysis.createdByUsername}
+                        </span>
+                      )}
+                      <div>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${
+                            analysis.status === "pending"
+                              ? "bg-yellow-900/30 text-yellow-400"
+                              : analysis.status === "won"
+                              ? "bg-green-900/30 text-green-400"
+                              : "bg-red-900/30 text-red-400"
+                          }`}
+                        >
+                          {analysis.status === "pending"
+                            ? "⏳ Beklemede"
+                            : analysis.status === "won"
+                            ? "✓ Kazandı"
+                            : "✗ Kaybetti"}
+                        </span>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-300">
                     {analysis.imageUrls.length} görsel
@@ -280,68 +414,83 @@ export function AnalysisListTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2 flex-wrap">
-                      {editingId === analysis.id ? (
-                        <>
-                          <Button
-                            onClick={() => handleEditSave(analysis.id)}
-                            variant="primary"
-                            size="sm"
-                            title="Kaydet"
-                            className="p-2"
-                          >
-                            <Save className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={handleEditCancel}
-                            variant="danger"
-                            size="sm"
-                            title="İptal"
-                            className="p-2"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      ) : (
+                    <div className="flex gap-1 flex-wrap">
+                      {/* Düzenle */}
+                      <Button
+                        onClick={() => handleEditOpen(analysis)}
+                        variant="primary"
+                        size="sm"
+                        title="Düzenle"
+                        className="p-2"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+
+                      {/* Status Butonları - Sadece pending tab'de göster */}
+                      {activeTab === "pending" && (
                         <>
                           <Button
                             onClick={() =>
-                              handleEditStart(
-                                analysis.id,
-                                analysis.title,
-                                analysis.description || ""
-                              )
+                              handleStatusUpdate(analysis.id, "won")
                             }
-                            variant="primary"
                             size="sm"
-                            title="Düzenle"
-                            className="p-2"
+                            title="Kazandı olarak işaretle"
+                            className="p-2 bg-green-600 hover:bg-green-700"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <CheckCircle className="h-4 w-4" />
                           </Button>
-                          {analysis.imageUrls.map((url, index) => (
-                            <Button
-                              key={index}
-                              onClick={() => handleDownloadImage(url, index)}
-                              variant="primary"
-                              size="sm"
-                              title={`Görsel ${index + 1} İndir`}
-                              className="p-2"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          ))}
+
                           <Button
-                            onClick={() => handleDeleteAnalysis(analysis.id)}
-                            variant="danger"
+                            onClick={() =>
+                              handleStatusUpdate(analysis.id, "lost")
+                            }
                             size="sm"
-                            title="Analizi Sil"
-                            className="p-2"
+                            title="Kaybetti olarak işaretle"
+                            className="p-2 bg-red-600 hover:bg-red-700"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <XCircle className="h-4 w-4" />
                           </Button>
                         </>
                       )}
+
+                      {/* Reset Butonu - Sadece completed tab'de göster */}
+                      {activeTab === "completed" && (
+                        <Button
+                          onClick={() =>
+                            handleStatusUpdate(analysis.id, "pending")
+                          }
+                          size="sm"
+                          title="Beklemede durumuna al"
+                          className="p-2 bg-yellow-600 hover:bg-yellow-700"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* Download butonları */}
+                      {analysis.imageUrls.slice(0, 2).map((url, index) => (
+                        <Button
+                          key={index}
+                          onClick={() => handleDownloadImage(url, index)}
+                          variant="primary"
+                          size="sm"
+                          title={`Görsel ${index + 1} İndir`}
+                          className="p-2"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      ))}
+
+                      {/* Sil */}
+                      <Button
+                        onClick={() => handleDeleteAnalysis(analysis.id)}
+                        variant="danger"
+                        size="sm"
+                        title="Analizi Sil"
+                        className="p-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
