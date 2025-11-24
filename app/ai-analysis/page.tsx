@@ -698,7 +698,7 @@ function AIAnalysisCard({
                 AI Tahminleri
               </h3>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Ana Tercih */}
               <div className="bg-gray-900/60 rounded-lg p-3 border border-purple-500/20">
                 <p className="text-xs text-purple-400 font-semibold mb-1.5">
@@ -735,7 +735,7 @@ function AIAnalysisCard({
         {/* Açıklama */}
         {analysis.description && (
           <div
-            className="text-gray-300 mt-4 prose prose-invert max-w-none"
+            className="text-gray-400 mt-2 prose prose-invert max-w-none"
             style={{ whiteSpace: "pre-wrap" }}
             dangerouslySetInnerHTML={{
               __html: analysis.description

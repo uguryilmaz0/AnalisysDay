@@ -37,6 +37,9 @@ export default function AnalysisPage() {
   const filteredAnalyses = useMemo(() => {
     let result = analyses;
 
+    // SADECE GÜNLÜK ANALİZLERİ FİLTRELE (AI analizleri gösterme)
+    result = result.filter((a) => (a.type || "daily") === "daily");
+
     // Tab filtrelemesi
     if (activeTab === "analizler") {
       // Analizler tab: Sadece bugünün pending analizleri
