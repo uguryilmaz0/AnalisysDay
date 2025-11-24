@@ -1,7 +1,27 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { Trophy, Target, Users, Lock, ArrowRight } from "lucide-react";
 
 export default function Home() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Kullanıcı giriş yapmışsa /analysis'e yönlendir
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/analysis");
+    }
+  }, [user, loading, router]);
+
+  // Loading veya authenticated ise boş ekran göster (flash önleme)
+  if (loading || user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Hero Section */}

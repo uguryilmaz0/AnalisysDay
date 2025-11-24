@@ -238,7 +238,16 @@ export default function AnalysisPage() {
                     {analysis.title}
                   </h2>
                   {analysis.description && (
-                    <p className="text-gray-400 mt-2">{analysis.description}</p>
+                    <div
+                      className="text-gray-400 mt-2 prose prose-invert max-w-none"
+                      style={{ whiteSpace: "pre-wrap" }}
+                      dangerouslySetInnerHTML={{
+                        __html: analysis.description
+                          .replace(/\n/g, "<br />")
+                          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                          .replace(/\*(.*?)\*/g, "<em>$1</em>"),
+                      }}
+                    />
                   )}
                 </div>
 

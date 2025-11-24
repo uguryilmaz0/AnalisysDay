@@ -49,6 +49,23 @@ export async function getUserByUsername(username: string): Promise<User | null> 
   }
 }
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+  try {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', email), limit(1));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+    
+    return querySnapshot.docs[0].data() as User;
+  } catch (error) {
+    console.error('Email lookup failed:', error);
+    return null;
+  }
+}
+
 export async function isUsernameAvailable(username: string): Promise<boolean> {
   try {
     const user = await getUserByUsername(username);
@@ -178,8 +195,8 @@ export async function createAnalysis(
     const now = new Date();
     const createdAt = Timestamp.now();
     
-    // Ertesi günün saat 04:00'ünü hesapla
-    const expiresDate = new Date(now);
+    // Ertesi günün saat 04:00'ünü hesapla (local timezone)
+    const expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     expiresDate.setDate(expiresDate.getDate() + 1);
     expiresDate.setHours(4, 0, 0, 0);
     const expiresAt = Timestamp.fromDate(expiresDate);

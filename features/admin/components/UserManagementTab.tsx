@@ -82,10 +82,28 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
 
     try {
       await userService.toggleEmailVerified(uid, !currentStatus);
-      showToast("Email doğrulama durumu güncellendi!", "success");
+      showToast(
+        "Email doğrulama durumu güncellendi! (Firebase Auth + Firestore)",
+        "success"
+      );
       await loadUsers();
     } catch {
       showToast("Email doğrulama durumu güncellenemedi!", "error");
+    }
+  };
+
+  const handleResendVerification = async (uid: string, email: string) => {
+    if (!confirm(`${email} adresine doğrulama linki gönderilsin mi?`)) return;
+
+    try {
+      const result = await userService.resendVerificationEmail(uid);
+      // Link'i panelde göster (TODO: Email service entegrasyonu sonrası otomatik gönderilecek)
+      alert(
+        `Email doğrulama linki oluşturuldu:\n\n${result.verificationLink}\n\nBu linki kullanıcıya manuel olarak gönderebilirsiniz.`
+      );
+      showToast("Email doğrulama linki oluşturuldu!", "success");
+    } catch {
+      showToast("Email doğrulama linki oluşturulamadı!", "error");
     }
   };
 
@@ -219,33 +237,46 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                             Admin
                           </span>
                         ) : (
-                          <button
-                            onClick={() =>
-                              handleToggleEmailVerified(
-                                u.uid,
-                                u.emailVerified,
-                                u.email
-                              )
-                            }
-                            className={`flex items-center gap-1 text-xs hover:opacity-80 transition ${
-                              u.emailVerified
-                                ? "text-green-400"
-                                : "text-orange-400"
-                            }`}
-                            title="Email doğrulama durumunu değiştir"
-                          >
-                            {u.emailVerified ? (
-                              <>
-                                <Mail className="h-3 w-3" />
-                                Doğrulandı
-                              </>
-                            ) : (
-                              <>
-                                <MailWarning className="h-3 w-3" />
-                                Doğrulanmadı
-                              </>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() =>
+                                handleToggleEmailVerified(
+                                  u.uid,
+                                  u.emailVerified,
+                                  u.email
+                                )
+                              }
+                              className={`flex items-center gap-1 text-xs hover:opacity-80 transition ${
+                                u.emailVerified
+                                  ? "text-green-400"
+                                  : "text-orange-400"
+                              }`}
+                              title="Email doğrulama durumunu değiştir"
+                            >
+                              {u.emailVerified ? (
+                                <>
+                                  <Mail className="h-3 w-3" />
+                                  Doğrulandı
+                                </>
+                              ) : (
+                                <>
+                                  <MailWarning className="h-3 w-3" />
+                                  Doğrulanmadı
+                                </>
+                              )}
+                            </button>
+                            {!u.emailVerified && (
+                              <button
+                                onClick={() =>
+                                  handleResendVerification(u.uid, u.email)
+                                }
+                                className="text-xs text-blue-400 hover:text-blue-300 transition"
+                                title="Email doğrulama linkini tekrar gönder"
+                              >
+                                📧 Linki Yenile
+                              </button>
                             )}
-                          </button>
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-400">

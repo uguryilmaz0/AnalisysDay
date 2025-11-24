@@ -1,14 +1,44 @@
-import { TrendingUp, Download, Trash2 } from "lucide-react";
+import { TrendingUp, Download, Trash2, Filter } from "lucide-react";
 import Image from "next/image";
+import { useState, useMemo } from "react";
 import { Button, EmptyState } from "@/shared/components/ui";
 import { useToast } from "@/shared/hooks";
 import { analysisService } from "@/features/admin/services";
 import { useAdminStore } from "@/features/admin/stores";
 
+type TimeFilter = "1day" | "1week" | "1month" | "all";
+
 export function AnalysisListTab() {
   const { showToast } = useToast();
   const analyses = useAdminStore((state) => state.analyses);
   const removeAnalysis = useAdminStore((state) => state.removeAnalysis);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("1day");
+
+  // Filtrelenmiş analizler
+  const filteredAnalyses = useMemo(() => {
+    const now = new Date();
+    let cutoffDate: Date;
+
+    switch (timeFilter) {
+      case "1day":
+        cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case "1week":
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "1month":
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case "all":
+      default:
+        return analyses;
+    }
+
+    return analyses.filter((analysis) => {
+      const analysisDate = analysis.date.toDate();
+      return analysisDate >= cutoffDate;
+    });
+  }, [analyses, timeFilter]);
 
   const handleDownloadImage = (url: string, index: number) => {
     analysisService.downloadImage(url, index);
@@ -27,13 +57,68 @@ export function AnalysisListTab() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-6">Son 7 Analiz</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">
+          Analizler ({filteredAnalyses.length})
+        </h2>
 
-      {analyses.length === 0 ? (
+        {/* Filtre Butonları */}
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5 text-gray-400" />
+          <div className="flex gap-2 bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setTimeFilter("1day")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                timeFilter === "1day"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Son 1 Gün
+            </button>
+            <button
+              onClick={() => setTimeFilter("1week")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                timeFilter === "1week"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Son 1 Hafta
+            </button>
+            <button
+              onClick={() => setTimeFilter("1month")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                timeFilter === "1month"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Son 1 Ay
+            </button>
+            <button
+              onClick={() => setTimeFilter("all")}
+              className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                timeFilter === "all"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Tümü
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {filteredAnalyses.length === 0 ? (
         <EmptyState
           icon={<TrendingUp className="h-16 w-16" />}
-          title="Henüz analiz yüklenmemiş"
-          description="İlk analizi yüklemek için 'Analiz Yükle' sekmesine gidin."
+          title="Analiz bulunamadı"
+          description={
+            timeFilter !== "all"
+              ? "Bu zaman aralığında analiz yok. Farklı bir filtre deneyin."
+              : "Henüz analiz yüklenmemiş."
+          }
         />
       ) : (
         <div className="overflow-x-auto">
@@ -58,7 +143,7 @@ export function AnalysisListTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {analyses.slice(0, 7).map((analysis) => (
+              {filteredAnalyses.map((analysis) => (
                 <tr key={analysis.id} className="hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div>
@@ -66,9 +151,16 @@ export function AnalysisListTab() {
                         {analysis.title}
                       </p>
                       {analysis.description && (
-                        <p className="text-sm text-gray-400 line-clamp-1 mt-1">
-                          {analysis.description}
-                        </p>
+                        <div
+                          className="text-sm text-gray-400 line-clamp-2 mt-1"
+                          style={{ whiteSpace: "pre-wrap" }}
+                          dangerouslySetInnerHTML={{
+                            __html: analysis.description
+                              .replace(/\n/g, "<br />")
+                              .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                              .replace(/\*(.*?)\*/g, "<em>$1</em>"),
+                          }}
+                        />
                       )}
                     </div>
                   </td>

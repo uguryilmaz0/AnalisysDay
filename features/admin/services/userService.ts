@@ -2,10 +2,10 @@ import {
   getAllUsers,
   updateUserPaidStatus,
   cancelUserSubscription,
-  deleteUser as deleteUserFromDB,
   updateUserEmailVerified,
   updateUserRole,
 } from "@/lib/db";
+import { authFetchJSON } from "@/lib/authFetch";
 import { User } from "@/types";
 import { BaseService } from "@/shared/services/BaseService";
 
@@ -78,23 +78,40 @@ class UserService extends BaseService {
   }
 
   /**
-   * Kullanıcıyı siler
+   * Kullanıcıyı siler (Server-side API kullanır)
+   * Firebase Auth + Firestore'dan tamamen siler
    */
   async delete(uid: string): Promise<void> {
-    return this.executeWithErrorHandling(
-      () => deleteUserFromDB(uid),
-      "delete"
-    );
+    return this.executeWithErrorHandling(async () => {
+      await authFetchJSON(`/api/admin/users/${uid}`, {
+        method: 'DELETE',
+      });
+    }, "delete");
   }
 
   /**
-   * Email doğrulama durumunu değiştirir
+   * Email doğrulama durumunu değiştirir (Firebase Auth + Firestore sync)
    */
   async toggleEmailVerified(uid: string, newStatus: boolean): Promise<void> {
-    return this.executeWithErrorHandling(
-      () => updateUserEmailVerified(uid, newStatus),
-      "toggleEmailVerified"
-    );
+    return this.executeWithErrorHandling(async () => {
+      await authFetchJSON(`/api/admin/users/${uid}/verify-email`, {
+        method: 'PATCH',
+        body: JSON.stringify({ emailVerified: newStatus }),
+      });
+    }, "toggleEmailVerified");
+  }
+
+  /**
+   * Email doğrulama linkini tekrar gönderir
+   */
+  async resendVerificationEmail(uid: string): Promise<{ verificationLink: string; email: string }> {
+    return this.executeWithErrorHandling(async () => {
+      const response = await authFetchJSON<{ verificationLink: string; email: string }>(
+        `/api/admin/users/${uid}/resend-verification`,
+        { method: 'POST' }
+      );
+      return response;
+    }, "resendVerificationEmail");
   }
 
   /**

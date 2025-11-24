@@ -100,6 +100,25 @@ export default function RegisterPage() {
           return;
         }
 
+        // Email not verified - redirect to verification
+        if (errorData.error === "EMAIL_NOT_VERIFIED") {
+          showToast(
+            "Bu email adresi ile kayıt başlatılmış ancak doğrulanmamış. Email adresinizi kontrol edin.",
+            "warning",
+            7000
+          );
+          router.push("/register/verify-email");
+          setLoading(false);
+          return;
+        }
+
+        // Email already taken
+        if (errorData.error === "EMAIL_TAKEN") {
+          showToast(errorData.message, "error");
+          setLoading(false);
+          return;
+        }
+
         // Username already taken
         if (errorData.error === "USERNAME_TAKEN") {
           showToast(errorData.message, "error");

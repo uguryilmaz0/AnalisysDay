@@ -24,8 +24,12 @@ service cloud.firestore {
                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
                     );
 
-      // Kullanıcılar kendi hesaplarını silebilir
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      // Kullanıcılar kendi hesaplarını silebilir VEYA adminler başka kullanıcıları silebilir
+      allow delete: if request.auth != null && (
+                       request.auth.uid == userId ||
+                       (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+                    );
     }
 
     // Daily Analysis koleksiyonu

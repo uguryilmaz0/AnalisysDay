@@ -197,8 +197,8 @@ export async function DELETE(
     const rateLimitError = await withRateLimit(req, 'admin-delete');
     if (rateLimitError) return rateLimitError;
 
-    // 2. Authentication & Authorization (Super Admin only)
-    const authResult = await requireSuperAdmin(req);
+    // 2. Authentication & Authorization (Admin only)
+    const authResult = await requireAdmin(req);
     if ('error' in authResult) {
       return Response.json({ error: authResult.error }, { status: authResult.status });
     }
