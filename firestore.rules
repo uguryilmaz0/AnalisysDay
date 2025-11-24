@@ -34,11 +34,13 @@ service cloud.firestore {
 
     // Daily Analysis koleksiyonu
     match /daily_analysis/{analysisId} {
-      // Premium üyeler veya adminler okuyabilir
+      // Premium üyeler, adminler veya aktif deneme süresi olanlar okuyabilir
       allow read: if request.auth != null && 
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPaid == true ||
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.trialEndDate != null &&
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.trialEndDate > request.time)
                      );
 
       // Sadece adminler yazabilir, güncelleyebilir, silebilir

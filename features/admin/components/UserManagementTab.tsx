@@ -182,6 +182,9 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                   Premium
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
+                  Deneme
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
                   Email Doğrulama
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
@@ -228,6 +231,27 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                           <Badge variant="success">Premium</Badge>
                         ) : (
                           <Badge variant="info">Ücretsiz</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.role === "admin" ? (
+                          <span className="text-gray-500 text-xs">-</span>
+                        ) : u.trialEndDate ? (
+                          new Date() < u.trialEndDate.toDate() ? (
+                            <Badge variant="warning">
+                              Aktif (
+                              {Math.ceil(
+                                (u.trialEndDate.toDate().getTime() -
+                                  Date.now()) /
+                                  (1000 * 60 * 60 * 24)
+                              )}
+                              g)
+                            </Badge>
+                          ) : (
+                            <Badge variant="info">Bitti</Badge>
+                          )
+                        ) : (
+                          <span className="text-gray-500 text-xs">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">

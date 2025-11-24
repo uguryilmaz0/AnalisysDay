@@ -167,6 +167,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await sendEmailVerification(userCredential.user);
     }
 
+    // 3 günlük deneme süresi hesapla
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 3); // Kayıt + 3 gün
+
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
       uid: userCredential.user.uid,
@@ -182,6 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
       createdAt: Timestamp.now(),
+      trialEndDate: isSuperAdmin ? null : Timestamp.fromDate(trialEndDate), // Admin'ler için deneme yok
+      trialUsed: !isSuperAdmin, // Admin'ler için false, normal kullanıcılar için true
     };
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);

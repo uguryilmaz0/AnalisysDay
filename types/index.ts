@@ -14,6 +14,8 @@ export interface User {
   emailNotifications: boolean;
   emailVerified: boolean;
   createdAt: Timestamp;
+  trialEndDate: Timestamp | null; // 3 günlük deneme bitiş tarihi
+  trialUsed: boolean; // Deneme hakkı kullanıldı mı?
 }
 
 export interface DailyAnalysis {
@@ -25,6 +27,7 @@ export interface DailyAnalysis {
   expiresAt: Timestamp; // Otomatik silinme zamanı (ertesi gün 04:00)
   isVisible: boolean;
   createdBy: string; // Admin/Moderator UID
+  createdByUsername: string; // Admin/Moderator kullanıcı adı
   createdAt: Timestamp; // Oluşturulma zamanı
 }
 

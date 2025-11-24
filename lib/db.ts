@@ -122,6 +122,32 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
   }
 }
 
+// Deneme süresini kontrol et
+export async function checkTrialExpiry(uid: string): Promise<boolean> {
+  try {
+    const user = await getUserById(uid);
+    if (!user || !user.trialEndDate) {
+      return false;
+    }
+
+    const now = new Date();
+    const endDate = user.trialEndDate.toDate();
+
+    // Deneme süresi dolmuşsa
+    if (now > endDate) {
+      await updateDoc(doc(db, 'users', uid), {
+        trialEndDate: null, // Deneme bitmiş olarak işaretle
+      });
+      return false;
+    }
+
+    return true; // Deneme aktif
+  } catch (error) {
+    console.error('Deneme süresi kontrolü yapılamadı:', error);
+    return false;
+  }
+}
+
 export async function getAllUsers(): Promise<User[]> {
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
@@ -192,6 +218,10 @@ export async function createAnalysis(
   createdBy: string
 ): Promise<string> {
   try {
+    // Kullanıcı bilgisini al (username için)
+    const creatorUser = await getUserById(createdBy);
+    const createdByUsername = creatorUser?.username || 'admin';
+
     const now = new Date();
     const createdAt = Timestamp.now();
     
@@ -210,12 +240,29 @@ export async function createAnalysis(
       expiresAt,
       isVisible: true,
       createdBy,
+      createdByUsername,
     };
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);
     return docRef.id;
   } catch (error) {
     console.error('Analiz oluşturulamadı:', error);
+    throw error;
+  }
+}
+
+export async function updateAnalysis(
+  id: string,
+  title: string,
+  description: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'daily_analysis', id), {
+      title,
+      description,
+    });
+  } catch (error) {
+    console.error('Analiz güncellenemedi:', error);
     throw error;
   }
 }

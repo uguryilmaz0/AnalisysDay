@@ -69,9 +69,14 @@ export function usePermissions(): UserPermissions {
     const isSuperAdmin = userData?.superAdmin === true;
     const isPremium = userData?.isPaid === true;
 
+    // Deneme süresi kontrolü
+    const hasActiveTrial = userData?.trialEndDate 
+      ? new Date() < userData.trialEndDate.toDate()
+      : false;
+
     return {
-      // Analiz görüntüleme: Admin veya premium kullanıcılar
-      canViewAnalysis: isAdmin || isPremium,
+      // Analiz görüntüleme: Admin veya premium veya aktif deneme
+      canViewAnalysis: isAdmin || isPremium || hasActiveTrial,
 
       // Analiz yükleme: Sadece admin
       canUploadAnalysis: isAdmin,
@@ -85,8 +90,8 @@ export function usePermissions(): UserPermissions {
       // Admin yönetimi: Sadece super admin
       canManageAdmins: isSuperAdmin,
 
-      // Premium erişim: Admin veya premium kullanıcılar
-      hasPremiumAccess: isAdmin || isPremium,
+      // Premium erişim: Admin veya premium veya aktif deneme
+      hasPremiumAccess: isAdmin || isPremium || hasActiveTrial,
 
       // Role checks
       isAdmin,

@@ -2,6 +2,7 @@ import {
   getAllAnalyses,
   deleteAnalysis,
   createAnalysis,
+  updateAnalysis,
 } from "@/lib/db";
 import { uploadMultipleImages } from "@/lib/cloudinary";
 import { DailyAnalysis } from "@/types";
@@ -52,6 +53,20 @@ class AnalysisService extends BaseService {
     return this.executeWithErrorHandling(
       () => deleteAnalysis(id),
       "delete"
+    );
+  }
+
+  /**
+   * Analiz günceller (başlık ve açıklama)
+   */
+  async update(
+    id: string,
+    title: string,
+    description: string
+  ): Promise<void> {
+    return this.executeWithErrorHandling(
+      () => updateAnalysis(id, title, description),
+      "update"
     );
   }
 
