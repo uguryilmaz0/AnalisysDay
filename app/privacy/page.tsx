@@ -34,7 +34,7 @@ export default function PrivacyPage() {
             </div>
             <div className="text-gray-300 space-y-3 leading-relaxed">
               <p>
-                AnalysisDay olarak, kullanıcılarımızın gizliliğini korumayı en
+                Analiz Günü olarak, kullanıcılarımızın gizliliğini korumayı en
                 önemli önceliklerimizden biri olarak görüyoruz. Bu Gizlilik
                 Politikası, platformumuz üzerinden topladığımız kişisel
                 verilerin nasıl kullanıldığını, saklandığını ve korunduğunu
@@ -289,13 +289,13 @@ export default function PrivacyPage() {
                   Bu haklarınızı kullanmak için{" "}
                   <a
                     href={`mailto:${
-                      process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                      "privacy@analysisday.com"
+                      process.env.NEXT_PUBLIC_PRIVACY_EMAIL ||
+                      "privacy@analizgunu.com"
                     }`}
                     className="text-blue-400 hover:text-blue-300 underline"
                   >
-                    {process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                      "privacy@analysisday.com"}
+                    {process.env.NEXT_PUBLIC_PRIVACY_EMAIL ||
+                      "privacy@analizgunu.com"}
                   </a>{" "}
                   adresinden bizimle iletişime geçebilirsiniz.
                 </p>
@@ -348,12 +348,12 @@ export default function PrivacyPage() {
                 <a
                   href={`mailto:${
                     process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                    "info@analysisday.com"
+                    "info@analizgunu.com"
                   }`}
-                  className="text-blue-400 hover:text-blue-300"
+                  className="text-blue-400 hover:text-blue-300 underline"
                 >
                   {process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                    "info@analysisday.com"}
+                    "info@analizgunu.com"}
                 </a>
               </p>
               <p>

@@ -21,9 +21,9 @@ export default function FAQPage() {
       icon: "❓",
       questions: [
         {
-          question: "AnalysisDay nedir?",
+          question: "Analiz Günü nedir?",
           answer:
-            "AnalysisDay, profesyonel spor istatistik analizi eğitim platformudur. Günlük olarak güncellenen teknik analiz eğitimleri, veri okuma dersleri ve istatistiksel değerlendirme metodolojileri sunar. Premium üyelerimiz tüm eğitim içeriklerine sınırsız erişim sağlar.",
+            "Analiz Günü, profesyonel spor istatistik analizi eğitim platformudur. Günlük olarak güncellenen teknik analiz eğitimleri, veri okuma dersleri ve istatistiksel değerlendirme metodolojileri sunar. Premium üyelerimiz tüm eğitim içeriklerine sınırsız erişim sağlar.",
         },
         {
           question: "Nasıl üye olabilirim?",
@@ -154,7 +154,7 @@ export default function FAQPage() {
         {
           question: "Size nasıl ulaşabilirim?",
           answer: `Email: ${
-            process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@analysisday.com"
+            process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@analizgunu.com"
           } | WhatsApp: ${
             process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "+90 5XX XXX XX XX"
           } | Destek formu üzerinden de mesaj gönderebilirsiniz.`,

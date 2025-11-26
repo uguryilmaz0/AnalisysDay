@@ -42,33 +42,8 @@ export default function AnalysisPage() {
 
     // Tab filtrelemesi
     if (activeTab === "analizler") {
-      // Analizler tab: Dün veya bugünün pending analizleri (sabah 8'e kadar dünküler görünsün)
-      // Türkiye saatini kullan (UTC+3)
-      const now = new Date();
-      const turkeyTime = new Date(
-        now.toLocaleString("en-US", { timeZone: "Europe/Istanbul" })
-      );
-      const currentHour = turkeyTime.getHours();
-
-      // Eğer saat 08:00'den önceyse, dünün analizlerini göster
-      // Eğer saat 08:00 veya sonrasıysa, bugünün analizlerini göster
-      const targetDate = new Date(turkeyTime);
-      if (currentHour < 11) {
-        // Sabah 8'den önceyse, dünün tarihine git
-        targetDate.setDate(targetDate.getDate() - 1);
-      }
-      targetDate.setHours(0, 0, 0, 0);
-
-      result = result.filter((a) => {
-        const analysisDate = a.date.toDate();
-        analysisDate.setHours(0, 0, 0, 0);
-
-        // Target tarihte oluşturulmuş VE (status yok veya pending)
-        return (
-          analysisDate.getTime() === targetDate.getTime() &&
-          (!a.status || a.status === "pending")
-        );
-      });
+      // Analizler tab: Sadece pending (bekleyen) analizleri göster
+      result = result.filter((a) => !a.status || a.status === "pending");
     } else {
       // Sonuçlananlar tab: Tüm kazanan/kaybeden analizler
       result = result.filter((a) => a.status === "won" || a.status === "lost");
@@ -346,29 +321,11 @@ export default function AnalysisPage() {
           >
             📊 Analizler (
             {
-              analyses.filter((a) => {
-                // Günlük analizleri filtrele
-                if ((a.type || "daily") !== "daily") return false;
-
-                const now = new Date();
-                const turkeyTime = new Date(
-                  now.toLocaleString("en-US", { timeZone: "Europe/Istanbul" })
-                );
-                const currentHour = turkeyTime.getHours();
-
-                const targetDate = new Date(turkeyTime);
-                if (currentHour < 8) {
-                  targetDate.setDate(targetDate.getDate() - 1);
-                }
-                targetDate.setHours(0, 0, 0, 0);
-
-                const analysisDate = a.date.toDate();
-                analysisDate.setHours(0, 0, 0, 0);
-                return (
-                  analysisDate.getTime() === targetDate.getTime() &&
+              analyses.filter(
+                (a) =>
+                  (a.type || "daily") === "daily" &&
                   (!a.status || a.status === "pending")
-                );
-              }).length
+              ).length
             }
             )
           </button>

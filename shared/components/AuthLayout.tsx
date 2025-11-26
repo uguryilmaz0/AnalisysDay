@@ -18,7 +18,7 @@ interface AuthLayoutProps {
  * @example
  * <AuthLayout
  *   title="Giriş Yap"
- *   description="AnalysisDay hesabınıza giriş yapın"
+ *   description="Analiz Günü hesabınıza giriş yapın"
  *   icon={LogIn}
  * >
  *   <form>...</form>

@@ -24,7 +24,7 @@ export default function Header() {
           >
             <TrendingUp className="h-8 w-8 text-blue-500 group-hover:text-blue-400 transition" />
             <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
-              AnalysisDay
+              Analiz Günü
             </span>
           </Link>
 

@@ -36,7 +36,7 @@ export default function KVKKPage() {
               <p>
                 6698 sayılı Kişisel Verilerin Korunması Kanunu
                 (&quot;KVKK&quot;) uyarınca, kişisel verileriniz; veri sorumlusu
-                olarak <strong className="text-white">AnalysisDay</strong>{" "}
+                olarak <strong className="text-white">Analiz Günü</strong>{" "}
                 (&quot;Şirket&quot;) tarafından aşağıda açıklanan kapsamda
                 işlenebilecektir.
               </p>
@@ -48,14 +48,14 @@ export default function KVKKPage() {
                 </h3>
                 <div className="space-y-2 text-sm">
                   <p>
-                    <strong>Ünvan:</strong> AnalysisDay Eğitim ve Danışmanlık
+                    <strong>Ünvan:</strong> Analiz Günü Eğitim ve Danışmanlık
                     Platformu
                   </p>
                   <p>
                     <strong>Adres:</strong> [Şirket Adresi Eklenecek]
                   </p>
                   <p>
-                    <strong>E-posta:</strong> kvkk@analysisday.com
+                    <strong>E-posta:</strong> kvkk@analizgunu.com
                   </p>
                   <p>
                     <strong>KEP Adresi:</strong> [KEP Adresi Eklenecek]
@@ -393,7 +393,7 @@ export default function KVKKPage() {
 
                   <div className="space-y-2 ml-4">
                     <p>
-                      <strong>📧 E-posta:</strong> kvkk@analysisday.com
+                      <strong>📧 E-posta:</strong> kvkk@analizgunu.com
                     </p>
                     <p>
                       <strong>📬 Posta:</strong> [Şirket Adresi]
@@ -481,7 +481,7 @@ export default function KVKKPage() {
                     <FileText className="h-5 w-5 text-emerald-400" />
                     <div>
                       <strong className="text-white">E-posta:</strong>{" "}
-                      kvkk@analysisday.com
+                      kvkk@analizgunu.com
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

@@ -252,7 +252,7 @@ export default function PricingPage() {
 
                   <a
                     href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
-                      "Merhaba, AnalysisDay için ödeme yaptım.\n\nKayıtlı Email: " +
+                      "Merhaba, Analiz Günü için ödeme yaptım.\n\nKayıtlı Email: " +
                         (user?.email || "") +
                         "\nÖdeme Tutarı: " +
                         price +

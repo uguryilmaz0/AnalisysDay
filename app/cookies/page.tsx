@@ -16,7 +16,7 @@ export default function CookiePolicyPage() {
             <h1 className="text-4xl font-bold text-white">Çerez Politikası</h1>
           </div>
           <p className="text-xl text-gray-300 mt-4">
-            AnalysisDay Çerez Kullanım Politikası ve Yönetimi
+            Analiz Günü Çerez Kullanım Politikası ve Yönetimi
           </p>
           <p className="text-sm text-gray-400 mt-2">
             Son Güncellenme: 21 Kasım 2025
@@ -446,7 +446,7 @@ export default function CookiePolicyPage() {
                 <div className="space-y-3 text-sm">
                   <p>
                     <strong className="text-white">E-posta:</strong>{" "}
-                    kvkk@analysisday.com
+                    kvkk@analizgunu.com
                   </p>
                   <p>
                     <strong className="text-white">Adres:</strong> [Şirket

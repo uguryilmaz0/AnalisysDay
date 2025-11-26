@@ -124,12 +124,12 @@ export default function SupportPage() {
                     <a
                       href={`mailto:${
                         process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                        "support@analysisday.com"
+                        "support@analizgunu.com"
                       }`}
-                      className="text-white hover:text-blue-400 transition"
+                      className="text-blue-400 hover:text-blue-300 underline"
                     >
                       {process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                        "support@analysisday.com"}
+                        "support@analizgunu.com"}
                     </a>
                   </div>
                 </div>

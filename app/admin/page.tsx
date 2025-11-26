@@ -75,7 +75,7 @@ export default function AdminPage() {
             <div>
               <h1 className="text-3xl font-bold">Admin Panel</h1>
               <p className="text-purple-200">
-                AnalysisDay Yönetim Sistemi
+                Analiz Günü Yönetim Sistemi
                 {isSuperAdmin && (
                   <span className="ml-2 bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-sm">
                     ⭐ Super Admin

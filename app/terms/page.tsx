@@ -39,7 +39,7 @@ export default function TermsPage() {
             iconBgColor="bg-blue-600"
           >
             <p>
-              AnalysisDay platformuna erişerek ve hizmetlerimizi kullanarak, bu
+              Analiz Günü platformuna erişerek ve hizmetlerimizi kullanarak, bu
               Kullanım Koşullarını okuduğunuzu, anladığınızı ve kabul ettiğinizi
               beyan edersiniz.
             </p>
@@ -66,7 +66,7 @@ export default function TermsPage() {
               </h2>
             </div>
             <div className="text-gray-300 space-y-4">
-              <p>AnalysisDay, aşağıdaki hizmetleri sunar:</p>
+              <p>Analiz Günü, aşağıdaki hizmetleri sunar:</p>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
                   <h3 className="font-semibold text-white mb-2">
@@ -268,8 +268,8 @@ export default function TermsPage() {
             </div>
             <div className="text-gray-300 space-y-3 leading-relaxed">
               <p>
-                AnalysisDay platformunda yer alan tüm içerikler (analizler,
-                metinler, görseller, logolar, grafikler) AnalysisDay&apos;in
+                Analiz Günü platformunda yer alan tüm içerikler (analizler,
+                metinler, görseller, logolar, grafikler) Analiz Günü&apos;in
                 fikri mülkiyetidir ve telif hakkı yasaları ile korunmaktadır.
               </p>
               <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
@@ -303,7 +303,7 @@ export default function TermsPage() {
                 </h2>
               </div>
               <p className="text-gray-300 leading-relaxed mb-3">
-                AnalysisDay, herhangi bir zamanda ve herhangi bir sebeple (veya
+                Analiz Günü, herhangi bir zamanda ve herhangi bir sebeple (veya
                 sebepsiz) hesabınızı askıya alma veya sonlandırma hakkını saklı
                 tutar. Özellikle:
               </p>
@@ -324,7 +324,7 @@ export default function TermsPage() {
                 9. Koşullarda Değişiklik Yapma Hakkı
               </h2>
               <p className="text-gray-300 leading-relaxed">
-                AnalysisDay, bu Kullanım Koşullarını istediği zaman güncelleme
+                Analiz Günü, bu Kullanım Koşullarını istediği zaman güncelleme
                 veya değiştirme hakkını saklı tutar. Önemli değişiklikler
                 olduğunda, email veya platform bildirimi ile haberdar
                 edileceksiniz. Değişiklikler yayınlandıktan sonra platformu
@@ -362,12 +362,12 @@ export default function TermsPage() {
                 <a
                   href={`mailto:${
                     process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                    "support@analysisday.com"
+                    "support@analizgunu.com"
                   }`}
-                  className="text-blue-400 hover:text-blue-300"
+                  className="text-blue-400 hover:text-blue-300 underline"
                 >
                   {process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                    "support@analysisday.com"}
+                    "support@analizgunu.com"}
                 </a>
               </p>
               <p>
@@ -390,7 +390,7 @@ export default function TermsPage() {
           {/* Son Onay */}
           <div className="bg-linear-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/50 rounded-xl p-6 text-center">
             <p className="text-white font-semibold mb-2">
-              Bu koşulları kabul ederek AnalysisDay&apos;i kullanmaya
+              Bu koşulları kabul ederek Analiz Günü&apos;i kullanmaya
               başlayabilirsiniz
             </p>
             <p className="text-gray-400 text-sm">

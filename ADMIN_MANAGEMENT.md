@@ -23,7 +23,7 @@
 
 ```env
 # Super Admin Emails (virgülle ayrılmış)
-NEXT_PUBLIC_SUPER_ADMIN_EMAILS=admin@analysisday.com,ugur@example.com
+NEXT_PUBLIC_SUPER_ADMIN_EMAILS=admin@analizgunu.com,ugur@example.com
 ```
 
 Kayıt sırasında bu email'lerden biri kullanılırsa otomatik admin olur.

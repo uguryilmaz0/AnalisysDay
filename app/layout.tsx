@@ -25,7 +25,7 @@ if (typeof window === "undefined") {
 }
 
 export const metadata: Metadata = {
-  title: "AnalysisDay - Daily Match Analysis With AI",
+  title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
   description:
     "Get daily match analysis and predictions using advanced AI technology. Stay ahead with insights and data-driven forecasts for your favorite sports.",
 };

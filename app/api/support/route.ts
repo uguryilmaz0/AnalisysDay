@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supportEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@analysisday.com";
+    const supportEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@analizgunu.com";
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     
     // Kategori etiketleri
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
                   </div>
                   
                   <p style="margin-top: 20px; color: #6b7280; font-size: 14px;">
-                    Bu email AnalysisDay destek formu üzerinden gönderilmiştir.
+                    Bu email Analiz Günü destek formu üzerinden gönderilmiştir.
                   </p>
                 </div>
               </div>

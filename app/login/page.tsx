@@ -117,7 +117,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Giriş Yap"
-      description="AnalysisDay hesabınıza giriş yapın"
+      description="Analiz Günü hesabınıza giriş yapın"
       icon={LogIn}
     >
       {/* Form */}

@@ -22,7 +22,7 @@ export default function Footer() {
             <Link href="/" className="flex items-center space-x-2 mb-4 group">
               <TrendingUp className="h-8 w-8 text-blue-500 group-hover:text-blue-400 transition" />
               <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
-                AnalysisDay
+                Analiz Günü
               </span>
             </Link>
             <p className="text-gray-400 text-sm mb-4 max-w-md">
@@ -30,7 +30,7 @@ export default function Footer() {
               teknik analizler, veri okuma dersleri ve istatistiksel
               değerlendirme metodolojileri.
             </p>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 flex-wrap gap-2">
               <a
                 href={`https://wa.me/${
                   process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "905xxxxxxxxx"
@@ -52,6 +52,23 @@ export default function Footer() {
               >
                 <Send className="h-5 w-5" />
                 <span className="text-sm">Telegram Kanalı</span>
+              </a>
+              <a
+                href={`https://twitter.com/${
+                  process.env.NEXT_PUBLIC_TWITTER_USERNAME || "analizgunu"
+                }`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2 text-sky-400 hover:text-sky-300 transition"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+                <span className="text-sm">Twitter</span>
               </a>
             </div>
           </div>
@@ -154,7 +171,7 @@ export default function Footer() {
                 <a
                   href={`mailto:${
                     process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
-                    "info@analysisday.com"
+                    "info@analizgunu.com"
                   }`}
                   className="text-gray-400 hover:text-blue-400 transition text-sm flex items-center space-x-2"
                 >
@@ -170,12 +187,12 @@ export default function Footer() {
         <div className="mt-8 pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-gray-400 text-sm">
-              © {currentYear} AnalysisDay. Tüm hakları saklıdır.
+              © {currentYear} Analiz Günü. Tüm hakları saklıdır.
             </p>
             <div className="flex items-center space-x-2 text-gray-400 text-sm">
               <span>Provided By</span>
               <Heart className="h-4 w-4 text-red-500 fill-red-500 animate-pulse" />
-              <span>in AnalysisDay Team</span>
+              <span>in Analiz Günü Ekibi</span>
             </div>
           </div>
         </div>
