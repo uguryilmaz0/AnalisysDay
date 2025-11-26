@@ -9,6 +9,7 @@ import {
   Ban,
   FileText,
   Sparkles,
+  Camera,
 } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
@@ -20,6 +21,7 @@ import {
   AdminManagementTab,
   RateLimitTab,
   SystemLogsTab,
+  ImageViewLogsTab,
 } from "@/features/admin/components";
 
 export default function AdminPage() {
@@ -46,6 +48,7 @@ export default function AdminPage() {
     | "admins"
     | "ratelimits"
     | "logs"
+    | "image-logs"
   >("upload");
 
   useEffect(() => {
@@ -232,6 +235,17 @@ export default function AdminPage() {
                   <FileText className="h-5 w-5" />
                   System Logs
                 </button>
+                <button
+                  onClick={() => setActiveTab("image-logs")}
+                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                    activeTab === "image-logs"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <Camera className="h-5 w-5" />
+                  Görsel Takip
+                </button>
               </>
             )}
           </div>
@@ -263,6 +277,8 @@ export default function AdminPage() {
             {activeTab === "ratelimits" && isSuperAdmin && <RateLimitTab />}
 
             {activeTab === "logs" && isSuperAdmin && <SystemLogsTab />}
+
+            {activeTab === "image-logs" && isSuperAdmin && <ImageViewLogsTab />}
           </div>
         </div>
       </div>

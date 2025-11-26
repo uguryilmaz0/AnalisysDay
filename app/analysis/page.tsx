@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllAnalyses, checkSubscriptionExpiry } from "@/lib/db";
 import { DailyAnalysis } from "@/types";
 import { Lock, Calendar, AlertCircle, TrendingUp, Filter } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
+import { WatermarkImage } from "@/components/WatermarkImage";
 import ImageModal from "@/components/ImageModal";
 import { LoadingSpinner, EmptyState, Button } from "@/shared/components/ui";
 import { useRequireAuth, usePermissions, useModal } from "@/shared/hooks";
@@ -30,8 +30,64 @@ export default function AnalysisPage() {
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
     title: string;
+    analysis: DailyAnalysis;
+    imageIndex: number;
   } | null>(null);
   const modal = useModal();
+
+  // Track image view
+  const trackImageView = useCallback(
+    async (
+      type: "view" | "right_click" | "screenshot",
+      analysis: DailyAnalysis,
+      imageUrl: string,
+      imageIndex: number
+    ) => {
+      if (!userData) {
+        console.warn("trackImageView: No user data available");
+        return;
+      }
+
+      try {
+        console.log("📊 Tracking image interaction:", {
+          type,
+          imageIndex,
+          analysisId: analysis.id,
+        });
+
+        const response = await fetch("/api/track/image-view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type,
+            userId: userData.uid,
+            userEmail: userData.email,
+            userName:
+              userData.username || `${userData.firstName} ${userData.lastName}`,
+            analysisId: analysis.id,
+            analysisTitle: analysis.title,
+            imageUrl,
+            imageIndex,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("❌ Track API failed:", {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData,
+          });
+        } else {
+          const data = await response.json();
+          console.log("✅ Tracking successful:", data);
+        }
+      } catch (error) {
+        console.error("❌ Failed to track image view:", error);
+      }
+    },
+    [userData]
+  );
 
   // Filtrelenmiş analizler
   const filteredAnalyses = useMemo(() => {
@@ -267,7 +323,8 @@ export default function AnalysisPage() {
                   <p className="text-yellow-200 font-semibold">
                     Deneme Süresi Aktif -{" "}
                     {Math.ceil(
-                      (userData.trialEndDate.toDate().getTime() - Date.now()) /
+                      (userData.trialEndDate.toDate().getTime() -
+                        new Date().getTime()) /
                         (1000 * 60 * 60 * 24)
                     )}{" "}
                     Gün Kaldı
@@ -464,9 +521,17 @@ export default function AnalysisPage() {
                   analysis={analysis}
                   analysisIndex={analysisIndex}
                   totalCount={filteredAnalyses.length}
-                  onImageClick={(url, title) => {
-                    setSelectedImage({ url, title });
+                  userData={userData}
+                  onImageClick={(url, title, imageIndex) => {
+                    trackImageView("view", analysis, url, imageIndex);
+                    setSelectedImage({ url, title, analysis, imageIndex });
                     modal.open();
+                  }}
+                  onImageRightClick={(url, imageIndex) => {
+                    trackImageView("right_click", analysis, url, imageIndex);
+                  }}
+                  onScreenshotDetected={(url, imageIndex) => {
+                    trackImageView("screenshot", analysis, url, imageIndex);
                   }}
                 />
               ))
@@ -513,9 +578,32 @@ export default function AnalysisPage() {
                               filteredAnalyses.filter((a) => a.status === "won")
                                 .length
                             }
-                            onImageClick={(url, title) => {
-                              setSelectedImage({ url, title });
+                            userData={userData}
+                            onImageClick={(url, title, imageIndex) => {
+                              trackImageView("view", analysis, url, imageIndex);
+                              setSelectedImage({
+                                url,
+                                title,
+                                analysis,
+                                imageIndex,
+                              });
                               modal.open();
+                            }}
+                            onImageRightClick={(url, imageIndex) => {
+                              trackImageView(
+                                "right_click",
+                                analysis,
+                                url,
+                                imageIndex
+                              );
+                            }}
+                            onScreenshotDetected={(url, imageIndex) => {
+                              trackImageView(
+                                "screenshot",
+                                analysis,
+                                url,
+                                imageIndex
+                              );
                             }}
                             showStatusBadge
                           />
@@ -549,9 +637,32 @@ export default function AnalysisPage() {
                                 (a) => a.status === "lost"
                               ).length
                             }
-                            onImageClick={(url, title) => {
-                              setSelectedImage({ url, title });
+                            userData={userData}
+                            onImageClick={(url, title, imageIndex) => {
+                              trackImageView("view", analysis, url, imageIndex);
+                              setSelectedImage({
+                                url,
+                                title,
+                                analysis,
+                                imageIndex,
+                              });
                               modal.open();
+                            }}
+                            onImageRightClick={(url, imageIndex) => {
+                              trackImageView(
+                                "right_click",
+                                analysis,
+                                url,
+                                imageIndex
+                              );
+                            }}
+                            onScreenshotDetected={(url, imageIndex) => {
+                              trackImageView(
+                                "screenshot",
+                                analysis,
+                                url,
+                                imageIndex
+                              );
                             }}
                             showStatusBadge
                           />
@@ -574,6 +685,14 @@ export default function AnalysisPage() {
             }}
             imageUrl={selectedImage.url}
             title={selectedImage.title}
+            onScreenshotDetected={() => {
+              trackImageView(
+                "screenshot",
+                selectedImage.analysis,
+                selectedImage.url,
+                selectedImage.imageIndex
+              );
+            }}
           />
         )}
       </div>
@@ -586,7 +705,15 @@ interface AnalysisCardProps {
   analysis: DailyAnalysis;
   analysisIndex: number;
   totalCount: number;
-  onImageClick: (url: string, title: string) => void;
+  userData: {
+    email?: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+  onImageClick: (url: string, title: string, imageIndex: number) => void;
+  onImageRightClick: (url: string, imageIndex: number) => void;
+  onScreenshotDetected: (url: string, imageIndex: number) => void;
   showStatusBadge?: boolean;
 }
 
@@ -594,7 +721,10 @@ function AnalysisCard({
   analysis,
   analysisIndex,
   totalCount,
+  userData,
   onImageClick,
+  onImageRightClick,
+  onScreenshotDetected,
   showStatusBadge = false,
 }: AnalysisCardProps) {
   return (
@@ -678,27 +808,25 @@ function AnalysisCard({
       {/* Görseller */}
       <div className="p-6 space-y-6 bg-linear-to-b from-gray-900 to-gray-950">
         {analysis.imageUrls.map((url, index) => (
-          <div
+          <WatermarkImage
             key={index}
-            className="relative group cursor-pointer"
-            onClick={() => onImageClick(url, analysis.title)}
-          >
-            <div className="absolute -inset-0.5 bg-linear-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-            <Image
-              src={url}
-              alt={`${analysis.title} - Görsel ${index + 1}`}
-              width={1200}
-              height={800}
-              className="relative w-full h-auto rounded-xl shadow-2xl border border-gray-800 group-hover:border-blue-500/50 transition-all duration-300"
-              priority={analysisIndex === 0 && index === 0}
-            />
-            {/* Zoom İkonu */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 rounded-xl">
-              <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
-                🔍 Yakınlaştır
-              </div>
-            </div>
-          </div>
+            src={url}
+            alt={`${analysis.title} - Görsel ${index + 1}`}
+            width={1200}
+            height={800}
+            className="cursor-pointer"
+            priority={analysisIndex === 0 && index === 0}
+            imageIndex={index}
+            userEmail={userData?.email || "Unknown"}
+            userName={
+              userData?.username ||
+              `${userData?.firstName || ""} ${userData?.lastName || ""}`.trim()
+            }
+            onImageClick={() => onImageClick(url, analysis.title, index)}
+            onRightClick={() => onImageRightClick(url, index)}
+            onScreenshotDetected={() => onScreenshotDetected(url, index)}
+            disableRightClick={true}
+          />
         ))}
       </div>
     </div>

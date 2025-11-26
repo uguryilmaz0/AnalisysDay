@@ -7,10 +7,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
-  Download,
   Maximize2,
-  ChevronLeft,
-  ChevronRight,
   Minimize2,
 } from "lucide-react";
 
@@ -19,6 +16,7 @@ interface ImageModalProps {
   onClose: () => void;
   imageUrl: string;
   title: string;
+  onScreenshotDetected?: () => void;
 }
 
 export default function ImageModal({
@@ -26,11 +24,14 @@ export default function ImageModal({
   onClose,
   imageUrl,
   title,
+  onScreenshotDetected,
 }: ImageModalProps) {
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
+  const [isScreenshotAttempted, setIsScreenshotAttempted] =
+    useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [position, setPosition] = useState<{ x: number; y: number }>({
     x: 0,
@@ -45,14 +46,45 @@ export default function ImageModal({
   const imageRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  // ESC tuşuyla kapatma
+  // ESC tuşuyla kapatma ve Screenshot detection
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC tuşu
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      // Screenshot detection
+      // Windows: Win+Shift+S (PrintScreen tuşu JavaScript'te yakalanamaz)
+      // Mac: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5
+      const isWindowsSnip =
+        e.shiftKey && e.key === "S" && (e.metaKey || e.ctrlKey);
+      const isMacScreenshot =
+        e.metaKey &&
+        e.shiftKey &&
+        (e.key === "3" || e.key === "4" || e.key === "5");
+
+      if (isWindowsSnip || isMacScreenshot) {
+        console.log("📸 [ImageModal] Screenshot detected!", { imageUrl });
+        setIsScreenshotAttempted(true);
+
+        // Trigger callback
+        onScreenshotDetected?.();
+
+        // Flash warning
+        setTimeout(() => setIsScreenshotAttempted(false), 2000);
+      }
     };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
+
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose, onScreenshotDetected, imageUrl]);
 
   // Modal açıldığında scroll kilitle
   useEffect(() => {
@@ -130,16 +162,6 @@ export default function ImageModal({
       await document.exitFullscreen();
       setIsFullscreen(false);
     }
-  };
-
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = title.replace(/[^a-z0-9]/gi, "_") + ".png";
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Mouse drag handlers
@@ -292,14 +314,6 @@ export default function ImageModal({
             <div className="w-px h-6 bg-white/20"></div>
 
             <button
-              onClick={handleDownload}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
-              title="İndir"
-            >
-              <Download className="h-4 w-4 text-white" />
-            </button>
-
-            <button
               onClick={toggleFullscreen}
               className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
               title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran"}
@@ -363,13 +377,6 @@ export default function ImageModal({
           </button>
 
           <button
-            onClick={handleDownload}
-            className="p-3 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
-          >
-            <Download className="h-5 w-5 text-white" />
-          </button>
-
-          <button
             onClick={handleReset}
             className="px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all text-white text-sm font-medium"
           >
@@ -415,6 +422,21 @@ export default function ImageModal({
           />
         </div>
       </div>
+
+      {/* Screenshot Warning Flash */}
+      {isScreenshotAttempted && (
+        <div className="fixed inset-0 bg-red-500/80 backdrop-blur-sm flex items-center justify-center z-10000 pointer-events-none">
+          <div className="text-center text-white animate-pulse">
+            <p className="text-4xl md:text-6xl font-bold mb-4">⚠️ UYARI</p>
+            <p className="text-xl md:text-3xl font-semibold">
+              Ekran görüntüsü tespit edildi!
+            </p>
+            <p className="text-base md:text-xl mt-4">
+              Bu işlem kaydedilmiştir.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

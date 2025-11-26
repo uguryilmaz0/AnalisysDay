@@ -51,3 +51,26 @@ export interface PaymentRequest {
   processedAt?: Timestamp;
   processedBy?: string; // Admin UID
 }
+
+export interface ImageTrackingLog {
+  id: string;
+  type: 'view' | 'right_click' | 'screenshot' | 'download';
+  userId: string;
+  userEmail: string;
+  userName: string;
+  analysisId: string;
+  analysisTitle: string;
+  imageUrl: string;
+  imageIndex: number; // Hangi görsel (0, 1, 2...)
+  ipAddress: string;
+  userAgent: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop' | 'bot';
+  country?: string;
+  isp?: string;
+  asn?: string;
+  isVPN: boolean;
+  isProxy: boolean;
+  isTor: boolean;
+  timestamp: number;
+  createdAt: Timestamp;
+}
