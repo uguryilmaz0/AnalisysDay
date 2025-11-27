@@ -38,9 +38,10 @@ class AnalysisService extends BaseService {
     description: string,
     userId: string,
     type: 'daily' | 'ai' = 'daily',
-    mainChoice?: string,
+    ideal?: string,
     alternative?: string,
-    iyGoal?: string
+    possibleScore?: string,
+    percentage?: string
   ): Promise<void> {
     return this.executeWithErrorHandling(async () => {
       // Önce görselleri yükle
@@ -53,9 +54,10 @@ class AnalysisService extends BaseService {
         description,
         userId,
         type,
-        mainChoice,
+        ideal,
         alternative,
-        iyGoal
+        possibleScore,
+        percentage
       );
     }, "create");
   }

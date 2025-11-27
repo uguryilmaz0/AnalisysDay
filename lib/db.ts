@@ -217,9 +217,10 @@ export async function createAnalysis(
   description: string,
   createdBy: string,
   type: 'daily' | 'ai' = 'daily',
-  mainChoice?: string,
+  ideal?: string,
   alternative?: string,
-  iyGoal?: string
+  possibleScore?: string,
+  percentage?: string
 ): Promise<string> {
   try {
     // Kullanıcı bilgisini al (username için)
@@ -251,9 +252,10 @@ export async function createAnalysis(
 
     // Yapay zeka analizi ise ek alanları ekle
     if (type === 'ai') {
-      analysisData.mainChoice = mainChoice;
+      analysisData.ideal = ideal;
       analysisData.alternative = alternative;
-      analysisData.iyGoal = iyGoal;
+      analysisData.possibleScore = possibleScore;
+      analysisData.percentage = percentage;
     }
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);

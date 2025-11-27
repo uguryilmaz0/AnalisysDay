@@ -34,9 +34,10 @@ export interface DailyAnalysis {
   resultConfirmedBy?: string; // Sonucu onaylayan admin UID
   resultConfirmedAt?: Timestamp; // Onay zamanı
   // Yapay Zeka Analizi için ek alanlar
-  mainChoice?: string; // Ana Tercih (max 3 kelime)
-  alternative?: string; // Alternatif (max 3 kelime)
-  iyGoal?: string; // İY Gol (max 3 kelime)
+  ideal?: string; // İdeal Tercih (max 30 karakter)
+  alternative?: string; // Alternatif (max 30 karakter)
+  possibleScore?: string; // Olası Skor (max 30 karakter)
+  percentage?: string; // Yüzde (max 30 karakter)
 }
 
 export interface PaymentRequest {

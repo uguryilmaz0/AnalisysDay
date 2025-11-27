@@ -284,7 +284,8 @@ export default function AIAnalysisPage() {
                   <p className="text-purple-200 font-semibold">
                     Deneme Süresi Aktif -{" "}
                     {Math.ceil(
-                      (userData.trialEndDate.toDate().getTime() - Date.now()) /
+                      (userData.trialEndDate.toDate().getTime() -
+                        new Date().getTime()) /
                         (1000 * 60 * 60 * 24)
                     )}{" "}
                     Gün Kaldı
@@ -308,8 +309,8 @@ export default function AIAnalysisPage() {
                   Yapay Zeka Analizi
                 </h1>
               </div>
-              <p className="text-purple-100">
-                AI destekli gelişmiş tablo tahminleri • 2 gün yayında
+              <p className="text-purple-100 text-md">
+                İlk yarı 0.5 üst & Maç geneli 1.5 üst
               </p>
             </div>
 
@@ -690,28 +691,31 @@ function AIAnalysisCard({
         )}
 
         {/* AI TAHMİN TABLOSU */}
-        {(analysis.mainChoice || analysis.alternative || analysis.iyGoal) && (
+        {(analysis.ideal ||
+          analysis.alternative ||
+          analysis.possibleScore ||
+          analysis.percentage) && (
           <div className="mt-4 bg-linear-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-4">
               <Sparkles className="h-5 w-5 text-purple-400" />
               <h3 className="text-lg font-bold text-purple-300">
                 AI Tahminleri
               </h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Ana Tercih */}
-              <div className="bg-gray-900/60 rounded-lg p-3 border border-purple-500/20">
-                <p className="text-xs text-purple-400 font-semibold mb-1.5">
-                  Ana Tercih
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* İdeal */}
+              <div className="bg-gray-900/60 rounded-lg p-4 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
+                <p className="text-xs text-purple-400 font-semibold mb-2">
+                  İdeal
                 </p>
                 <p className="text-white font-bold text-lg">
-                  {analysis.mainChoice || "-"}
+                  {analysis.ideal || "-"}
                 </p>
               </div>
 
               {/* Alternatif */}
-              <div className="bg-gray-900/60 rounded-lg p-3 border border-pink-500/20">
-                <p className="text-xs text-pink-400 font-semibold mb-1.5">
+              <div className="bg-gray-900/60 rounded-lg p-4 border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-pink-500/20">
+                <p className="text-xs text-pink-400 font-semibold mb-2">
                   Alternatif
                 </p>
                 <p className="text-white font-bold text-lg">
@@ -719,13 +723,23 @@ function AIAnalysisCard({
                 </p>
               </div>
 
-              {/* İY Gol */}
-              <div className="bg-gray-900/60 rounded-lg p-3 border border-purple-500/20">
-                <p className="text-xs text-purple-400 font-semibold mb-1.5">
-                  İY Gol
+              {/* Olası Skor */}
+              <div className="bg-gray-900/60 rounded-lg p-4 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
+                <p className="text-xs text-purple-400 font-semibold mb-2">
+                  Olası Skor
                 </p>
                 <p className="text-white font-bold text-lg">
-                  {analysis.iyGoal || "-"}
+                  {analysis.possibleScore || "-"}
+                </p>
+              </div>
+
+              {/* Yüzde */}
+              <div className="bg-gray-900/60 rounded-lg p-4 border border-green-500/20 hover:border-green-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                <p className="text-xs text-green-400 font-semibold mb-2">
+                  Yüzde
+                </p>
+                <p className="text-white font-bold text-lg">
+                  {analysis.percentage || "-"}
                 </p>
               </div>
             </div>
@@ -734,16 +748,33 @@ function AIAnalysisCard({
 
         {/* Açıklama */}
         {analysis.description && (
-          <div
-            className="text-gray-400 mt-2 prose prose-invert max-w-none"
-            style={{ whiteSpace: "pre-wrap" }}
-            dangerouslySetInnerHTML={{
-              __html: analysis.description
-                .replace(/\n/g, "<br />")
-                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                .replace(/\*(.*?)\*/g, "<em>$1</em>"),
-            }}
-          />
+          <div className="mt-6 relative">
+            <div className="absolute -inset-0.5 bg-linear-to-r from-purple-600/20 to-pink-600/20 rounded-xl blur"></div>
+            <div className="relative bg-gray-800/50 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6 shadow-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-1 w-8 bg-linear-to-r from-purple-500 to-pink-500 rounded-full"></div>
+                <span className="text-sm font-semibold text-purple-300">
+                  Detaylı Açıklama
+                </span>
+              </div>
+              <div
+                className="text-gray-300 leading-relaxed prose prose-invert max-w-none"
+                style={{ whiteSpace: "pre-wrap" }}
+                dangerouslySetInnerHTML={{
+                  __html: analysis.description
+                    .replace(/\n/g, "<br />")
+                    .replace(
+                      /\*\*(.*?)\*\*/g,
+                      "<strong class='text-white font-semibold'>$1</strong>"
+                    )
+                    .replace(
+                      /\*(.*?)\*/g,
+                      "<em class='text-purple-300'>$1</em>"
+                    ),
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
 

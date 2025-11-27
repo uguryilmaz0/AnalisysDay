@@ -17,9 +17,10 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
   const [analysisType, setAnalysisType] = useState<AnalysisType>("daily");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [mainChoice, setMainChoice] = useState("");
+  const [ideal, setIdeal] = useState("");
   const [alternative, setAlternative] = useState("");
-  const [iyGoal, setIyGoal] = useState("");
+  const [possibleScore, setPossibleScore] = useState("");
+  const [percentage, setPercentage] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -40,7 +41,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
 
     // Yapay zeka analizi için ek validasyon
     if (analysisType === "ai") {
-      if (!mainChoice || !alternative || !iyGoal) {
+      if (!ideal || !alternative || !possibleScore || !percentage) {
         showToast(
           "Yapay zeka analizi için tüm tahmin alanlarını doldurun!",
           "warning"
@@ -60,17 +61,19 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
         description,
         userId,
         analysisType,
-        mainChoice,
+        ideal,
         alternative,
-        iyGoal
+        possibleScore,
+        percentage
       );
 
       setUploadSuccess(true);
       setTitle("");
       setDescription("");
-      setMainChoice("");
+      setIdeal("");
       setAlternative("");
-      setIyGoal("");
+      setPossibleScore("");
+      setPercentage("");
       setImageFiles([]);
 
       // Store'u güncelle
@@ -149,12 +152,12 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
             <h3 className="text-lg font-bold text-purple-300 mb-4">
               🎯 Tahmin Tablosu
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Ana Tercih *"
+                label="İdeal *"
                 type="text"
-                value={mainChoice}
-                onChange={(e) => setMainChoice(e.target.value)}
+                value={ideal}
+                onChange={(e) => setIdeal(e.target.value)}
                 placeholder="Örn: Chelsea Kazanır"
                 maxLength={30}
                 fullWidth
@@ -169,17 +172,26 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
                 fullWidth
               />
               <Input
-                label="İY Gol *"
+                label="Olası Skor *"
                 type="text"
-                value={iyGoal}
-                onChange={(e) => setIyGoal(e.target.value)}
-                placeholder="Örn: Var"
+                value={possibleScore}
+                onChange={(e) => setPossibleScore(e.target.value)}
+                placeholder="Örn: 2-1 veya 1-0"
+                maxLength={30}
+                fullWidth
+              />
+              <Input
+                label="Yüzde *"
+                type="text"
+                value={percentage}
+                onChange={(e) => setPercentage(e.target.value)}
+                placeholder="Örn: %75 veya 75%"
                 maxLength={30}
                 fullWidth
               />
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              * Her alan en fazla 3 kelime olmalıdır
+              * Her alan en fazla 30 karakter olabilir
             </p>
           </div>
         )}
