@@ -213,6 +213,30 @@ export async function DELETE(
       );
     }
 
+    const userData = userDoc.data();
+    
+    // 3.5. Referral temizleme - bu kullanıcıyı davet eden kişinin listelerinden çıkar
+    if (userData?.referredBy) {
+      const referrerDoc = await adminDb.collection('users').doc(userData.referredBy).get();
+      if (referrerDoc.exists) {
+        const referrerData = referrerDoc.data();
+        const updatedReferredUsers = (referrerData?.referredUsers || []).filter((id: string) => id !== userId);
+        const updatedPremiumReferrals = (referrerData?.premiumReferrals || []).filter((id: string) => id !== userId);
+        
+        await adminDb.collection('users').doc(userData.referredBy).update({
+          referredUsers: updatedReferredUsers,
+          premiumReferrals: updatedPremiumReferrals,
+        });
+        
+        logger.info('Referral links cleaned', {
+          deletedUserId: userId,
+          referrerId: userData.referredBy,
+          removedFromTotal: true,
+          removedFromPremium: (referrerData?.premiumReferrals || []).includes(userId),
+        });
+      }
+    }
+
     // 4. Delete from Firebase Auth
     await adminAuth.deleteUser(userId);
 

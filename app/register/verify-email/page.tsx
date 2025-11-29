@@ -37,13 +37,25 @@ export default function VerifyEmailPage() {
         clearInterval(checkEmailVerification);
 
         // Firestore'u güncelle
-        const { doc, setDoc } = await import("firebase/firestore");
+        const { doc, getDoc, setDoc } = await import("firebase/firestore");
         const { db } = await import("@/lib/firebase");
-        await setDoc(
-          doc(db, "users", auth.currentUser.uid),
-          { emailVerified: true },
-          { merge: true }
-        );
+
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        const userDoc = await getDoc(userRef);
+
+        await setDoc(userRef, { emailVerified: true }, { merge: true });
+
+        // KRITIK: Referral sayacını güncelle (davet eden varsa)
+        // Email onayı referral sistemine dahil olma için önemli
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData?.referredBy) {
+            console.log("Email verified, updating referrer stats:", {
+              userId: auth.currentUser.uid,
+              referrerId: userData.referredBy,
+            });
+          }
+        }
 
         showToast(
           "Email adresiniz doğrulandı! Giriş yapabilirsiniz.",
