@@ -149,10 +149,6 @@ export default function AIAnalysisPage() {
 
   // Premium erişimi yoksa - KİLİT EKRANI
   if (!hasPremiumAccess) {
-    const trialExpired =
-      userData?.trialUsed &&
-      (!userData?.trialEndDate || new Date() > userData.trialEndDate.toDate());
-
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-950 via-purple-900/20 to-gray-950 relative overflow-hidden">
         {/* Arka Plan Efekti */}
@@ -203,18 +199,6 @@ export default function AIAnalysisPage() {
             <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-linear-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
               Yapay Zeka Analizi
             </h1>
-
-            {/* Deneme Süresi Doldu Mesajı */}
-            {trialExpired && (
-              <div className="bg-linear-to-r from-orange-900/50 to-red-900/50 border border-orange-500/30 rounded-lg p-4 mb-6">
-                <p className="text-orange-300 font-semibold mb-2">
-                  ⏰ 3 Günlük Deneme Süreniz Doldu
-                </p>
-                <p className="text-orange-200/80 text-sm">
-                  Premium üyelikle AI analizlerine sınırsız erişim sağlayın
-                </p>
-              </div>
-            )}
 
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 mb-8">
               <AlertCircle className="h-16 w-16 text-purple-400 mx-auto mb-4" />
@@ -272,33 +256,6 @@ export default function AIAnalysisPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Deneme Süresi Banner */}
-        {userData &&
-          !userData.isPaid &&
-          userData.trialEndDate &&
-          new Date() < userData.trialEndDate.toDate() && (
-            <div className="bg-linear-to-r from-purple-900/50 to-pink-900/50 border border-purple-500/30 rounded-lg p-4 mb-6 animate-pulse">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🎉</span>
-                <div>
-                  <p className="text-purple-200 font-semibold">
-                    Deneme Süresi Aktif -{" "}
-                    {Math.ceil(
-                      (userData.trialEndDate.toDate().getTime() -
-                        new Date().getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )}{" "}
-                    Gün Kaldı
-                  </p>
-                  <p className="text-purple-300/80 text-sm mt-1">
-                    AI analiz özelliklerini deneyimleyin! Süre bitiminde üyelik
-                    almayı unutmayın.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
         {/* Header */}
         <div className="bg-linear-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
           <div className="flex items-center justify-between flex-wrap gap-4">

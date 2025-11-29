@@ -14,8 +14,6 @@ export interface User {
   emailNotifications: boolean;
   emailVerified: boolean;
   createdAt: Timestamp;
-  trialEndDate: Timestamp | null; // 3 günlük deneme bitiş tarihi
-  trialUsed: boolean; // Deneme hakkı kullanıldı mı?
 }
 
 export interface DailyAnalysis {
@@ -72,6 +70,25 @@ export interface ImageTrackingLog {
   isVPN: boolean;
   isProxy: boolean;
   isTor: boolean;
+  timestamp: number;
+  createdAt: Timestamp;
+}
+
+export interface LoginLog {
+  id: string;
+  userId?: string; // Başarısız girişlerde olmayabilir
+  email: string; // Giriş denemesinde kullanılan email/username
+  ipAddress: string;
+  userAgent: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop' | 'bot';
+  country?: string;
+  isp?: string;
+  asn?: string;
+  isVPN: boolean;
+  isProxy: boolean;
+  isTor: boolean;
+  success: boolean; // Giriş başarılı mı?
+  failReason?: string; // Başarısız ise nedeni (WRONG_PASSWORD, USER_NOT_FOUND, etc.)
   timestamp: number;
   createdAt: Timestamp;
 }

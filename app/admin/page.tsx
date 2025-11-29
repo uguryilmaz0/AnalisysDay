@@ -10,6 +10,7 @@ import {
   FileText,
   Sparkles,
   Camera,
+  LogIn,
 } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
@@ -22,6 +23,7 @@ import {
   RateLimitTab,
   SystemLogsTab,
   ImageViewLogsTab,
+  LoginLogsTab,
 } from "@/features/admin/components";
 
 export default function AdminPage() {
@@ -49,6 +51,7 @@ export default function AdminPage() {
     | "ratelimits"
     | "logs"
     | "image-logs"
+    | "login-logs"
   >("upload");
 
   useEffect(() => {
@@ -147,39 +150,42 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex border-b border-gray-800 overflow-x-auto">
+          <div className="flex border-b border-gray-800 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
             <button
               onClick={() => setActiveTab("upload")}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                 activeTab === "upload"
                   ? "bg-purple-600 text-white"
                   : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
-              <Upload className="h-5 w-5" />
-              Analiz Yükle
+              <Upload className="h-4 w-4 md:h-5 md:w-5" />
+              <span className="hidden sm:inline">Analiz Yükle</span>
+              <span className="sm:hidden">Yükle</span>
             </button>
             <button
               onClick={() => setActiveTab("analyses")}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                 activeTab === "analyses"
                   ? "bg-purple-600 text-white"
                   : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
-              <TrendingUp className="h-5 w-5" />
-              Günlük Analizler
+              <TrendingUp className="h-4 w-4 md:h-5 md:w-5" />
+              <span className="hidden sm:inline">Günlük Analizler</span>
+              <span className="sm:hidden">Günlük</span>
             </button>
             <button
               onClick={() => setActiveTab("ai-analyses")}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                 activeTab === "ai-analyses"
                   ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
                   : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
-              <Sparkles className="h-5 w-5" />
-              Yapay Zeka Analizleri
+              <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
+              <span className="hidden sm:inline">Yapay Zeka Analizleri</span>
+              <span className="sm:hidden">AI</span>
             </button>
 
             {/* Super Admin Only Tabs */}
@@ -187,25 +193,27 @@ export default function AdminPage() {
               <>
                 <button
                   onClick={() => setActiveTab("users")}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "users"
                       ? "bg-purple-600 text-white"
                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
-                  <Users className="h-5 w-5" />
-                  Kullanıcılar
+                  <Users className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Kullanıcılar</span>
+                  <span className="sm:hidden">Users</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("admins")}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "admins"
                       ? "bg-purple-600 text-white"
                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
-                  <Shield className="h-5 w-5" />
-                  Admin Yönetimi
+                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Admin Yönetimi</span>
+                  <span className="sm:hidden">Admins</span>
                 </button>
               </>
             )}
@@ -215,42 +223,57 @@ export default function AdminPage() {
               <>
                 <button
                   onClick={() => setActiveTab("ratelimits")}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "ratelimits"
                       ? "bg-purple-600 text-white"
                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
-                  <Ban className="h-5 w-5" />
-                  Rate Limits
+                  <Ban className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Rate Limits</span>
+                  <span className="sm:hidden">Limits</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("logs")}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "logs"
                       ? "bg-purple-600 text-white"
                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
-                  <FileText className="h-5 w-5" />
-                  System Logs
+                  <FileText className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">System Logs</span>
+                  <span className="sm:hidden">Logs</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("image-logs")}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "image-logs"
                       ? "bg-purple-600 text-white"
                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
-                  <Camera className="h-5 w-5" />
-                  Görsel Takip
+                  <Camera className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Görsel Takip</span>
+                  <span className="sm:hidden">Görsel</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("login-logs")}
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
+                    activeTab === "login-logs"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <LogIn className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Login Logları</span>
+                  <span className="sm:hidden">Login</span>
                 </button>
               </>
             )}
           </div>
 
-          <div className="p-8">
+          <div className="p-4 md:p-8">
             {activeTab === "upload" && user?.uid && (
               <AnalysisUploadTab userId={user.uid} />
             )}
@@ -279,6 +302,8 @@ export default function AdminPage() {
             {activeTab === "logs" && isSuperAdmin && <SystemLogsTab />}
 
             {activeTab === "image-logs" && isSuperAdmin && <ImageViewLogsTab />}
+
+            {activeTab === "login-logs" && isSuperAdmin && <LoginLogsTab />}
           </div>
         </div>
       </div>

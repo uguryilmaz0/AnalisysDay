@@ -183,11 +183,6 @@ export default function AnalysisPage() {
 
   // Premium erişimi yoksa - KİLİT EKRANI
   if (!hasPremiumAccess) {
-    // Deneme süresi kontrolü
-    const trialExpired =
-      userData?.trialUsed &&
-      (!userData?.trialEndDate || new Date() > userData.trialEndDate.toDate());
-
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden">
         {/* Arka Plan Bulanık Efekti */}
@@ -242,18 +237,6 @@ export default function AnalysisPage() {
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
               Premium İçerik
             </h1>
-
-            {/* Deneme Süresi Doldu Mesajı */}
-            {trialExpired && (
-              <div className="bg-linear-to-r from-orange-900/50 to-red-900/50 border border-orange-500/30 rounded-lg p-4 mb-6">
-                <p className="text-orange-300 font-semibold mb-2">
-                  ⏰ 3 Günlük Deneme Süreniz Doldu
-                </p>
-                <p className="text-orange-200/80 text-sm">
-                  Premium üyelikle analizlere sınırsız erişim sağlayın
-                </p>
-              </div>
-            )}
 
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 mb-8">
               <AlertCircle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
@@ -311,33 +294,6 @@ export default function AnalysisPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Deneme Süresi Banner */}
-        {userData &&
-          !userData.isPaid &&
-          userData.trialEndDate &&
-          new Date() < userData.trialEndDate.toDate() && (
-            <div className="bg-linear-to-r from-yellow-900/50 to-orange-900/50 border border-yellow-500/30 rounded-lg p-4 mb-6 animate-pulse">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🎉</span>
-                <div>
-                  <p className="text-yellow-200 font-semibold">
-                    Deneme Süresi Aktif -{" "}
-                    {Math.ceil(
-                      (userData.trialEndDate.toDate().getTime() -
-                        new Date().getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )}{" "}
-                    Gün Kaldı
-                  </p>
-                  <p className="text-yellow-300/80 text-sm mt-1">
-                    Premium özellikleri deneyimleyin! Süre bitiminde üyelik
-                    almayı unutmayın.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
         {/* Header */}
         <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
           <div className="flex items-center justify-between flex-wrap gap-4">

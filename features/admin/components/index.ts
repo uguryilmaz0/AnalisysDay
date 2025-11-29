@@ -5,4 +5,5 @@ export { AdminManagementTab } from "./AdminManagementTab";
 export { RateLimitTab } from "./RateLimitTab";
 export { SystemLogsTab } from "./SystemLogsTab";
 export { ImageViewLogsTab } from "./ImageViewLogsTab";
+export { LoginLogsTab } from "./LoginLogsTab";
 

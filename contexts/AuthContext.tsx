@@ -83,51 +83,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { getUserByUsername } = await import("@/lib/db");
 
     let email = emailOrUsername;
+    let loginSuccess = false;
+    let userId: string | null = null;
+    let failReason: string | null = null;
 
-    // Eğer @ işareti yoksa, username olarak kabul et
-    if (!emailOrUsername.includes("@")) {
-      const user = await getUserByUsername(emailOrUsername);
-      if (!user) {
-        throw new Error("Kullanıcı bulunamadı");
-      }
-      email = user.email;
-    }
-
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    // Email doğrulama kontrolü (Admin ve super admin hariç)
-    const userDocRef = doc(db, "users", userCredential.user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const userData = userDoc.data() as User;
-
-      // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
-      if (userCredential.user.emailVerified && !userData.emailVerified) {
-        await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+    try {
+      // Eğer @ işareti yoksa, username olarak kabul et
+      if (!emailOrUsername.includes("@")) {
+        const user = await getUserByUsername(emailOrUsername);
+        if (!user) {
+          failReason = "User not found";
+          throw new Error("Kullanıcı bulunamadı");
+        }
+        email = user.email;
       }
 
-      // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
-      if (userData.role !== "admin" && !userCredential.user.emailVerified) {
-        logger.warn("Login attempt with unverified email", {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      userId = userCredential.user.uid;
+
+      // Email doğrulama kontrolü (Admin ve super admin hariç)
+      const userDocRef = doc(db, "users", userCredential.user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+
+        // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
+        if (userCredential.user.emailVerified && !userData.emailVerified) {
+          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+        }
+
+        // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
+        if (userData.role !== "admin" && !userCredential.user.emailVerified) {
+          failReason = "Email not verified";
+          logger.warn("Login attempt with unverified email", {
+            userId: userCredential.user.uid,
+            email: userCredential.user.email || email,
+            action: "login_failed",
+          });
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
+        // Başarılı girişi logla
+        logger.info("User logged in", {
           userId: userCredential.user.uid,
           email: userCredential.user.email || email,
-          action: "login_failed",
+          role: userData.role,
+          action: "login_success",
         });
-        throw new Error("EMAIL_NOT_VERIFIED");
+
+        loginSuccess = true;
       }
 
-      // Başarılı girişi logla
-      logger.info("User logged in", {
-        userId: userCredential.user.uid,
-        email: userCredential.user.email || email,
-        role: userData.role,
-        action: "login_success",
+      // Login activity'yi IP bilgisiyle kaydet
+      await fetch("/api/logs/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          email,
+          success: true,
+          failReason: null,
+        }),
+      }).catch((err) => {
+        // Login logging hatası uygulamayı kırmamalı
+        console.error("Failed to log login activity:", err);
       });
+    } catch (error) {
+      // Hatalı girişi de kaydet
+      await fetch("/api/logs/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          email,
+          success: false,
+          failReason:
+            failReason ||
+            (error instanceof Error ? error.message : "Unknown error"),
+        }),
+      }).catch((err) => {
+        console.error("Failed to log failed login activity:", err);
+      });
+
+      // Hatayı yeniden fırlat
+      throw error;
     }
   };
 
@@ -167,10 +212,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await sendEmailVerification(userCredential.user);
     }
 
-    // 3 günlük deneme süresi hesapla
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 3); // Kayıt + 3 gün
-
     // Firestore'a kullanıcı kaydı oluştur
     const newUser: User = {
       uid: userCredential.user.uid,
@@ -186,8 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
       createdAt: Timestamp.now(),
-      trialEndDate: isSuperAdmin ? null : Timestamp.fromDate(trialEndDate), // Admin'ler için deneme yok
-      trialUsed: !isSuperAdmin, // Admin'ler için false, normal kullanıcılar için true
     };
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);

@@ -34,13 +34,11 @@ service cloud.firestore {
 
     // Daily Analysis koleksiyonu
     match /daily_analysis/{analysisId} {
-      // Premium üyeler, adminler veya aktif deneme süresi olanlar okuyabilir
+      // Premium üyeler veya adminler okuyabilir
       allow read: if request.auth != null && 
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPaid == true ||
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.trialEndDate != null &&
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.trialEndDate > request.time)
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
                      );
 
       // Sadece adminler yazabilir, güncelleyebilir, silebilir
@@ -85,6 +83,22 @@ service cloud.firestore {
 
     // Image Tracking koleksiyonu (Admin SDK only - API routes kullanır)
     match /image_tracking/{trackingId} {
+      // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
+      allow create: if false;
+      
+      // Sadece adminler okuyabilir
+      allow read: if request.auth != null &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Sadece adminler güncelleyebilir/silebilir
+      allow update, delete: if request.auth != null &&
+                               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Login Logs koleksiyonu (Admin SDK only - API routes kullanır)
+    match /login_logs/{logId} {
       // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
       allow create: if false;
       

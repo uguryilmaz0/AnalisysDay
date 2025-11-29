@@ -122,30 +122,13 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
   }
 }
 
-// Deneme süresini kontrol et
+/**
+ * @deprecated Trial sistemi kaldırıldı. Bu fonksiyon artık kullanılmıyor.
+ * Sadece geriye dönük uyumluluk için bırakıldı.
+ */
 export async function checkTrialExpiry(uid: string): Promise<boolean> {
-  try {
-    const user = await getUserById(uid);
-    if (!user || !user.trialEndDate) {
-      return false;
-    }
-
-    const now = new Date();
-    const endDate = user.trialEndDate.toDate();
-
-    // Deneme süresi dolmuşsa
-    if (now > endDate) {
-      await updateDoc(doc(db, 'users', uid), {
-        trialEndDate: null, // Deneme bitmiş olarak işaretle
-      });
-      return false;
-    }
-
-    return true; // Deneme aktif
-  } catch (error) {
-    console.error('Deneme süresi kontrolü yapılamadı:', error);
-    return false;
-  }
+  console.warn('checkTrialExpiry is deprecated and no longer used');
+  return false;
 }
 
 export async function getAllUsers(): Promise<User[]> {
