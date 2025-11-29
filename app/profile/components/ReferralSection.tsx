@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Copy, CheckCircle2, TrendingUp, Award } from "lucide-react";
+import {
+  Users,
+  Copy,
+  CheckCircle2,
+  TrendingUp,
+  Award,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button, LoadingSpinner } from "@/shared/components/ui";
 import { useToast } from "@/shared/hooks";
 import { generateReferralLink } from "@/lib/referralUtils";
@@ -18,6 +26,8 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
   const [referralLink, setReferralLink] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 5;
   const [stats, setStats] = useState({
     totalReferrals: 0,
     premiumReferrals: 0,
@@ -45,9 +55,13 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
       setReferralLink(link);
 
       // İstatistikleri getir
+      console.log("🔄 Loading referral stats for user:", userData.uid);
       const referralStats = await getReferralStats(userData.uid);
+      console.log("📊 Received referral stats:", referralStats);
       setStats(referralStats);
-    } catch {
+      console.log("✅ Stats state updated:", referralStats);
+    } catch (error) {
+      console.error("❌ Failed to load referral data:", error);
       showToast("Referral bilgileri yüklenemedi", "error");
     } finally {
       setLoading(false);
@@ -161,42 +175,85 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
       </div>
 
       {/* Davet Edilen Kullanıcılar */}
-      {stats.totalReferrals > 0 && (
-        <div className="border-t border-gray-800 pt-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Davet Ettikleriniz
-          </h3>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {stats.referredUsers.map((user) => {
-              const isPremium = stats.premiumUsers.some(
-                (pu) => pu.uid === user.uid
-              );
-              return (
-                <div
-                  key={user.uid}
-                  className="bg-gray-800 rounded-lg p-3 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      {user.firstName} {user.lastName}
-                    </p>
-                    <p className="text-gray-400 text-xs">@{user.username}</p>
-                  </div>
-                  {isPremium && (
-                    <div className="flex items-center gap-1 bg-green-900/30 border border-green-500/50 rounded px-2 py-1">
-                      <CheckCircle2 className="h-3 w-3 text-green-400" />
-                      <span className="text-xs text-green-400 font-semibold">
-                        Premium
-                      </span>
+      {stats.totalReferrals > 0 &&
+        (() => {
+          const totalPages = Math.ceil(
+            stats.referredUsers.length / usersPerPage
+          );
+          const startIndex = (currentPage - 1) * usersPerPage;
+          const paginatedUsers = stats.referredUsers.slice(
+            startIndex,
+            startIndex + usersPerPage
+          );
+
+          return (
+            <div className="border-t border-gray-800 pt-4">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Davet Ettikleriniz ({stats.totalReferrals})
+              </h3>
+              <div className="space-y-2">
+                {paginatedUsers.map((user) => {
+                  const isPremium = stats.premiumUsers.some(
+                    (pu) => pu.uid === user.uid
+                  );
+                  return (
+                    <div
+                      key={user.uid}
+                      className="bg-gray-800 rounded-lg p-3 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-white text-sm font-medium">
+                          {user.firstName} {user.lastName}
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          @{user.username}
+                        </p>
+                      </div>
+                      {isPremium && (
+                        <div className="flex items-center gap-1 bg-green-900/30 border border-green-500/50 rounded px-2 py-1">
+                          <CheckCircle2 className="h-3 w-3 text-green-400" />
+                          <span className="text-xs text-green-400 font-semibold">
+                            Premium
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  );
+                })}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-800">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                    Önceki
+                  </button>
+
+                  <span className="text-xs text-gray-400">
+                    Sayfa {currentPage} / {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-800 text-gray-300 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    Sonraki
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })()}
 
       {/* Hiç davet yoksa */}
       {stats.totalReferrals === 0 && (

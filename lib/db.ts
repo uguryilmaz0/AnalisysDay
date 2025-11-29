@@ -313,37 +313,111 @@ export async function getReferralStats(uid: string): Promise<{
   premiumUsers: User[];
 }> {
   try {
+    console.log('📊 getReferralStats CALLED for uid:', uid);
+    
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (!userDoc.exists()) {
+      console.warn('❌ User document not found:', uid);
       return { totalReferrals: 0, premiumReferrals: 0, referredUsers: [], premiumUsers: [] };
     }
 
     const userData = userDoc.data() as User;
-    const referredUserIds = userData.referredUsers || [];
-    const premiumUserIds = userData.premiumReferrals || [];
+    let referredUserIds = userData.referredUsers || [];
+    let premiumUserIds = userData.premiumReferrals || [];
+    
+    console.log('📋 User data from Firestore:', {
+      uid,
+      username: userData.username,
+      referredUserIds,
+      premiumUserIds,
+      referredUsersCount: referredUserIds.length,
+      premiumReferralsCount: premiumUserIds.length,
+    });
+
+    // FALLBACK: Eğer referredUsers array'i boşsa, Firestore'dan query ile bul
+    if (referredUserIds.length === 0) {
+      console.log('⚠️ referredUsers array is empty, querying Firestore for referredBy...');
+      try {
+        const q = query(
+          collection(db, 'users'),
+          where('referredBy', '==', uid)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        const foundUserIds: string[] = [];
+        const foundPremiumIds: string[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const user = doc.data() as User;
+          foundUserIds.push(user.uid);
+          if (user.isPaid) {
+            foundPremiumIds.push(user.uid);
+          }
+        });
+        
+        console.log('✅ Found users via query:', {
+          totalFound: foundUserIds.length,
+          premiumFound: foundPremiumIds.length,
+          userIds: foundUserIds,
+        });
+        
+        // Bulunanları array'lere ekle
+        referredUserIds = foundUserIds;
+        premiumUserIds = foundPremiumIds;
+        
+        // Firestore'u güncelle (sonraki defalar için)
+        if (foundUserIds.length > 0) {
+          console.log('🔧 Updating Firestore with found users...');
+          await updateDoc(doc(db, 'users', uid), {
+            referredUsers: foundUserIds,
+            premiumReferrals: foundPremiumIds,
+          });
+          console.log('✅ Firestore updated successfully');
+        }
+      } catch (error) {
+        console.error('❌ Query failed:', error);
+      }
+    }
+
+    console.log('📊 Final referredUserIds:', referredUserIds);
 
     // Davet edilen kullanıcıların detaylarını getir
     const referredUsers: User[] = [];
     for (const userId of referredUserIds) {
+      console.log('🔍 Fetching referred user:', userId);
       const user = await getUserById(userId);
-      if (user) referredUsers.push(user);
+      if (user) {
+        console.log('✅ User fetched:', user.username);
+        referredUsers.push(user);
+      } else {
+        console.warn('⚠️ User not found:', userId);
+      }
     }
 
     // Premium olan kullanıcıların detaylarını getir
     const premiumUsers: User[] = [];
     for (const userId of premiumUserIds) {
+      console.log('🔍 Fetching premium user:', userId);
       const user = await getUserById(userId);
-      if (user) premiumUsers.push(user);
+      if (user) {
+        console.log('⭐ Premium user fetched:', user.username);
+        premiumUsers.push(user);
+      } else {
+        console.warn('⚠️ Premium user not found:', userId);
+      }
     }
 
-    return {
+    const result = {
       totalReferrals: referredUserIds.length,
       premiumReferrals: premiumUserIds.length,
       referredUsers,
       premiumUsers,
     };
+    
+    console.log('🎉 getReferralStats RESULT:', result);
+    return result;
   } catch (error) {
-    console.error('Referral istatistikleri alınamadı:', error);
+    console.error('❌ Referral istatistikleri alınamadı:', error);
     return { totalReferrals: 0, premiumReferrals: 0, referredUsers: [], premiumUsers: [] };
   }
 }

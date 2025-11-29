@@ -70,9 +70,7 @@ export function validateReferralCodeFormat(code: string): boolean {
  * @returns Tam referral URL'i
  */
 export function generateReferralLink(referralCode: string): string {
-  const baseUrl = typeof window !== 'undefined' 
-    ? window.location.origin 
-    : process.env.NEXT_PUBLIC_APP_URL || 'https://analysisday.com';
+  const baseUrl = 'https://analizgunu.com';
   
   return `${baseUrl}/register?ref=${referralCode}`;
 }
