@@ -9,7 +9,6 @@ import {
   Ban,
   FileText,
   Sparkles,
-  Camera,
   LogIn,
 } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
@@ -22,7 +21,6 @@ import {
   AdminManagementTab,
   RateLimitTab,
   SystemLogsTab,
-  ImageViewLogsTab,
   LoginLogsTab,
 } from "@/features/admin/components";
 
@@ -50,7 +48,6 @@ export default function AdminPage() {
     | "admins"
     | "ratelimits"
     | "logs"
-    | "image-logs"
     | "login-logs"
   >("upload");
 
@@ -246,18 +243,6 @@ export default function AdminPage() {
                   <span className="sm:hidden">Logs</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab("image-logs")}
-                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
-                    activeTab === "image-logs"
-                      ? "bg-purple-600 text-white"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                  }`}
-                >
-                  <Camera className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="hidden sm:inline">Görsel Takip</span>
-                  <span className="sm:hidden">Görsel</span>
-                </button>
-                <button
                   onClick={() => setActiveTab("login-logs")}
                   className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
                     activeTab === "login-logs"
@@ -300,8 +285,6 @@ export default function AdminPage() {
             {activeTab === "ratelimits" && isSuperAdmin && <RateLimitTab />}
 
             {activeTab === "logs" && isSuperAdmin && <SystemLogsTab />}
-
-            {activeTab === "image-logs" && isSuperAdmin && <ImageViewLogsTab />}
 
             {activeTab === "login-logs" && isSuperAdmin && <LoginLogsTab />}
           </div>

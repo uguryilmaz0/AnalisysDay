@@ -81,22 +81,6 @@ service cloud.firestore {
                                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Image Tracking koleksiyonu (Admin SDK only - API routes kullanır)
-    match /image_tracking/{trackingId} {
-      // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
-      allow create: if false;
-      
-      // Sadece adminler okuyabilir
-      allow read: if request.auth != null &&
-                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      
-      // Sadece adminler güncelleyebilir/silebilir
-      allow update, delete: if request.auth != null &&
-                               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     // Login Logs koleksiyonu (Admin SDK only - API routes kullanır)
     match /login_logs/{logId} {
       // Client-side ASLA yazamaz (sadece Firebase Admin SDK via API routes)
