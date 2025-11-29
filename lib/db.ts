@@ -229,42 +229,47 @@ export async function setUserReferralCode(uid: string, referralCode: string): Pr
  */
 export async function linkReferredUser(newUserId: string, referrerUserId: string): Promise<void> {
   try {
+    console.log('🔗 linkReferredUser CALLED:', { newUserId, referrerUserId });
+    
     // Davet edenin mevcut referral listesini al
     const referrerDoc = await getDoc(doc(db, 'users', referrerUserId));
     if (!referrerDoc.exists()) {
+      console.error('❌ Referrer user not found:', referrerUserId);
       throw new Error('Referrer user not found');
     }
 
     const referrerData = referrerDoc.data() as User;
     const currentReferredUsers = referrerData.referredUsers || [];
+    console.log('📋 Current referredUsers array:', currentReferredUsers);
     
     // Duplicate kontrolü
     if (currentReferredUsers.includes(newUserId)) {
-      console.warn('User already in referral list', { newUserId, referrerUserId });
+      console.warn('⚠️ User already in referral list', { newUserId, referrerUserId });
       return;
     }
 
-    // Batch update - her iki kullanıcıyı da aynı anda güncelle
-    const batch = [
-      // Yeni kullanıcının referredBy alanını set et
-      updateDoc(doc(db, 'users', newUserId), {
-        referredBy: referrerUserId,
-      }),
-      // Davet edenin referredUsers dizisine ekle
-      updateDoc(doc(db, 'users', referrerUserId), {
-        referredUsers: [...currentReferredUsers, newUserId],
-      })
-    ];
+    // Önce yeni kullanıcının referredBy alanını set et
+    console.log('📝 Setting referredBy for new user:', newUserId);
+    await updateDoc(doc(db, 'users', newUserId), {
+      referredBy: referrerUserId,
+    });
+    console.log('✅ referredBy set successfully');
 
-    await Promise.all(batch);
+    // Sonra davet edenin referredUsers dizisine ekle
+    const updatedReferredUsers = [...currentReferredUsers, newUserId];
+    console.log('📝 Updating referrer referredUsers array:', updatedReferredUsers);
+    await updateDoc(doc(db, 'users', referrerUserId), {
+      referredUsers: updatedReferredUsers,
+    });
+    console.log('✅ referredUsers array updated successfully');
     
-    console.log('Referral link created successfully', { 
+    console.log('🎉 Referral link created successfully', { 
       newUserId, 
       referrerUserId,
-      totalReferrals: currentReferredUsers.length + 1
+      totalReferrals: updatedReferredUsers.length
     });
   } catch (error) {
-    console.error('Referral bağlantısı oluşturulamadı:', error);
+    console.error('❌ Referral bağlantısı oluşturulamadı:', error);
     throw error; // Hata fırlat ki üst katmanda loglanabilsin
   }
 }

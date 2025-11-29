@@ -254,18 +254,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Referral bağlantısını kur (davet eden varsa)
     if (referrerUserId) {
       try {
+        console.log("🔗 Attempting to link referral:", {
+          newUserId: userCredential.user.uid,
+          referrerId: referrerUserId,
+        });
         await linkReferredUser(userCredential.user.uid, referrerUserId);
+        console.log("✅ Referral link created successfully");
         logger.info("Referral link created", {
           newUserId: userCredential.user.uid,
           referrerId: referrerUserId,
         });
       } catch (error) {
+        console.error("❌ Referral linking failed:", error);
         logger.error("Referral bağlantısı kurulamadı:", {
-          error,
+          error: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
           newUserId: userCredential.user.uid,
           referrerId: referrerUserId,
         });
-        // Referral hatası kayıt işlemini durdurmaz
+        // Referral hatası kayıt işlemini durdurmaz ama kullanıcıya bilgi ver
+        console.warn(
+          "⚠️ Kayıt başarılı ama referral bağlantısı kurulamadı. Admin manuel ekleyebilir."
+        );
       }
     }
 

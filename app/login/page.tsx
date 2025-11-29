@@ -70,6 +70,16 @@ export default function LoginPage() {
 
       // Server OK - proceed with Firebase auth
       await signIn(emailOrUsername, password);
+
+      // Başarılı login sonrası rate limitlerini temizle
+      try {
+        localStorage.removeItem("ratelimit_v2_login");
+        localStorage.removeItem("ratelimit_analysis");
+        console.log("✅ Rate limits cleared after successful login");
+      } catch (err) {
+        console.warn("Rate limit clear failed:", err);
+      }
+
       router.push("/analysis");
     } catch (err) {
       const error = err as { code?: string; message?: string };
