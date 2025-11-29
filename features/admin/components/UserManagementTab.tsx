@@ -364,6 +364,9 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                   Abonelik Bitiş
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
+                  Referral
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
                   Kayıt Tarihi
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">
@@ -459,6 +462,29 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                             u.subscriptionEndDate.toDate()
                           ).toLocaleDateString("tr-TR")
                         : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="flex flex-col gap-1">
+                        {u.referralCode && (
+                          <span className="text-purple-400 font-mono">
+                            {u.referralCode}
+                          </span>
+                        )}
+                        {u.referredUsers && u.referredUsers.length > 0 && (
+                          <span className="text-blue-400">
+                            👥 {u.referredUsers.length} davet
+                          </span>
+                        )}
+                        {u.premiumReferrals &&
+                          u.premiumReferrals.length > 0 && (
+                            <span className="text-green-400">
+                              ⭐ {u.premiumReferrals.length} premium
+                            </span>
+                          )}
+                        {!u.referralCode && !u.referredUsers?.length && (
+                          <span className="text-gray-600">-</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400">
                       {u.createdAt

@@ -14,6 +14,11 @@ export interface User {
   emailNotifications: boolean;
   emailVerified: boolean;
   createdAt: Timestamp;
+  // Referral sistemi
+  referralCode?: string; // Benzersiz referral kodu (örn: "ABG4X9K2")
+  referredBy?: string; // Davet eden kullanıcının UID'si
+  referredUsers?: string[]; // Davet edilen kullanıcıların UID'leri
+  premiumReferrals?: string[]; // Premium olan davet edilenlerin UID'leri
 }
 
 export interface DailyAnalysis {

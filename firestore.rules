@@ -8,6 +8,7 @@ service cloud.firestore {
       // Kullanıcı kendi kaydını okuyabilir veya admin tüm kayıtları okuyabilir
       // Username ile arama yapabilmek için herkes okuyabilir (sadece gerekli fieldlar)
       // Login ve kayıt için username kontrolü gerektiğinden genel okuma izni
+      // Referral sistemi için de okuma izni gerekli (referral code ile kullanıcı bulma)
       allow read: if true;
 
       // Sadece kayıt sırasında yazılabilir + username unique olmalı
@@ -16,8 +17,9 @@ service cloud.firestore {
                        request.resource.data.username is string &&
                        request.resource.data.username.size() >= 3;
 
-      // Kullanıcılar kendi verilerini güncelleyebilir (email notifications vs)
+      // Kullanıcılar kendi verilerini güncelleyebilir (email notifications, referralCode vs)
       // Adminler tüm kullanıcıları güncelleyebilir
+      // Referral sistemi için referredUsers ve premiumReferrals güncellenebilir
       allow update: if request.auth != null && (
                        request.auth.uid == userId ||
                        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&

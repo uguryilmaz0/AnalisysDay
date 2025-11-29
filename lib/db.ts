@@ -91,6 +91,11 @@ export async function updateUserPaidStatus(
       lastPaymentDate: now,
       subscriptionEndDate: Timestamp.fromDate(endDate),
     });
+
+    // Premium olduysa ve davet edilmişse, davet edenin istatistiklerini güncelle
+    if (isPaid) {
+      await updateReferrerPremiumStats(uid);
+    }
   } catch (error) {
     console.error('Ödeme durumu güncellenemedi:', error);
     throw error;
@@ -189,6 +194,143 @@ export async function updateUserEmailVerified(uid: string, emailVerified: boolea
   } catch (error) {
     console.error('Email doğrulama durumu güncellenemedi:', error);
     throw error;
+  }
+}
+
+// ==================== REFERRAL SİSTEMİ ====================
+
+/**
+ * Referral koduna göre kullanıcı bul
+ */
+export async function getUserByReferralCode(referralCode: string): Promise<User | null> {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('referralCode', '==', referralCode.toUpperCase()),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return snapshot.docs[0].data() as User;
+  } catch (error) {
+    console.error('Referral kodu ile kullanıcı bulunamadı:', error);
+    return null;
+  }
+}
+
+/**
+ * Kullanıcıya referral kodu ekle (ilk kez premium olduğunda)
+ */
+export async function setUserReferralCode(uid: string, referralCode: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      referralCode: referralCode.toUpperCase(),
+    });
+  } catch (error) {
+    console.error('Referral kodu eklenemedi:', error);
+    throw error;
+  }
+}
+
+/**
+ * Kullanıcıyı davet eden kişiye bağla
+ */
+export async function linkReferredUser(newUserId: string, referrerUserId: string): Promise<void> {
+  try {
+    // Yeni kullanıcının referredBy alanını güncelle
+    await updateDoc(doc(db, 'users', newUserId), {
+      referredBy: referrerUserId,
+    });
+
+    // Davet edenin referredUsers dizisine ekle
+    const referrerDoc = await getDoc(doc(db, 'users', referrerUserId));
+    if (referrerDoc.exists()) {
+      const referrerData = referrerDoc.data() as User;
+      const currentReferredUsers = referrerData.referredUsers || [];
+      
+      if (!currentReferredUsers.includes(newUserId)) {
+        await updateDoc(doc(db, 'users', referrerUserId), {
+          referredUsers: [...currentReferredUsers, newUserId],
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Referral bağlantısı oluşturulamadı:', error);
+    throw error;
+  }
+}
+
+/**
+ * Premium olan kullanıcının davet edenin istatistiklerini güncelle
+ */
+export async function updateReferrerPremiumStats(userId: string): Promise<void> {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) return;
+
+    const userData = userDoc.data() as User;
+    if (!userData.referredBy) return; // Davet edilmemişse işlem yapma
+
+    // Davet edenin premiumReferrals dizisine ekle
+    const referrerDoc = await getDoc(doc(db, 'users', userData.referredBy));
+    if (referrerDoc.exists()) {
+      const referrerData = referrerDoc.data() as User;
+      const currentPremiumReferrals = referrerData.premiumReferrals || [];
+      
+      if (!currentPremiumReferrals.includes(userId)) {
+        await updateDoc(doc(db, 'users', userData.referredBy), {
+          premiumReferrals: [...currentPremiumReferrals, userId],
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Referrer premium istatistikleri güncellenemedi:', error);
+    // Bu fonksiyon critical değil, hata fırlatmayız
+  }
+}
+
+/**
+ * Kullanıcının referral istatistiklerini getir
+ */
+export async function getReferralStats(uid: string): Promise<{
+  totalReferrals: number;
+  premiumReferrals: number;
+  referredUsers: User[];
+  premiumUsers: User[];
+}> {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (!userDoc.exists()) {
+      return { totalReferrals: 0, premiumReferrals: 0, referredUsers: [], premiumUsers: [] };
+    }
+
+    const userData = userDoc.data() as User;
+    const referredUserIds = userData.referredUsers || [];
+    const premiumUserIds = userData.premiumReferrals || [];
+
+    // Davet edilen kullanıcıların detaylarını getir
+    const referredUsers: User[] = [];
+    for (const userId of referredUserIds) {
+      const user = await getUserById(userId);
+      if (user) referredUsers.push(user);
+    }
+
+    // Premium olan kullanıcıların detaylarını getir
+    const premiumUsers: User[] = [];
+    for (const userId of premiumUserIds) {
+      const user = await getUserById(userId);
+      if (user) premiumUsers.push(user);
+    }
+
+    return {
+      totalReferrals: referredUserIds.length,
+      premiumReferrals: premiumUserIds.length,
+      referredUsers,
+      premiumUsers,
+    };
+  } catch (error) {
+    console.error('Referral istatistikleri alınamadı:', error);
+    return { totalReferrals: 0, premiumReferrals: 0, referredUsers: [], premiumUsers: [] };
   }
 }
 

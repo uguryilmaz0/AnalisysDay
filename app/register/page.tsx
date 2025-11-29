@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { UserPlus, Mail, Lock, CheckCircle2, Bell, User } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  UserPlus,
+  Mail,
+  Lock,
+  CheckCircle2,
+  Bell,
+  User,
+  Gift,
+} from "lucide-react";
 import { Button, Input } from "@/shared/components/ui";
 import { useFormValidation, useToast } from "@/shared/hooks";
 import { AuthLayout } from "@/shared/components/AuthLayout";
 import { KVKKConsent } from "@/shared/components/KVKKConsent";
 import { logger } from "@/lib/logger";
+import { validateReferralCodeFormat } from "@/lib/referralUtils";
 
-export default function RegisterPage() {
+function RegisterForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -19,6 +29,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [kvkkConsents, setKvkkConsents] = useState<{
     terms: boolean;
     privacy: boolean;
@@ -38,6 +49,19 @@ export default function RegisterPage() {
   const { showToast } = useToast();
   const router = useRouter();
   const { validate } = useFormValidation();
+
+  // URL'den referral kodunu oku
+  useEffect(() => {
+    const refParam = searchParams.get("ref");
+    if (refParam && validateReferralCodeFormat(refParam)) {
+      setReferralCode(refParam.toUpperCase());
+      showToast(
+        `🎉 Referral kodu uygulandı: ${refParam.toUpperCase()}`,
+        "success",
+        4000
+      );
+    }
+  }, [searchParams, showToast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +158,8 @@ export default function RegisterPage() {
         firstName,
         lastName,
         password,
-        emailNotifications
+        emailNotifications,
+        referralCode || undefined
       );
 
       // Super admin kontrolü
@@ -195,6 +220,22 @@ export default function RegisterPage() {
       description="Ücretsiz hesap oluşturun ve başlayın"
       icon={UserPlus}
     >
+      {/* Referral Bildirimi */}
+      {referralCode && (
+        <div className="mb-6 bg-purple-900/30 border border-purple-500/50 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-purple-400">
+            <Gift className="h-5 w-5" />
+            <span className="font-semibold">
+              Bir arkadaşınızın daveti ile kayıt oluyorsunuz! 🎉
+            </span>
+          </div>
+          <p className="text-sm text-purple-300 mt-1">
+            Referral Kodu:{" "}
+            <span className="font-mono font-bold">{referralCode}</span>
+          </p>
+        </div>
+      )}
+
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
@@ -343,10 +384,10 @@ export default function RegisterPage() {
         >
           Kayıt Ol
         </Button>
-
         {/* Success Info */}
         <div className="mt-6 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
           <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-1" />
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-sm text-gray-300">
               <p className="font-semibold mb-1">Kayıt sonrası:</p>
@@ -379,5 +420,19 @@ export default function RegisterPage() {
         </div>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
+          <div className="text-white">Yükleniyor...</div>
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

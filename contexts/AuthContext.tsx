@@ -25,7 +25,8 @@ interface AuthContextType {
     firstName: string,
     lastName: string,
     password: string,
-    emailNotifications: boolean
+    emailNotifications: boolean,
+    referralCode?: string
   ) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -183,15 +184,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     firstName: string,
     lastName: string,
     password: string,
-    emailNotifications: boolean
+    emailNotifications: boolean,
+    referralCode?: string
   ) => {
-    const { isUsernameAvailable } = await import("@/lib/db");
+    const { isUsernameAvailable, getUserByReferralCode, linkReferredUser } =
+      await import("@/lib/db");
     const { sendEmailVerification } = await import("firebase/auth");
 
     // Username kontrolü
     const available = await isUsernameAvailable(username);
     if (!available) {
       throw new Error("Bu kullanıcı adı zaten kullanılıyor");
+    }
+
+    // Referral kodu kontrolü (varsa)
+    let referrerUserId: string | undefined;
+    if (referralCode) {
+      const referrer = await getUserByReferralCode(referralCode);
+      if (referrer) {
+        referrerUserId = referrer.uid;
+      }
+      // Referral kodu geçersiz olsa bile kayıt devam etsin
     }
 
     const userCredential = await createUserWithEmailAndPassword(
@@ -227,9 +240,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
       createdAt: Timestamp.now(),
+      referredBy: referrerUserId, // Davet eden kullanıcı
     };
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
+
+    // Referral bağlantısını kur (davet eden varsa)
+    if (referrerUserId) {
+      try {
+        await linkReferredUser(userCredential.user.uid, referrerUserId);
+      } catch (error) {
+        console.error("Referral bağlantısı kurulamadı:", error);
+        // Referral hatası kayıt işlemini durdurmaz
+      }
+    }
 
     // Kayıt başarısını logla
     logger.info("User registered", {
@@ -237,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: email,
       username: username,
       role: isSuperAdmin ? "admin" : "user",
+      referredBy: referrerUserId || null,
       action: "register_success",
     });
 

@@ -28,6 +28,7 @@ import { Loader2 } from "lucide-react";
 import { ProfileEditForm } from "./components/ProfileEditForm";
 import { PasswordChangeForm } from "./components/PasswordChangeForm";
 import { AccountInfo } from "./components/AccountInfo";
+import { ReferralSection } from "./components/ReferralSection";
 
 export default function ProfilePage() {
   const { user, userData, loading } = useRequireAuth({
@@ -178,6 +179,9 @@ export default function ProfilePage() {
 
           {/* Sağ Kolon - Üyelik ve Hesap Yönetimi */}
           <div className="space-y-6">
+            {/* Referral Sistemi - Sadece Premium Kullanıcılar İçin */}
+            {hasPremiumAccess && <ReferralSection userData={userData} />}
+
             {/* Üyelik Durumu */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
