@@ -465,25 +465,39 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                     </td>
                     <td className="px-4 py-3 text-xs">
                       <div className="flex flex-col gap-1">
+                        {/* Referral kodu */}
                         {u.referralCode && (
                           <span className="text-purple-400 font-mono">
-                            {u.referralCode}
+                            🔗 {u.referralCode}
                           </span>
                         )}
+                        {/* Davet eden kullanıcı */}
+                        {u.referredBy && (
+                          <span className="text-orange-400">
+                            ↪️ Davet eden:{" "}
+                            {users.find((user) => user.uid === u.referredBy)
+                              ?.username || u.referredBy.substring(0, 8)}
+                          </span>
+                        )}
+                        {/* Davet ettikleri */}
                         {u.referredUsers && u.referredUsers.length > 0 && (
                           <span className="text-blue-400">
                             👥 {u.referredUsers.length} davet
                           </span>
                         )}
+                        {/* Premium davetliler */}
                         {u.premiumReferrals &&
                           u.premiumReferrals.length > 0 && (
                             <span className="text-green-400">
                               ⭐ {u.premiumReferrals.length} premium
                             </span>
                           )}
-                        {!u.referralCode && !u.referredUsers?.length && (
-                          <span className="text-gray-600">-</span>
-                        )}
+                        {/* Referral bilgisi yok */}
+                        {!u.referralCode &&
+                          !u.referredBy &&
+                          !u.referredUsers?.length && (
+                            <span className="text-gray-600">-</span>
+                          )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400">

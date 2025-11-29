@@ -119,9 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await setDoc(userDocRef, { emailVerified: true }, { merge: true });
         }
 
-        // Admin değilse ve Firebase Auth'da email doğrulanmamışsa hata ver
-        // ÖNEMLI: Sadece Firebase Auth'un emailVerified değerine bakıyoruz (source of truth)
-        if (userData.role !== "admin" && !userCredential.user.emailVerified) {
+        // Admin değilse VE hem Firebase Auth HEM Firestore'da email doğrulanmamışsa hata ver
+        // DÜZELTME: Firestore'da true ise (admin manuel güncellemiş) login izin ver
+        const isEmailVerified =
+          userCredential.user.emailVerified || userData.emailVerified;
+
+        if (userData.role !== "admin" && !isEmailVerified) {
           failReason = "Email not verified";
           logger.warn("Login attempt with unverified email", {
             userId: userCredential.user.uid,
