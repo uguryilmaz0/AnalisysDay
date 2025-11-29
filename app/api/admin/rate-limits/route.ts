@@ -8,7 +8,7 @@ const redis = new Redis({
 });
 
 /**
- * GET - Rate limit ban listesini getir
+ * GET - Rate limit ban listesini getir (OPTIMIZE edilmiş versiyon)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -21,9 +21,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // KRITIK OPTIMIZASYON: Sadece aktif ban'ları getir
+    // Eski kayıtları temizle ve işleme dahil etme
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000); // Son 1 saat
+    
     // Redis'ten tüm rate limit key'lerini al
     let keys: string[] = [];
     try {
+      // KEYS komutu blocking ama alternative yok (SCAN daha yavaş olabilir küçük dataset için)
       const scanResult = await redis.keys("@ratelimit/*");
       keys = Array.isArray(scanResult) ? scanResult : [];
     } catch (error) {
@@ -31,146 +37,170 @@ export async function GET(req: NextRequest) {
       keys = [];
     }
     
-    const bans = [];
+    // OPTIMIZASYON: Sadece yakın zamanlı event key'lerini işle
+    // events:17644500000 formatındaki eski timestamp'leri filtrele
+    const recentKeys = keys.filter(key => {
+      // events: ile bitiyorsa timestamp kontrol et
+      const match = key.match(/:events:(\d+)$/);
+      if (match) {
+        const timestamp = parseInt(match[1]);
+        // Son 1 saat içindeki event'leri tut
+        return timestamp > oneHourAgo;
+      }
+      // Diğer key'leri (IP bazlı) tut
+      return true;
+    });
+
+    console.log(`Rate limit check: ${keys.length} total keys, ${recentKeys.length} recent keys`);
     
-    for (const key of keys) {
-      try {
-        const keyType = await redis.type(key);
+    // PIPELINE kullanarak tüm TYPE sorgularını tek seferde yap
+    const pipeline = redis.pipeline();
+    recentKeys.forEach(key => {
+      pipeline.type(key);
+    });
+    
+    const typeResults = await pipeline.exec() as string[];
+    
+    const bans: Array<{
+      key: string;
+      identifier: string;
+      action: string;
+      bannedUntil: number;
+      attempts: number;
+    }> = [];
+    const batchSize = 50; // Her batch'te 50 key işle
+    
+    for (let i = 0; i < recentKeys.length; i += batchSize) {
+      const batch = recentKeys.slice(i, i + batchSize);
+      const batchPipeline = redis.pipeline();
+      
+      // Batch içindeki her key için gerekli sorguları pipeline'a ekle
+      batch.forEach((key, idx) => {
+        const globalIdx = i + idx;
+        const keyType = typeResults[globalIdx];
         
         if (keyType === 'zset') {
-          const now = Date.now();
           const windowStart = now - (15 * 60 * 1000);
-          const count = await redis.zcount(key, windowStart, now);
-          
-          if (count >= 5) {
-            const allElements = await redis.zrange(key, 0, -1, { 
-              withScores: true,
-              rev: true
-            });
-            
-            let lastTimestamp = now;
-            if (Array.isArray(allElements) && allElements.length >= 2) {
-              const firstScore = allElements[1];
-              lastTimestamp = typeof firstScore === 'number' ? firstScore : 
-                             typeof firstScore === 'string' ? parseFloat(firstScore) : now;
-            }
-            
-            const bannedUntil = lastTimestamp + (15 * 60 * 1000);
-            
-            if (bannedUntil > now) {
-              const keyWithoutPrefix = key.replace('@ratelimit/', '');
-              const parts = keyWithoutPrefix.split(':');
-              const action = parts[0] || 'unknown';
-              const identifier = parts.slice(1).join(':') || 'unknown';
-
-              bans.push({
-                key,
-                identifier,
-                action,
-                bannedUntil,
-                attempts: count,
-              });
-            }
-          }
+          batchPipeline.zcount(key, windowStart, now);
+          batchPipeline.zrange(key, 0, -1, { withScores: true, rev: true });
         } else if (keyType === 'string') {
-          const data = await redis.get(key);
-          const ttl = await redis.ttl(key);
-          
-          if (typeof data === 'number' && ttl > 0) {
-            const count = data;
-            const now = Date.now();
-            const bannedUntil = now + (ttl * 1000);
+          batchPipeline.get(key);
+          batchPipeline.ttl(key);
+        } else if (keyType === 'hash') {
+          batchPipeline.hgetall(key);
+        }
+      });
+      
+      const batchResults = await batchPipeline.exec();
+      let resultIdx = 0;
+      
+      // Batch sonuçlarını işle
+      batch.forEach((key, idx) => {
+        const globalIdx = i + idx;
+        const keyType = typeResults[globalIdx];
+        
+        try {
+          if (keyType === 'zset') {
+            const count = batchResults[resultIdx++] as number;
+            const allElements = batchResults[resultIdx++] as (string | number)[];
             
-            if (count >= 5 && bannedUntil > now) {
-              const keyWithoutPrefix = key.replace('@ratelimit/', '');
-              const firstColonIndex = keyWithoutPrefix.indexOf(':');
-              const action = firstColonIndex !== -1 
-                ? keyWithoutPrefix.substring(0, firstColonIndex)
-                : keyWithoutPrefix;
+            if (count >= 5) {
+              let lastTimestamp = now;
+              if (Array.isArray(allElements) && allElements.length >= 2) {
+                const firstScore = allElements[1];
+                lastTimestamp = typeof firstScore === 'number' ? firstScore : 
+                               typeof firstScore === 'string' ? parseFloat(firstScore) : now;
+              }
               
-              const afterAction = keyWithoutPrefix.substring(firstColonIndex + 1);
-              const lastColonIndex = afterAction.lastIndexOf(':');
-              let identifier = 'unknown';
-              let userId = null;
+              const bannedUntil = lastTimestamp + (15 * 60 * 1000);
               
-              if (lastColonIndex !== -1) {
-                const lastPart = afterAction.substring(lastColonIndex + 1);
-                if (/^\d+$/.test(lastPart)) {
-                  identifier = afterAction.substring(0, lastColonIndex);
+              if (bannedUntil > now) {
+                const keyWithoutPrefix = key.replace('@ratelimit/', '');
+                const parts = keyWithoutPrefix.split(':');
+                const action = parts[0] || 'unknown';
+                const identifier = parts.slice(1, -1).join(':') || 'unknown';
+
+                bans.push({
+                  key,
+                  identifier,
+                  action,
+                  bannedUntil,
+                  attempts: count,
+                });
+              }
+            } else {
+              resultIdx += 0; // Skip unused results
+            }
+          } else if (keyType === 'string') {
+            const data = batchResults[resultIdx++];
+            const ttl = batchResults[resultIdx++] as number;
+            
+            if (typeof data === 'number' && ttl > 0) {
+              const count = data;
+              const bannedUntil = now + (ttl * 1000);
+              
+              if (count >= 5 && bannedUntil > now) {
+                const keyWithoutPrefix = key.replace('@ratelimit/', '');
+                const firstColonIndex = keyWithoutPrefix.indexOf(':');
+                const action = firstColonIndex !== -1 
+                  ? keyWithoutPrefix.substring(0, firstColonIndex)
+                  : keyWithoutPrefix;
+                
+                const afterAction = keyWithoutPrefix.substring(firstColonIndex + 1);
+                const lastColonIndex = afterAction.lastIndexOf(':');
+                let identifier = 'unknown';
+                
+                if (lastColonIndex !== -1) {
+                  const lastPart = afterAction.substring(lastColonIndex + 1);
+                  if (/^\d+$/.test(lastPart)) {
+                    identifier = afterAction.substring(0, lastColonIndex);
+                  } else {
+                    identifier = afterAction;
+                  }
                 } else {
                   identifier = afterAction;
                 }
-              } else {
-                identifier = afterAction;
-              }
-              
-              const identifierParts = identifier.split(':');
-              const ip = identifierParts.slice(0, -1).join(':') || identifier;
-              const potentialUserId = identifierParts[identifierParts.length - 1];
-              if (identifierParts.length > 1 && !/^\d+$/.test(potentialUserId)) {
-                userId = potentialUserId;
-              }
 
-              bans.push({
-                key,
-                identifier: ip,
-                action,
-                bannedUntil,
-                attempts: count,
-                userId: userId || undefined,
-              });
+                bans.push({
+                  key,
+                  identifier,
+                  action,
+                  bannedUntil,
+                  attempts: count,
+                });
+              }
             }
-          } else if (data && typeof data === "object") {
-            const typedData = data as { reset?: number; count?: number };
-            if (typedData.reset && typedData.reset > Date.now() && (typedData.count || 0) >= 5) {
-              const keyWithoutPrefix = key.replace('@ratelimit/', '');
-              const firstColonIndex = keyWithoutPrefix.indexOf(':');
-              const action = firstColonIndex !== -1 
-                ? keyWithoutPrefix.substring(0, firstColonIndex)
-                : keyWithoutPrefix;
-              const identifier = firstColonIndex !== -1
-                ? keyWithoutPrefix.substring(firstColonIndex + 1)
-                : 'unknown';
-
-              bans.push({
-                key,
-                identifier,
-                action,
-                bannedUntil: typedData.reset,
-                attempts: typedData.count || 0,
-              });
-            }
-          }
-        } else if (keyType === 'hash') {
-          const data = await redis.hgetall(key);
-          if (data && typeof data === 'object') {
-            const reset = Number(data.reset || data.r);
-            const count = Number(data.count || data.c || 0);
+          } else if (keyType === 'hash') {
+            const data = batchResults[resultIdx++] as Record<string, string>;
             
-            if (reset && reset > Date.now() && count >= 5) {
-              const keyWithoutPrefix = key.replace('@ratelimit/', '');
-              const firstColonIndex = keyWithoutPrefix.indexOf(':');
-              const action = firstColonIndex !== -1 
-                ? keyWithoutPrefix.substring(0, firstColonIndex)
-                : keyWithoutPrefix;
-              const identifier = firstColonIndex !== -1
-                ? keyWithoutPrefix.substring(firstColonIndex + 1)
-                : 'unknown';
+            if (data && typeof data === 'object') {
+              const reset = Number(data.reset || data.r);
+              const count = Number(data.count || data.c || 0);
+              
+              if (reset && reset > now && count >= 5) {
+                const keyWithoutPrefix = key.replace('@ratelimit/', '');
+                const firstColonIndex = keyWithoutPrefix.indexOf(':');
+                const action = firstColonIndex !== -1 
+                  ? keyWithoutPrefix.substring(0, firstColonIndex)
+                  : keyWithoutPrefix;
+                const identifier = firstColonIndex !== -1
+                  ? keyWithoutPrefix.substring(firstColonIndex + 1)
+                  : 'unknown';
 
-              bans.push({
-                key,
-                identifier,
-                action,
-                bannedUntil: reset,
-                attempts: count,
-              });
+                bans.push({
+                  key,
+                  identifier,
+                  action,
+                  bannedUntil: reset,
+                  attempts: count,
+                });
+              }
             }
           }
+        } catch (error) {
+          console.error('Error processing key in batch:', key, error);
         }
-      } catch (error) {
-        console.error('Error processing key:', key, error);
-        continue;
-      }
+      });
     }
 
     bans.sort((a, b) => a.bannedUntil - b.bannedUntil);
@@ -179,6 +209,8 @@ export async function GET(req: NextRequest) {
       success: true,
       bans,
       total: bans.length,
+      processed: recentKeys.length,
+      skipped: keys.length - recentKeys.length,
     });
   } catch (error) {
     console.error("Get rate limits error:", error);
