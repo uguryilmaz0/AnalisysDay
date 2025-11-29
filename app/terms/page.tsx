@@ -238,7 +238,7 @@ export default function TermsPage() {
                   </li>
                   <li>
                     Tüm kararlar <strong>TAMAMiYLE SIZE AİTTİR</strong> ve
-                    öğrenilen bilgilerin kullanımından AnalysisDay sorumlu
+                    öğrenilen bilgilerin kullanımından AnalizGünü sorumlu
                     değildir
                   </li>
                   <li>

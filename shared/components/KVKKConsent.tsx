@@ -206,7 +206,7 @@ export function KVKKConsent({
                 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında;
                 kimlik bilgilerimin (ad, soyad, e-posta, kullanıcı adı),
                 iletişim bilgilerimin ve abonelik işlemlerime ait verilerin{" "}
-                <strong className="text-white">AnalysisDay</strong> tarafından{" "}
+                <strong className="text-white">AnalizGünü</strong> tarafından{" "}
                 <strong className="text-white">
                   platform hizmeti sunulması, üyelik yönetimi, abonelik
                   işlemleri ve iletişim amaçlarıyla
