@@ -240,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
       createdAt: Timestamp.now(),
-      referredBy: referrerUserId, // Davet eden kullanıcı
+      // referredBy linkReferredUser fonksiyonu tarafından set edilecek
     };
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
@@ -249,8 +249,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (referrerUserId) {
       try {
         await linkReferredUser(userCredential.user.uid, referrerUserId);
+        logger.info("Referral link created", {
+          newUserId: userCredential.user.uid,
+          referrerId: referrerUserId,
+        });
       } catch (error) {
-        console.error("Referral bağlantısı kurulamadı:", error);
+        logger.error("Referral bağlantısı kurulamadı:", {
+          error,
+          newUserId: userCredential.user.uid,
+          referrerId: referrerUserId,
+        });
         // Referral hatası kayıt işlemini durdurmaz
       }
     }

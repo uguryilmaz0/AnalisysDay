@@ -127,15 +127,6 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
   }
 }
 
-/**
- * @deprecated Trial sistemi kaldırıldı. Bu fonksiyon artık kullanılmıyor.
- * Sadece geriye dönük uyumluluk için bırakıldı.
- */
-export async function checkTrialExpiry(uid: string): Promise<boolean> {
-  console.warn('checkTrialExpiry is deprecated and no longer used');
-  return false;
-}
-
 export async function getAllUsers(): Promise<User[]> {
   try {
     const usersSnapshot = await getDocs(collection(db, 'users'));
@@ -234,29 +225,47 @@ export async function setUserReferralCode(uid: string, referralCode: string): Pr
 
 /**
  * Kullanıcıyı davet eden kişiye bağla
+ * Hem davet edilen hem de davet edenin verilerini günceller
  */
 export async function linkReferredUser(newUserId: string, referrerUserId: string): Promise<void> {
   try {
-    // Yeni kullanıcının referredBy alanını güncelle
-    await updateDoc(doc(db, 'users', newUserId), {
-      referredBy: referrerUserId,
-    });
-
-    // Davet edenin referredUsers dizisine ekle
+    // Davet edenin mevcut referral listesini al
     const referrerDoc = await getDoc(doc(db, 'users', referrerUserId));
-    if (referrerDoc.exists()) {
-      const referrerData = referrerDoc.data() as User;
-      const currentReferredUsers = referrerData.referredUsers || [];
-      
-      if (!currentReferredUsers.includes(newUserId)) {
-        await updateDoc(doc(db, 'users', referrerUserId), {
-          referredUsers: [...currentReferredUsers, newUserId],
-        });
-      }
+    if (!referrerDoc.exists()) {
+      throw new Error('Referrer user not found');
     }
+
+    const referrerData = referrerDoc.data() as User;
+    const currentReferredUsers = referrerData.referredUsers || [];
+    
+    // Duplicate kontrolü
+    if (currentReferredUsers.includes(newUserId)) {
+      console.warn('User already in referral list', { newUserId, referrerUserId });
+      return;
+    }
+
+    // Batch update - her iki kullanıcıyı da aynı anda güncelle
+    const batch = [
+      // Yeni kullanıcının referredBy alanını set et
+      updateDoc(doc(db, 'users', newUserId), {
+        referredBy: referrerUserId,
+      }),
+      // Davet edenin referredUsers dizisine ekle
+      updateDoc(doc(db, 'users', referrerUserId), {
+        referredUsers: [...currentReferredUsers, newUserId],
+      })
+    ];
+
+    await Promise.all(batch);
+    
+    console.log('Referral link created successfully', { 
+      newUserId, 
+      referrerUserId,
+      totalReferrals: currentReferredUsers.length + 1
+    });
   } catch (error) {
     console.error('Referral bağlantısı oluşturulamadı:', error);
-    throw error;
+    throw error; // Hata fırlat ki üst katmanda loglanabilsin
   }
 }
 

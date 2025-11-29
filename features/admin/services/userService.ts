@@ -94,7 +94,7 @@ class UserService extends BaseService {
    */
   async toggleEmailVerified(uid: string, newStatus: boolean): Promise<void> {
     return this.executeWithErrorHandling(async () => {
-      await authFetchJSON(`/api/admin/users/${uid}/verify-email`, {
+      await authFetchJSON(`/api/admin/users/${uid}/email-verification`, {
         method: 'PATCH',
         body: JSON.stringify({ emailVerified: newStatus }),
       });

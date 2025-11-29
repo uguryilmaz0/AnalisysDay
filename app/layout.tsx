@@ -27,7 +27,38 @@ if (typeof window === "undefined") {
 export const metadata: Metadata = {
   title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
   description:
-    "Get daily match analysis and predictions using advanced AI technology. Stay ahead with insights and data-driven forecasts for your favorite sports.",
+    "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+  keywords: ["maç analizi", "yapay zeka", "tahmin", "spor", "istatistik"],
+  authors: [{ name: "Analiz Günü" }],
+  openGraph: {
+    title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
+    description:
+      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+    url: "https://analysisday.com",
+    siteName: "Analiz Günü",
+    locale: "tr_TR",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png", // Bu dosyayı public/ klasörüne eklemelisiniz
+        width: 1200,
+        height: 630,
+        alt: "Analiz Günü - Günlük Maç Analizleri",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
+    description:
+      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
