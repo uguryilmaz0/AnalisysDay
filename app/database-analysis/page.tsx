@@ -61,11 +61,14 @@ export default function DatabaseAnalysisPage() {
   // Sayfa yüklendiğinde ligleri ve takımları yükle (cache'den gelecek - hızlı)
   useEffect(() => {
     const initializeData = async () => {
+      setLoadingProgress("Analiz verileri yükleniyor...");
       try {
         // AuthContext zaten yükledi, burası cache'den hızlı gelecek
         await Promise.all([loadLeagues(), loadTeams()]);
       } catch (error) {
         console.error("Sayfa yükleme hatası:", error);
+      } finally {
+        setLoadingProgress("");
       }
     };
 
