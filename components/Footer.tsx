@@ -45,7 +45,7 @@ export default function Footer() {
               <a
                 href={
                   process.env.NEXT_PUBLIC_TELEGRAM_LINK ||
-                  "https://t.me/analysisday"
+                  "https://t.me/analiysysday"
                 }
                 target="_blank"
                 rel="noopener noreferrer"
