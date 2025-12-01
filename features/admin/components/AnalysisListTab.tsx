@@ -32,6 +32,7 @@ export function AnalysisListTab({
   const { showToast } = useToast();
   const { userData } = useAuth();
   const analyses = useAdminStore((state) => state.analyses);
+  const analysisStats = useAdminStore((state) => state.analysisStats);
   const removeAnalysis = useAdminStore((state) => state.removeAnalysis);
   const loadAnalyses = useAdminStore((state) => state.loadAnalyses);
   const [activeTab, setActiveTab] = useState<ViewTab>("pending");
@@ -89,7 +90,7 @@ export function AnalysisListTab({
     }
 
     return result;
-  }, [analyses, timeFilter, activeTab, statusFilter]);
+  }, [analyses, timeFilter, activeTab, statusFilter, analysisType]);
 
   const handleDownloadImage = (url: string, index: number) => {
     analysisService.downloadImage(url, index);
@@ -178,13 +179,9 @@ export function AnalysisListTab({
           }`}
         >
           ⏳ Bekleyen Analizler (
-          {
-            analyses.filter(
-              (a) =>
-                (a.type || "daily") === analysisType &&
-                (!a.status || a.status === "pending")
-            ).length
-          }
+          {analysisType === "daily"
+            ? analysisStats.dailyPending
+            : analysisStats.aiPending}
           )
         </button>
         <button
@@ -200,13 +197,9 @@ export function AnalysisListTab({
           }`}
         >
           ✓ Sonuçlananlar (
-          {
-            analyses.filter(
-              (a) =>
-                (a.type || "daily") === analysisType &&
-                (a.status === "won" || a.status === "lost")
-            ).length
-          }
+          {analysisType === "daily"
+            ? analysisStats.dailyWon + analysisStats.dailyLost
+            : analysisStats.aiWon + analysisStats.aiLost}
           )
         </button>
       </div>

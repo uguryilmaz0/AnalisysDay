@@ -48,6 +48,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
         setUserData(userDoc.data() as User);
+
+        // Kullanıcı giriş yaptıysa analiz verilerini arka planda yükle
+        if (typeof window !== "undefined") {
+          // Dynamic import to avoid SSR issues
+          import("@/lib/matchService").then(
+            ({ getLeagues, getAllTeams, getLeagueMatchCounts }) => {
+              Promise.all([getLeagues(), getAllTeams(), getLeagueMatchCounts()])
+                .then(() => {
+                  console.log(
+                    "✅ Analiz verileri otomatik yüklendi (localStorage cache)"
+                  );
+                })
+                .catch((error) => {
+                  console.error("❌ Analiz verileri yükleme hatası:", error);
+                });
+            }
+          );
+        }
       }
     } catch {
       // Kullanıcı verisi alınamadı - sessizce devam et
@@ -298,6 +316,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Çıkış yap
   const signOut = async () => {
     const currentUser = user;
+
+    // Cache'i temizle
+    if (typeof window !== "undefined") {
+      import("@/lib/matchService").then(({ clearCache }) => {
+        clearCache();
+        console.log("🗑️ Cache temizlendi (logout)");
+      });
+    }
+
     await firebaseSignOut(auth);
     setUserData(null);
 
@@ -308,6 +335,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: currentUser.email || undefined,
         action: "logout",
       });
+    }
+
+    // Ana sayfaya yönlendir
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
     }
   };
 

@@ -43,9 +43,10 @@ export default function Footer() {
                 <span className="text-sm">WhatsApp Destek</span>
               </a>
               <a
-                href={`https://t.me/${
-                  process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL || "analysisday"
-                }`}
+                href={
+                  process.env.NEXT_PUBLIC_TELEGRAM_LINK ||
+                  "https://t.me/analysisday"
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition"

@@ -4,6 +4,8 @@ import {
   createAnalysis,
   updateAnalysis,
   updateAnalysisStatus,
+  getAnalysisStats,
+  AnalysisStats,
 } from "@/lib/db";
 import { uploadMultipleImages } from "@/lib/cloudinary";
 import { DailyAnalysis } from "@/types";
@@ -97,6 +99,17 @@ class AnalysisService extends BaseService {
     return this.executeWithErrorHandling(
       () => updateAnalysisStatus(id, status, userId),
       "updateStatus"
+    );
+  }
+
+  /**
+   * Analiz istatistiklerini getirir
+   */
+  async getStats(): Promise<AnalysisStats> {
+    return this.executeWithRetry(
+      () => getAnalysisStats(),
+      "getStats",
+      { maxRetries: 2 }
     );
   }
 

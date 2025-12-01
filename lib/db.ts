@@ -578,6 +578,67 @@ export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
   }
 }
 
+export interface AnalysisStats {
+  dailyPending: number;
+  dailyWon: number;
+  dailyLost: number;
+  aiPending: number;
+  aiWon: number;
+  aiLost: number;
+}
+
+/**
+ * Analiz istatistiklerini Firebase'den çeker
+ */
+export async function getAnalysisStats(): Promise<AnalysisStats> {
+  try {
+    const snapshot = await getDocs(
+      query(collection(db, 'daily_analysis'))
+    );
+
+    const stats: AnalysisStats = {
+      dailyPending: 0,
+      dailyWon: 0,
+      dailyLost: 0,
+      aiPending: 0,
+      aiWon: 0,
+      aiLost: 0,
+    };
+
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data() as DailyAnalysis;
+      
+      // Silinen analizleri sayma
+      if (data.isVisible === false) return;
+
+      const type = data.type || 'daily';
+      const status = data.status || 'pending';
+
+      if (type === 'daily') {
+        if (status === 'pending') stats.dailyPending++;
+        else if (status === 'won') stats.dailyWon++;
+        else if (status === 'lost') stats.dailyLost++;
+      } else if (type === 'ai') {
+        if (status === 'pending') stats.aiPending++;
+        else if (status === 'won') stats.aiWon++;
+        else if (status === 'lost') stats.aiLost++;
+      }
+    });
+
+    return stats;
+  } catch (error) {
+    console.error('Analiz istatistikleri alınamadı:', error);
+    return {
+      dailyPending: 0,
+      dailyWon: 0,
+      dailyLost: 0,
+      aiPending: 0,
+      aiWon: 0,
+      aiLost: 0,
+    };
+  }
+}
+
 export async function deleteAnalysis(id: string): Promise<void> {
   try {
     await deleteDoc(doc(db, 'daily_analysis', id));

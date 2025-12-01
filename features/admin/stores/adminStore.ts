@@ -2,11 +2,21 @@ import { create } from "zustand";
 import { DailyAnalysis, User } from "@/types";
 import { analysisService, userService } from "@/features/admin/services";
 
+interface AnalysisStats {
+  dailyPending: number;
+  dailyWon: number;
+  dailyLost: number;
+  aiPending: number;
+  aiWon: number;
+  aiLost: number;
+}
+
 interface AdminState {
   // Data
   analyses: DailyAnalysis[];
   users: User[];
   usersWithAuthData: Array<User & { emailVerified: boolean }>;
+  analysisStats: AnalysisStats;
 
   // Loading states
   loading: boolean;
@@ -37,6 +47,14 @@ const initialState = {
   analyses: [],
   users: [],
   usersWithAuthData: [],
+  analysisStats: {
+    dailyPending: 0,
+    dailyWon: 0,
+    dailyLost: 0,
+    aiPending: 0,
+    aiWon: 0,
+    aiLost: 0,
+  },
   loading: false,
   analysesLoading: false,
   usersLoading: false,
@@ -57,16 +75,18 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const [analyses, users, usersWithAuth] = await Promise.all([
+      const [analyses, users, usersWithAuth, stats] = await Promise.all([
         analysisService.getAll(),
         userService.getAll(),
         userService.getAllWithAuthData(),
+        analysisService.getStats(),
       ]);
 
       set({
         analyses,
         users,
         usersWithAuthData: usersWithAuth,
+        analysisStats: stats,
         loading: false,
       });
     } catch (error) {
@@ -84,8 +104,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     set({ analysesLoading: true });
 
     try {
-      const analyses = await analysisService.getAll();
-      set({ analyses, analysesLoading: false });
+      const [analyses, stats] = await Promise.all([
+        analysisService.getAll(),
+        analysisService.getStats(),
+      ]);
+      set({ analyses, analysisStats: stats, analysesLoading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error : new Error("Analizler yüklenemedi"),

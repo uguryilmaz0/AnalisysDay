@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllAnalyses, checkSubscriptionExpiry } from "@/lib/db";
+import {
+  getAllAnalyses,
+  checkSubscriptionExpiry,
+  getAnalysisStats,
+  AnalysisStats,
+} from "@/lib/db";
 import { DailyAnalysis } from "@/types";
 import {
   Lock,
@@ -29,6 +34,14 @@ export default function AIAnalysisPage() {
   const { hasPremiumAccess } = usePermissions();
   const { refreshUserData } = useAuth();
   const [analyses, setAnalyses] = useState<DailyAnalysis[]>([]);
+  const [analysisStats, setAnalysisStats] = useState<AnalysisStats>({
+    dailyPending: 0,
+    dailyWon: 0,
+    dailyLost: 0,
+    aiPending: 0,
+    aiWon: 0,
+    aiLost: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [subscriptionValid, setSubscriptionValid] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("analizler");
@@ -117,10 +130,14 @@ export default function AIAnalysisPage() {
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
         try {
-          const allAnalyses = await getAllAnalyses();
+          const [allAnalyses, stats] = await Promise.all([
+            getAllAnalyses(),
+            getAnalysisStats(),
+          ]);
           setAnalyses(allAnalyses);
+          setAnalysisStats(stats);
         } catch {
-          // Analiz yüklenemedi
+          // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
         }
       }
 
@@ -297,24 +314,7 @@ export default function AIAnalysisPage() {
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
             }`}
           >
-            🤖 Analizler (
-            {
-              analyses.filter((a) => {
-                if (a.type !== "ai") return false;
-                const now = new Date();
-                const twoDaysAgo = new Date(
-                  now.getTime() - 2 * 24 * 60 * 60 * 1000
-                );
-                twoDaysAgo.setHours(0, 0, 0, 0);
-                const analysisDate = a.date.toDate();
-                analysisDate.setHours(0, 0, 0, 0);
-                return (
-                  analysisDate.getTime() >= twoDaysAgo.getTime() &&
-                  (!a.status || a.status === "pending")
-                );
-              }).length
-            }
-            )
+            🤖 Analizler ({analysisStats.aiPending})
           </button>
           <button
             onClick={() => {
@@ -328,14 +328,7 @@ export default function AIAnalysisPage() {
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
             }`}
           >
-            🎯 Sonuçlananlar (
-            {
-              analyses.filter(
-                (a) =>
-                  a.type === "ai" && (a.status === "won" || a.status === "lost")
-              ).length
-            }
-            )
+            🎯 Sonuçlananlar ({analysisStats.aiWon + analysisStats.aiLost})
           </button>
         </div>
 
