@@ -39,42 +39,7 @@ export default function DatabaseAnalysisPage() {
     Record<string, number>
   >({});
 
-  // Auth kontrolü - giriş yapmamışsa login'e yönlendir
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login?redirect=/database-analysis");
-    }
-  }, [user, authLoading, router]);
-
-  // Auth yüklenirken veya kullanıcı yoksa loading göster
-  if (authLoading || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Sayfa yüklendiğinde ligleri ve takımları yükle (cache'den gelecek - hızlı)
-  useEffect(() => {
-    const initializeData = async () => {
-      setLoadingProgress("Analiz verileri yükleniyor...");
-      try {
-        // AuthContext zaten yükledi, burası cache'den hızlı gelecek
-        await Promise.all([loadLeagues(), loadTeams()]);
-      } catch (error) {
-        console.error("Sayfa yükleme hatası:", error);
-      } finally {
-        setLoadingProgress("");
-      }
-    };
-
-    initializeData();
-  }, []);
-
+  // loadLeagues ve loadTeams fonksiyonları
   const loadLeagues = async () => {
     try {
       // Cache'den gelecek - çok hızlı
@@ -99,6 +64,44 @@ export default function DatabaseAnalysisPage() {
       console.error("Takımlar yüklenirken hata:", error);
     }
   };
+
+  // Auth kontrolü - giriş yapmamışsa login'e yönlendir
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login?redirect=/database-analysis");
+    }
+  }, [user, authLoading, router]);
+
+  // Sayfa yüklendiğinde ligleri ve takımları yükle (cache'den gelecek - hızlı)
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const initializeData = async () => {
+      setLoadingProgress("Analiz verileri yükleniyor...");
+      try {
+        // AuthContext zaten yükledi, burası cache'den hızlı gelecek
+        await Promise.all([loadLeagues(), loadTeams()]);
+      } catch (error) {
+        console.error("Sayfa yükleme hatası:", error);
+      } finally {
+        setLoadingProgress("");
+      }
+    };
+
+    initializeData();
+  }, [user, authLoading]);
+
+  // Auth yüklenirken veya kullanıcı yoksa loading göster
+  if (authLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Lig seçimi
   const handleLeagueToggle = (league: string) => {

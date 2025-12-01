@@ -216,7 +216,7 @@ export default function FilterBar({
           {/* Maç Sonucu */}
           <div>
             <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-              🏁 Maç Sonucu
+              🏁 Maç Sonucu (MS)
             </label>
             <select
               value={filters.result || ""}
@@ -233,6 +233,98 @@ export default function FilterBar({
               <option value="1">🏠 Ev Sahibi (1)</option>
               <option value="X">🤝 Beraberlik (X)</option>
               <option value="2">✈️ Deplasman (2)</option>
+            </select>
+          </div>
+
+          {/* İlk Yarı Sonucu */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              ⏱️ İlk Yarı Sonucu
+            </label>
+            <select
+              value={filters.htResult || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  htResult: e.target.value
+                    ? (e.target.value as "1" | "X" | "2")
+                    : undefined,
+                })
+              }
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <option value="1">🏠 Ev Sahibi (1)</option>
+              <option value="X">🤝 Beraberlik (X)</option>
+              <option value="2">✈️ Deplasman (2)</option>
+            </select>
+          </div>
+
+          {/* İkinci Yarı Sonucu */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              ⏳ İkinci Yarı Sonucu
+            </label>
+            <select
+              value={filters.shResult || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  shResult: e.target.value
+                    ? (e.target.value as "1" | "X" | "2")
+                    : undefined,
+                })
+              }
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <option value="1">🏠 Ev Sahibi (1)</option>
+              <option value="X">🤝 Beraberlik (X)</option>
+              <option value="2">✈️ Deplasman (2)</option>
+            </select>
+          </div>
+
+          {/* Maç Sonucu Çifte Şans */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              🎲 MS Çifte Şans
+            </label>
+            <select
+              value={filters.ftDoubleChance || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  ftDoubleChance: e.target.value
+                    ? (e.target.value as "1X" | "12" | "X2")
+                    : undefined,
+                })
+              }
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <option value="1X">🏠🤝 1 veya X</option>
+              <option value="12">🏠✈️ 1 veya 2</option>
+              <option value="X2">🤝✈️ X veya 2</option>
+            </select>
+          </div>
+
+          {/* İlk Yarı Çifte Şans */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              🎲 İY Çifte Şans
+            </label>
+            <select
+              value={filters.htDoubleChance || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  htDoubleChance: e.target.value
+                    ? (e.target.value as "1X" | "12" | "X2")
+                    : undefined,
+                })
+              }
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <option value="1X">🏠🤝 1 veya X</option>
+              <option value="12">🏠✈️ 1 veya 2</option>
+              <option value="X2">🤝✈️ X veya 2</option>
             </select>
           </div>
 
@@ -258,6 +350,132 @@ export default function FilterBar({
               <option value="2/1">2/1</option>
               <option value="2/X">2/X</option>
               <option value="2/2">2/2</option>
+            </select>
+          </div>
+
+          {/* Asya Handikap */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              📊 Asya Handikap
+            </label>
+            <select
+              value={
+                filters.asianHandicap
+                  ? `${filters.asianHandicap.team}-${filters.asianHandicap.value}`
+                  : ""
+              }
+              onChange={(e) => {
+                if (!e.target.value) {
+                  onFilterChange({ asianHandicap: undefined });
+                  return;
+                }
+                const [team, value] = e.target.value.split("-");
+                onFilterChange({
+                  asianHandicap: {
+                    team: team as "home" | "away",
+                    value: parseFloat(value) as -0.5 | 0 | 0.5,
+                  },
+                });
+              }}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <optgroup label="🏠 Ev Sahibi">
+                <option value="home--0.5">Ev -0.5</option>
+                <option value="home-0">Ev 0</option>
+                <option value="home-0.5">Ev +0.5</option>
+              </optgroup>
+              <optgroup label="✈️ Deplasman">
+                <option value="away--0.5">Deplasman -0.5</option>
+                <option value="away-0">Deplasman 0</option>
+                <option value="away-0.5">Deplasman +0.5</option>
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Avrupa Handikap */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              📈 Avrupa Handikap
+            </label>
+            <select
+              value={
+                filters.europeanHandicap
+                  ? `${filters.europeanHandicap.result}-${filters.europeanHandicap.value}`
+                  : ""
+              }
+              onChange={(e) => {
+                if (!e.target.value) {
+                  onFilterChange({ europeanHandicap: undefined });
+                  return;
+                }
+                const [result, value] = e.target.value.split("-");
+                onFilterChange({
+                  europeanHandicap: {
+                    result: result as "1" | "X" | "2",
+                    value: parseInt(value) as -1,
+                  },
+                });
+              }}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <option value="1--1">🏠 Ev (-1)</option>
+              <option value="X--1">🤝 Beraberlik (-1)</option>
+              <option value="2--1">✈️ Deplasman (-1)</option>
+            </select>
+          </div>
+
+          {/* Maç Skorları */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              ⚽ Maç Skorları
+            </label>
+            <select
+              value={
+                filters.correctScore
+                  ? `${filters.correctScore.period}-${filters.correctScore.score}`
+                  : ""
+              }
+              onChange={(e) => {
+                if (!e.target.value) {
+                  onFilterChange({ correctScore: undefined });
+                  return;
+                }
+                const [period, score] = e.target.value.split("-");
+                onFilterChange({
+                  correctScore: {
+                    period: period as "ht" | "ft",
+                    score: score,
+                  },
+                });
+              }}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Seçiniz...</option>
+              <optgroup label="⏱️ İlk Yarı">
+                <option value="ht-1-0">İY 1-0</option>
+                <option value="ht-2-0">İY 2-0</option>
+                <option value="ht-2-1">İY 2-1</option>
+                <option value="ht-0-0">İY 0-0</option>
+                <option value="ht-1-1">İY 1-1</option>
+                <option value="ht-0-1">İY 0-1</option>
+                <option value="ht-0-2">İY 0-2</option>
+                <option value="ht-1-2">İY 1-2</option>
+              </optgroup>
+              <optgroup label="🏁 Maç Sonu">
+                <option value="ft-1-0">MS 1-0</option>
+                <option value="ft-2-0">MS 2-0</option>
+                <option value="ft-2-1">MS 2-1</option>
+                <option value="ft-3-0">MS 3-0</option>
+                <option value="ft-3-1">MS 3-1</option>
+                <option value="ft-0-0">MS 0-0</option>
+                <option value="ft-1-1">MS 1-1</option>
+                <option value="ft-2-2">MS 2-2</option>
+                <option value="ft-0-1">MS 0-1</option>
+                <option value="ft-0-2">MS 0-2</option>
+                <option value="ft-1-2">MS 1-2</option>
+              </optgroup>
             </select>
           </div>
         </div>

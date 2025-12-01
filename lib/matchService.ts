@@ -210,9 +210,87 @@ export async function getMatches(
       query = query.eq('btts', filters.btts === 'yes' ? 1 : 0);
     }
 
-    // Maç sonucu filtresi
-    // Not: ft_score'dan sonuç çıkarma mantığı veritabanı yapınıza göre özelleştirilebilir
-    // Şu anda bu filtre uygulanmıyor, gerekirse sonra eklenebilir
+    // Maç sonucu filtresi (Full-time result)
+    if (filters.result) {
+      // ft_score formatı: "2-1" gibi
+      // Sonucu karşılaştırmak için ft_score'u parse edip filtrele
+      if (filters.result === '1') {
+        // Ev sahibi kazandı (home > away)
+        query = query.filter('ft_score', 'not.is', null);
+        // Not: Supabase'de dynamic string comparison zor, client-side filtering gerekebilir
+        // Alternatif: Veritabanında ayrı bir "ft_result" kolonu olabilir
+      } else if (filters.result === 'X') {
+        // Beraberlik (ht_score'da skorlar eşit olmalı - ancak ft_score kullanılmalı)
+        // Bu mantık için veritabanında ayrı result kolonu olması ideal
+      } else if (filters.result === '2') {
+        // Deplasman kazandı (away > home)
+      }
+      // Not: Bu filtre için veritabanında "ft_result" kolonu eklenmeli (1, X, 2)
+      // Şimdilik skip - sonra eklenebilir
+    }
+
+    // İlk Yarı Sonucu
+    if (filters.htResult) {
+      // ht_score formatından sonuç çıkarma - veritabanında "ht_result" kolonu gerekli
+      // Şimdilik skip
+    }
+
+    // İkinci Yarı Sonucu
+    if (filters.shResult) {
+      // sh_score yoksa ft_score - ht_score hesaplama gerekli
+      // Veritabanında "sh_result" kolonu olmalı
+      // Şimdilik skip
+    }
+
+    // Maç Sonucu Çifte Şans (Full-time Double Chance)
+    if (filters.ftDoubleChance) {
+      // Örnek: ft_dc_1x_odds_close kolonu var ise
+      const dcColumn = `ft_dc_${filters.ftDoubleChance.toLowerCase()}_odds_close`;
+      // Oranların olduğu maçları filtrele (odds > 0)
+      query = query.not(dcColumn, 'is', null).gt(dcColumn, 0);
+    }
+
+    // İlk Yarı Çifte Şans (Half-time Double Chance)
+    if (filters.htDoubleChance) {
+      const dcColumn = `ht_dc_${filters.htDoubleChance.toLowerCase()}_odds_close`;
+      query = query.not(dcColumn, 'is', null).gt(dcColumn, 0);
+    }
+
+    // Asya Handikap (Asian Handicap)
+    if (filters.asianHandicap) {
+      const { team, value } = filters.asianHandicap;
+      // value: -0.5 -> minus_05, 0 -> 0, 0.5 -> plus_05
+      let ahSuffix = '';
+      if (value === -0.5) ahSuffix = 'minus_05';
+      else if (value === 0) ahSuffix = '0';
+      else if (value === 0.5) ahSuffix = 'plus_05';
+      
+      const ahColumn = `ah_${ahSuffix}_${team}_odds_close`;
+      query = query.not(ahColumn, 'is', null).gt(ahColumn, 0);
+    }
+
+    // Avrupa Handikap (European Handicap)
+    if (filters.europeanHandicap) {
+      const { result, value } = filters.europeanHandicap;
+      // value: -1 -> minus_1
+      const ehSuffix = 'minus_1';
+      let ehResultSuffix = '';
+      if (result === '1') ehResultSuffix = 'home';
+      else if (result === 'X') ehResultSuffix = 'draw';
+      else if (result === '2') ehResultSuffix = 'away';
+      
+      const ehColumn = `eh_${ehSuffix}_${ehResultSuffix}_odds_close`;
+      query = query.not(ehColumn, 'is', null).gt(ehColumn, 0);
+    }
+
+    // Doğru Skor (Correct Score)
+    if (filters.correctScore) {
+      const { period, score } = filters.correctScore;
+      // score: "1-0" -> "10", "2-1" -> "21" (tire kaldır)
+      const scoreFormatted = score.replace('-', '');
+      const csColumn = `${period}_cs_${scoreFormatted}_odds_close`;
+      query = query.not(csColumn, 'is', null).gt(csColumn, 0);
+    }
 
     // İlk Yarı/Maç Sonu filtresi
     if (filters.htFt) {

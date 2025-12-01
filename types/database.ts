@@ -230,11 +230,29 @@ export interface MatchFilters {
     value: 1.5 | 2.5 | 3.5;
   };
   btts?: 'yes' | 'no';
-  result?: '1' | 'X' | '2';
+  result?: '1' | 'X' | '2'; // Maç Sonucu (Full-time 1X2)
   htFt?: string;
   teamSearch?: string;
   minOdds?: number;
   maxOdds?: number;
+  
+  // Yeni filtreler
+  htResult?: '1' | 'X' | '2'; // İlk Yarı 1-0-2
+  shResult?: '1' | 'X' | '2'; // İkinci Yarı 1-0-2
+  ftDoubleChance?: '1X' | '12' | 'X2'; // Maç Sonucu Çifte Şans
+  htDoubleChance?: '1X' | '12' | 'X2'; // İlk Yarı Çifte Şans
+  asianHandicap?: {
+    team: 'home' | 'away';
+    value: -0.5 | 0 | 0.5; // Asya Handikap (-0.5, 0, +0.5)
+  };
+  europeanHandicap?: {
+    result: '1' | 'X' | '2';
+    value: -1; // Avrupa Handikap (-1)
+  };
+  correctScore?: {
+    period: 'ht' | 'ft'; // İlk yarı veya Maç sonu
+    score: string; // "1-0", "2-0", "2-1", "0-0", "1-1", "0-1", "0-2", "1-2", "3-0", "3-1", "2-2"
+  };
 }
 
 // API Response type'ları
