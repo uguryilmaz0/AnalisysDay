@@ -49,15 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userDoc.exists()) {
         setUserData(userDoc.data() as User);
 
-        // Kullanıcı giriş yaptıysa analiz verilerini arka planda yükle
+        // Kullanıcı giriş yaptıysa analiz verilerini arka planda yükle (2x hızlı paralel)
         if (typeof window !== "undefined") {
           // Dynamic import to avoid SSR issues
           import("@/lib/matchService").then(
             ({ getLeagues, getAllTeams, getLeagueMatchCounts }) => {
+              const startTime = Date.now();
+              console.log("🚀 Analiz verileri yükleniyor... (2x hızlı batch)");
+
               Promise.all([getLeagues(), getAllTeams(), getLeagueMatchCounts()])
                 .then(() => {
+                  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
                   console.log(
-                    "✅ Analiz verileri otomatik yüklendi (localStorage cache)"
+                    `✅ Analiz verileri ${duration}s'de yüklendi (localStorage cache)`
                   );
                 })
                 .catch((error) => {

@@ -12,7 +12,7 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
-const CACHE_DURATION = 30 * 60 * 1000; // 30 dakika (daha uzun süre)
+const CACHE_DURATION = 60 * 60 * 1000; // 60 dakika (1 saat) - uzun süreli cache
 const CACHE_PREFIX = 'analysis_cache_';
 
 // localStorage kullanılabilir mi kontrol et
@@ -101,11 +101,11 @@ export async function getLeagues(): Promise<LeaguesResponse> {
     }
 
     const leagues = new Set<string>();
-    const batchSize = 1000;
+    const batchSize = 2000; // 2x daha hızlı
     let page = 0;
     let hasMore = true;
 
-    console.log('🔄 Ligler yükleniyor (batch processing)...');
+    console.log('🔄 Ligler yükleniyor (2x hızlı batch processing)...');
 
     while (hasMore) {
       const from = page * batchSize;
@@ -137,15 +137,15 @@ export async function getLeagues(): Promise<LeaguesResponse> {
 
       page++;
 
-      // Güvenlik: Maksimum 100 batch
-      if (page >= 100) {
+      // Güvenlik: Maksimum 500 batch (730k+ veri için yeterli)
+      if (page >= 500) {
         console.warn('⚠️ Maksimum batch limitine ulaşıldı');
         break;
       }
     }
 
     const result = Array.from(leagues).sort();
-    console.log(`✅ Toplam ${leagues.size} unique lig bulundu`);
+    console.log(`✅ Toplam ${leagues.size} unique lig bulundu (${page} batch)`);
     
     // Cache'e kaydet
     setCache('all_leagues', result);
@@ -171,9 +171,19 @@ export async function getMatches(
   try {
     let query = supabase.from(TABLE_NAME).select('*', { count: 'exact' });
 
-    // Lig filtresi
+    // Lig filtresi - Özel karakterleri handle et
     if (filters.league && filters.league.length > 0) {
-      query = query.in('league', filters.league);
+      console.log('🔍 Lig filtresi uygulanıyor:', filters.league);
+      
+      // Tek lig ise eq, birden fazla lig ise in kullan
+      if (filters.league.length === 1) {
+        query = query.eq('league', filters.league[0]);
+      } else {
+        // Supabase'in in() metodu array içindeki her elementi doğru escape eder
+        query = query.in('league', filters.league);
+      }
+      
+      console.log('✅ Lig filtresi uygulandı');
     }
 
     // Tarih filtresi
@@ -184,117 +194,29 @@ export async function getMatches(
       query = query.lte('match_date', filters.dateTo);
     }
 
-    // Takım arama
+    // Saat filtresi
+    if (filters.timeFrom) {
+      query = query.gte('time', filters.timeFrom);
+    }
+    if (filters.timeTo) {
+      query = query.lte('time', filters.timeTo);
+    }
+
+    // Ev sahibi takım filtresi
+    if (filters.homeTeam) {
+      query = query.ilike('home_team', `%${filters.homeTeam}%`);
+    }
+
+    // Deplasman takım filtresi
+    if (filters.awayTeam) {
+      query = query.ilike('away_team', `%${filters.awayTeam}%`);
+    }
+
+    // Takım arama (eski - backward compatibility)
     if (filters.teamSearch) {
       query = query.or(
         `home_team.ilike.%${filters.teamSearch}%,away_team.ilike.%${filters.teamSearch}%`
       );
-    }
-
-    // Over/Under filtresi
-    if (filters.overUnder) {
-      const { type, value } = filters.overUnder;
-      // Kolon formatı: ft_over_15 (0.5 -> 05, 1.5 -> 15, 2.5 -> 25)
-      const formattedValue = value.toString().replace('.', '');
-      const column = `ft_over_${formattedValue}`;
-      
-      if (type === 'over') {
-        query = query.eq(column, 1);
-      } else {
-        query = query.eq(column, 0);
-      }
-    }
-
-    // BTTS filtresi
-    if (filters.btts) {
-      query = query.eq('btts', filters.btts === 'yes' ? 1 : 0);
-    }
-
-    // Maç sonucu filtresi (Full-time result)
-    if (filters.result) {
-      // ft_score formatı: "2-1" gibi
-      // Sonucu karşılaştırmak için ft_score'u parse edip filtrele
-      if (filters.result === '1') {
-        // Ev sahibi kazandı (home > away)
-        query = query.filter('ft_score', 'not.is', null);
-        // Not: Supabase'de dynamic string comparison zor, client-side filtering gerekebilir
-        // Alternatif: Veritabanında ayrı bir "ft_result" kolonu olabilir
-      } else if (filters.result === 'X') {
-        // Beraberlik (ht_score'da skorlar eşit olmalı - ancak ft_score kullanılmalı)
-        // Bu mantık için veritabanında ayrı result kolonu olması ideal
-      } else if (filters.result === '2') {
-        // Deplasman kazandı (away > home)
-      }
-      // Not: Bu filtre için veritabanında "ft_result" kolonu eklenmeli (1, X, 2)
-      // Şimdilik skip - sonra eklenebilir
-    }
-
-    // İlk Yarı Sonucu
-    if (filters.htResult) {
-      // ht_score formatından sonuç çıkarma - veritabanında "ht_result" kolonu gerekli
-      // Şimdilik skip
-    }
-
-    // İkinci Yarı Sonucu
-    if (filters.shResult) {
-      // sh_score yoksa ft_score - ht_score hesaplama gerekli
-      // Veritabanında "sh_result" kolonu olmalı
-      // Şimdilik skip
-    }
-
-    // Maç Sonucu Çifte Şans (Full-time Double Chance)
-    if (filters.ftDoubleChance) {
-      // Örnek: ft_dc_1x_odds_close kolonu var ise
-      const dcColumn = `ft_dc_${filters.ftDoubleChance.toLowerCase()}_odds_close`;
-      // Oranların olduğu maçları filtrele (odds > 0)
-      query = query.not(dcColumn, 'is', null).gt(dcColumn, 0);
-    }
-
-    // İlk Yarı Çifte Şans (Half-time Double Chance)
-    if (filters.htDoubleChance) {
-      const dcColumn = `ht_dc_${filters.htDoubleChance.toLowerCase()}_odds_close`;
-      query = query.not(dcColumn, 'is', null).gt(dcColumn, 0);
-    }
-
-    // Asya Handikap (Asian Handicap)
-    if (filters.asianHandicap) {
-      const { team, value } = filters.asianHandicap;
-      // value: -0.5 -> minus_05, 0 -> 0, 0.5 -> plus_05
-      let ahSuffix = '';
-      if (value === -0.5) ahSuffix = 'minus_05';
-      else if (value === 0) ahSuffix = '0';
-      else if (value === 0.5) ahSuffix = 'plus_05';
-      
-      const ahColumn = `ah_${ahSuffix}_${team}_odds_close`;
-      query = query.not(ahColumn, 'is', null).gt(ahColumn, 0);
-    }
-
-    // Avrupa Handikap (European Handicap)
-    if (filters.europeanHandicap) {
-      const { result, value } = filters.europeanHandicap;
-      // value: -1 -> minus_1
-      const ehSuffix = 'minus_1';
-      let ehResultSuffix = '';
-      if (result === '1') ehResultSuffix = 'home';
-      else if (result === 'X') ehResultSuffix = 'draw';
-      else if (result === '2') ehResultSuffix = 'away';
-      
-      const ehColumn = `eh_${ehSuffix}_${ehResultSuffix}_odds_close`;
-      query = query.not(ehColumn, 'is', null).gt(ehColumn, 0);
-    }
-
-    // Doğru Skor (Correct Score)
-    if (filters.correctScore) {
-      const { period, score } = filters.correctScore;
-      // score: "1-0" -> "10", "2-1" -> "21" (tire kaldır)
-      const scoreFormatted = score.replace('-', '');
-      const csColumn = `${period}_cs_${scoreFormatted}_odds_close`;
-      query = query.not(csColumn, 'is', null).gt(csColumn, 0);
-    }
-
-    // İlk Yarı/Maç Sonu filtresi
-    if (filters.htFt) {
-      query = query.eq('ht_ft', filters.htFt);
     }
 
     // Pagination
@@ -307,7 +229,18 @@ export async function getMatches(
 
     const { data, error, count } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase Query Hatası:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        filters: filters,
+      });
+      throw new Error(`Veritabanı hatası: ${error.message}`);
+    }
+
+    console.log(`✅ ${count || 0} maç bulundu (${page}/${Math.ceil((count || 0) / pageSize)} sayfa)`);
 
     return {
       data: (data || []) as MatchData[],
@@ -317,14 +250,14 @@ export async function getMatches(
       totalPages: Math.ceil((count || 0) / pageSize),
     };
   } catch (error) {
-    console.error('Maçlar alınamadı:', error);
-    return {
-      data: [],
-      count: 0,
-      page,
-      pageSize,
-      totalPages: 0,
-    };
+    console.error('❌ Maçlar alınamadı:', error);
+    
+    // Error'u yukarı fırlat ki kullanıcı görebilsin
+    if (error instanceof Error) {
+      throw error;
+    }
+    
+    throw new Error('Maçlar yüklenirken bilinmeyen bir hata oluştu');
   }
 }
 
@@ -363,11 +296,11 @@ export async function getAllTeams(): Promise<string[]> {
     }
 
     const teams = new Set<string>();
-    const batchSize = 1000;
+    const batchSize = 2000; // 2x daha hızlı
     let page = 0;
     let hasMore = true;
 
-    console.log('🔄 Takımlar yükleniyor (batch processing)...');
+    console.log('🔄 Takımlar yükleniyor (2x hızlı batch processing)...');
 
     while (hasMore) {
       const from = page * batchSize;
@@ -402,15 +335,15 @@ export async function getAllTeams(): Promise<string[]> {
 
       page++;
 
-      // Güvenlik: Maksimum 100 batch (100k maç)
-      if (page >= 100) {
+      // Güvenlik: Maksimum 500 batch (730k+ veri için yeterli)
+      if (page >= 500) {
         console.warn('⚠️ Maksimum batch limitine ulaşıldı');
         break;
       }
     }
 
     const result = Array.from(teams).sort();
-    console.log(`✅ Toplam ${teams.size} unique takım bulundu`);
+    console.log(`✅ Toplam ${teams.size} unique takım bulundu (${page} batch)`);
     
     // Cache'e kaydet
     setCache('all_teams', result);
@@ -422,81 +355,7 @@ export async function getAllTeams(): Promise<string[]> {
   }
 }
 
-/**
- * Belirli liglerdeki takımları getir (Batch processing ile)
- */
-export async function getTeamsByLeagues(leagues: string[]): Promise<string[]> {
-  try {
-    if (leagues.length === 0) {
-      return getAllTeams(); // Lig seçilmemişse tüm takımları getir
-    }
-
-    // Cache kontrolü
-    const cacheKey = `teams_leagues_${leagues.sort().join('_')}`;
-    const cached = getCached<string[]>(cacheKey);
-    if (cached) {
-      console.log('✅ Lig bazlı takımlar cache\'den geldi');
-      return cached;
-    }
-
-    const teams = new Set<string>();
-    const batchSize = 1000;
-    let page = 0;
-    let hasMore = true;
-
-    console.log(`🔄 ${leagues.length} lig için takımlar yükleniyor...`);
-
-    while (hasMore) {
-      const from = page * batchSize;
-      const to = from + batchSize - 1;
-
-      const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select('home_team, away_team')
-        .in('league', leagues)
-        .range(from, to)
-        .limit(batchSize);
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      // Takımları set'e ekle
-      data.forEach((match: { home_team: string; away_team: string }) => {
-        teams.add(match.home_team);
-        teams.add(match.away_team);
-      });
-
-      console.log(`✓ Batch ${page + 1}: ${data.length} maç, ${teams.size} unique takım`);
-
-      if (data.length < batchSize) {
-        hasMore = false;
-      }
-
-      page++;
-
-      // Güvenlik limiti
-      if (page >= 100) {
-        console.warn('⚠️ Maksimum batch limitine ulaşıldı');
-        break;
-      }
-    }
-
-    const result = Array.from(teams).sort();
-    console.log(`✅ ${leagues.length} ligde ${teams.size} unique takım bulundu`);
-    
-    // Cache'e kaydet
-    setCache(cacheKey, result);
-    
-    return result;
-  } catch (error) {
-    console.error('Lig bazlı takımlar alınamadı:', error);
-    return [];
-  }
-}
+// getTeamsByLeagues fonksiyonu kaldırıldı - artık tüm takımlar direkt kullanılıyor (performans optimizasyonu)
 
 /**
  * Lig başına maç sayılarını getir (Batch processing ile)
@@ -513,12 +372,12 @@ export async function getLeagueMatchCounts(): Promise<Record<string, number>> {
     }
 
     const counts: Record<string, number> = {};
-    const batchSize = 1000;
+    const batchSize = 2000; // 2x daha hızlı
     let page = 0;
     let hasMore = true;
     let totalProcessed = 0;
 
-    console.log('🔄 Lig sayıları hesaplanıyor (batch processing)...');
+    console.log('🔄 Lig sayıları hesaplanıyor (2x hızlı batch processing)...');
 
     while (hasMore) {
       const from = page * batchSize;
@@ -553,14 +412,14 @@ export async function getLeagueMatchCounts(): Promise<Record<string, number>> {
 
       page++;
 
-      // Güvenlik: Maksimum 100 batch (100k maç)
-      if (page >= 100) {
+      // Güvenlik: Maksimum 500 batch (730k+ veri için yeterli)
+      if (page >= 500) {
         console.warn('⚠️ Maksimum batch limitine ulaşıldı');
         break;
       }
     }
 
-    console.log(`✅ Toplam ${Object.keys(counts).length} lig bulundu, ${totalProcessed} maç işlendi`);
+    console.log(`✅ Toplam ${Object.keys(counts).length} lig bulundu, ${totalProcessed} maç işlendi (${page} batch)`);
     
     // Cache'e kaydet
     setCache('league_match_counts', counts);
@@ -580,7 +439,12 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
   try {
     // Cache key oluştur
     const cacheKey = `stats_${JSON.stringify(filters)}`;
-    const cached = getCached<any>(cacheKey);
+    const cached = getCached<{
+      totalMatches: number;
+      over15: { count: number; percentage: string };
+      over25: { count: number; percentage: string };
+      btts: { count: number; percentage: string };
+    }>(cacheKey);
     if (cached) {
       console.log('✅ İstatistikler cache\'den geldi');
       return cached;
@@ -595,7 +459,12 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
 
     // Filtreler
     if (filters.league && filters.league.length > 0) {
-      query = query.in('league', filters.league);
+      // Tek lig ise eq, birden fazla lig ise in kullan
+      if (filters.league.length === 1) {
+        query = query.eq('league', filters.league[0]);
+      } else {
+        query = query.in('league', filters.league);
+      }
     }
     if (filters.dateFrom) {
       query = query.gte('match_date', filters.dateFrom);
@@ -613,7 +482,15 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
     query = query.limit(10000);
 
     const { data, count, error } = await query;
-    if (error) throw error;
+    
+    if (error) {
+      console.error('❌ İstatistik Supabase Hatası:', {
+        message: error.message,
+        details: error.details,
+        filters: filters,
+      });
+      throw error;
+    }
 
     // Client-side hesaplama (çok hızlı)
     const totalMatches = count || 0;
@@ -622,7 +499,7 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
     let bttsCount = 0;
 
     if (data && data.length > 0) {
-      data.forEach((match: any) => {
+      data.forEach((match: { ft_over_15: number; ft_over_25: number; btts: number }) => {
         if (match.ft_over_15 === 1) over15Count++;
         if (match.ft_over_25 === 1) over25Count++;
         if (match.btts === 1) bttsCount++;

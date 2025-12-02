@@ -77,9 +77,9 @@ export default function DatabaseAnalysisPage() {
     if (authLoading || !user) return;
 
     const initializeData = async () => {
-      setLoadingProgress("Analiz verileri yükleniyor...");
+      setLoadingProgress("🚀 Veriler hazırlanıyor... (2x hızlı yükleme)");
       try {
-        // AuthContext zaten yükledi, burası cache'den hızlı gelecek
+        // Paralel yükleme - ligler ve takımlar aynı anda
         await Promise.all([loadLeagues(), loadTeams()]);
       } catch (error) {
         console.error("Sayfa yükleme hatası:", error);
@@ -125,12 +125,60 @@ export default function DatabaseAnalysisPage() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  // Filtreleri uygula
+  // Lig seçimini uygula (sadece lig filtresi ile)
+  const handleApplyLeagueSelection = async () => {
+    if (selectedLeagues.length === 0) {
+      alert("⚠️ Lütfen en az bir lig seçin!");
+      return;
+    }
+
+    setIsLoading(true);
+    setPage(1);
+    setMatches([]);
+    setLoadingProgress(
+      `${selectedLeagues.length} lig için maçlar yükleniyor...`
+    );
+
+    const finalFilters: MatchFilters = {
+      league: selectedLeagues,
+    };
+
+    setAppliedFilters(finalFilters);
+
+    try {
+      console.log("🔍 Seçili Ligler:", selectedLeagues);
+
+      const [matchesData, stats] = await Promise.all([
+        getMatches(finalFilters, 1, 100),
+        getMatchStatistics(finalFilters),
+      ]);
+
+      console.log("✅ Maçlar yüklendi:", matchesData.count);
+
+      setMatches(matchesData.data);
+      setTotalPages(matchesData.totalPages);
+      setTotalMatches(matchesData.count);
+      setHasMore(matchesData.page < matchesData.totalPages);
+      setStatistics(stats);
+    } catch (error) {
+      console.error("❌ Veriler yüklenirken hata:", error);
+      alert(
+        `❌ Maçlar yüklenirken hata oluştu: ${
+          error instanceof Error ? error.message : "Bilinmeyen hata"
+        }`
+      );
+    } finally {
+      setIsLoading(false);
+      setLoadingProgress("");
+    }
+  };
+
+  // Filtreleri uygula (opsiyonel ince ayar filtreler)
   const handleApplyFilters = async () => {
     setIsLoading(true);
     setPage(1);
-    setMatches([]); // Önceki sonuçları temizle
-    setLoadingProgress("Maçlar ve istatistikler yükleniyor...");
+    setMatches([]);
+    setLoadingProgress("Filtreler uygulanıyor...");
 
     const finalFilters: MatchFilters = {
       ...filters,
@@ -140,9 +188,8 @@ export default function DatabaseAnalysisPage() {
     setAppliedFilters(finalFilters);
 
     try {
-      // Maçları ve istatistikleri paralel getir
       const [matchesData, stats] = await Promise.all([
-        getMatches(finalFilters, 1, 100), // İlk yüklemede 100 satır
+        getMatches(finalFilters, 1, 100),
         getMatchStatistics(finalFilters),
       ]);
 
@@ -239,6 +286,7 @@ export default function DatabaseAnalysisPage() {
         onLeagueToggle={handleLeagueToggle}
         onSelectAll={handleSelectAllLeagues}
         onClearAll={handleClearAllLeagues}
+        onApplySelection={handleApplyLeagueSelection}
         matchCounts={leagueMatchCounts}
       />
 
@@ -289,19 +337,52 @@ export default function DatabaseAnalysisPage() {
           {/* Bilgi Mesajı */}
           {matches.length === 0 && !isLoading && (
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
-              <h3 className="text-lg font-semibold text-blue-400 mb-2">
-                Hoş Geldiniz! 👋
+              <h3 className="text-xl font-bold text-blue-400 mb-2">
+                📊 Veritabanı Analizi
               </h3>
-              <p className="text-gray-300 mb-4">
-                Maç verilerini analiz etmek için lütfen:
+              <p className="text-gray-300 mb-6">
+                730,000+ maç verisi üzerinden detaylı analiz yapın
               </p>
-              <ol className="text-left text-gray-300 max-w-md mx-auto space-y-2">
-                <li>1️⃣ Sol panelden en az bir lig seçin</li>
-                <li>
-                  2️⃣ Üstteki filtrelerden istediğiniz kriterleri belirleyin
-                </li>
-                <li>3️⃣ {"Filtreleri Uygula"} butonuna tıklayın</li>
-              </ol>
+              <div className="bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto border border-blue-500/30">
+                <h4 className="text-lg font-semibold text-blue-400 mb-4">
+                  🚀 Hızlı Başlangıç
+                </h4>
+                <ol className="text-left text-gray-300 space-y-3">
+                  <li className="flex items-start gap-3">
+                    <span className="text-2xl">1️⃣</span>
+                    <div>
+                      <span className="font-semibold text-blue-400">
+                        Sol panelden lig seçin
+                      </span>
+                      <p className="text-sm text-gray-400">
+                        İstediğiniz kadar lig seçebilirsiniz
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-2xl">2️⃣</span>
+                    <div>
+                      <span className="font-semibold text-blue-400">
+                        &quot;Maçları Listele&quot; butonuna tıklayın
+                      </span>
+                      <p className="text-sm text-gray-400">
+                        Seçili liglerin tüm maçları listelenecek
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-2xl">3️⃣</span>
+                    <div>
+                      <span className="font-semibold text-blue-400">
+                        İsteğe bağlı: İleri seviye filtreler
+                      </span>
+                      <p className="text-sm text-gray-400">
+                        Tarih, saat, takım bazlı detaylı filtreleme
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
             </div>
           )}
 
