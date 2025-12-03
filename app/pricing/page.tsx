@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CreditCard,
@@ -26,12 +26,15 @@ export default function PricingPage() {
   const { copy } = useCopyToClipboard();
   const router = useRouter();
 
-  const [selectedPackage, setSelectedPackage] = React.useState<"1" | "3" | "12">("1");
+  const [selectedPackage, setSelectedPackage] = useState<"1" | "3" | "6">("3");
 
-  const packages = {
-    "1": { months: 1, price: 750, pricePerMonth: 750 },
-    "3": { months: 3, price: 2000, pricePerMonth: 667 },
-    "12": { months: 12, price: 7500, pricePerMonth: 625 },
+  const packages: Record<
+    "1" | "3" | "6",
+    { months: number; price: number; pricePerMonth: number }
+  > = {
+    "1": { months: 1, price: 1000, pricePerMonth: 1000 },
+    "3": { months: 3, price: 2750, pricePerMonth: 917 },
+    "6": { months: 6, price: 5500, pricePerMonth: 917 },
   };
 
   const currentPackage = packages[selectedPackage];
@@ -124,8 +127,8 @@ export default function PricingPage() {
             >
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">750 TL</p>
-                <p className="text-sm text-gray-400">750 TL / Ay</p>
+                <p className="text-3xl font-bold text-white mb-1">1.000 TL</p>
+                <p className="text-sm text-gray-400">1.000 TL / Ay</p>
               </div>
             </button>
 
@@ -145,16 +148,16 @@ export default function PricingPage() {
               </div>
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-1">3 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">2.000 TL</p>
-                <p className="text-sm text-green-400">667 TL / Ay</p>
+                <p className="text-3xl font-bold text-white mb-1">2.750 TL</p>
+                <p className="text-sm text-green-400">917 TL / Ay</p>
               </div>
             </button>
 
-            {/* 12 Aylık Paket */}
+            {/* 6 Aylık Paket */}
             <button
-              onClick={() => setSelectedPackage("12")}
+              onClick={() => setSelectedPackage("6")}
               className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "12"
+                selectedPackage === "6"
                   ? "border-green-500 bg-green-900/30 shadow-xl shadow-green-500/20"
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
@@ -165,9 +168,9 @@ export default function PricingPage() {
                 </span>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">12 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">7.500 TL</p>
-                <p className="text-sm text-green-400">625 TL / Ay</p>
+                <p className="text-gray-400 text-sm mb-1">6 Aylık</p>
+                <p className="text-3xl font-bold text-white mb-1">5.500 TL</p>
+                <p className="text-sm text-green-400">917 TL / Ay</p>
               </div>
             </button>
           </div>
@@ -181,7 +184,9 @@ export default function PricingPage() {
                 {currentPackage.months} Aylık Abonelik
               </h2>
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold">{currentPackage.price}</span>
+                <span className="text-5xl font-bold">
+                  {currentPackage.price}
+                </span>
                 <span className="text-2xl">TL</span>
               </div>
               <p className="text-blue-100 mt-2">
@@ -206,7 +211,8 @@ export default function PricingPage() {
                 <div>
                   <p className="font-semibold text-white">Sınırsız Erişim</p>
                   <p className="text-sm text-gray-400">
-                    {currentPackage.months * 30} gün boyunca tüm analizlere erişim
+                    {currentPackage.months * 30} gün boyunca tüm analizlere
+                    erişim
                   </p>
                 </div>
               </div>

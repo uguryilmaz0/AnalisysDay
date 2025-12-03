@@ -20,12 +20,12 @@ interface MatchTableProps {
 
 // Helper function to get color class based on odds value
 function getOddsColor(odds: number | null | undefined): string {
-  if (!odds) return "bg-gray-700/80 text-white";
-  if (odds <= 1.5) return "bg-green-900/90 text-white";
-  if (odds <= 2.0) return "bg-emerald-800/90 text-white";
-  if (odds <= 3.0) return "bg-blue-800/90 text-white";
-  if (odds <= 5.0) return "bg-yellow-800/90 text-white";
-  return "bg-red-800/90 text-white";
+  if (!odds) return "bg-gray-700 text-white";
+  if (odds <= 1.5) return "bg-green-900 text-white";
+  if (odds <= 2.0) return "bg-emerald-800 text-white";
+  if (odds <= 3.0) return "bg-blue-800 text-white";
+  if (odds <= 5.0) return "bg-yellow-800 text-white";
+  return "bg-red-800 text-white";
 }
 
 // Filter helper function
@@ -154,19 +154,19 @@ export default function MatchTableNew({ matches, isLoading }: MatchTableProps) {
             <TableHeader className="sticky top-0 z-20 bg-gray-900">
               <TableRow className="hover:bg-gray-900 border-gray-700">
                 {/* Sticky Left Columns */}
-                <TableHead className="sticky left-0 z-30 bg-gray-900 text-white border-r-2 border-gray-700 min-w-[100px]">
+                <TableHead className="sticky left-0 z-30 bg-gray-900 text-white border-r-2 border-gray-700 p-2 w-[100px] min-w-[100px] max-w-[100px]">
                   Tarih
                 </TableHead>
-                <TableHead className="sticky left-[100px] z-30 bg-gray-900 text-white border-r border-gray-700 min-w-[150px]">
+                <TableHead className="sticky left-[100px] z-30 bg-gray-900 text-white border-r border-gray-700 p-2 w-[150px] min-w-[150px] max-w-[150px]">
                   Lig
                 </TableHead>
-                <TableHead className="sticky left-[250px] z-30 bg-gray-900 text-white border-r border-gray-700 min-w-[150px]">
+                <TableHead className="sticky left-[250px] z-30 bg-gray-900 text-white border-r border-gray-700 p-2 w-[150px] min-w-[150px] max-w-[150px]">
                   Ev Sahibi
                 </TableHead>
-                <TableHead className="sticky left-[400px] z-30 bg-gray-900 text-white text-center border-r border-gray-700 min-w-20">
-                  Skor
+                <TableHead className="sticky left-[400px] z-30 bg-gray-900 text-white text-center border-r border-gray-700 p-1 w-32 min-w-32 max-w-32">
+                  <div className="text-xs">İY / MS</div>
                 </TableHead>
-                <TableHead className="sticky left-[480px] z-30 bg-gray-900 text-white border-r-2 border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.5)] min-w-[150px]">
+                <TableHead className="sticky left-[532px] z-30 bg-gray-900 text-white border-r-2 border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.5)] p-2 w-[150px] min-w-[150px] max-w-[150px]">
                   Deplasman
                 </TableHead>
 
@@ -536,19 +536,26 @@ export default function MatchTableNew({ matches, isLoading }: MatchTableProps) {
                   className="hover:bg-gray-800/50 border-gray-700"
                 >
                   {/* Sticky Left Columns */}
-                  <TableCell className="sticky left-0 z-10 bg-gray-900 text-white border-r-2 border-gray-700 text-xs">
+                  <TableCell className="sticky left-0 z-10 bg-gray-900 text-white border-r-2 border-gray-700 text-xs p-2 w-[100px] min-w-[100px] max-w-[100px]">
                     {new Date(match.match_date).toLocaleDateString("tr-TR")}
                   </TableCell>
-                  <TableCell className="sticky left-[100px] z-10 bg-gray-900 text-white border-r border-gray-700 text-xs">
+                  <TableCell className="sticky left-[100px] z-10 bg-gray-900 text-white border-r border-gray-700 text-xs p-2 w-[150px] min-w-[150px] max-w-[150px]">
                     {match.league}
                   </TableCell>
-                  <TableCell className="sticky left-[250px] z-10 bg-gray-900 text-white border-r border-gray-700 text-xs">
+                  <TableCell className="sticky left-[250px] z-10 bg-gray-900 text-white border-r border-gray-700 text-xs p-2 w-[150px] min-w-[150px] max-w-[150px]">
                     {match.home_team}
                   </TableCell>
-                  <TableCell className="sticky left-[400px] z-10 bg-gray-900 text-white text-center border-r border-gray-700 text-xs">
-                    {match.ft_score || "-"}
+                  <TableCell className="sticky left-[400px] z-10 bg-gray-900 text-white text-center border-r border-gray-700 text-xs p-1 w-32 min-w-32 max-w-32">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="text-gray-400 text-[10px]">
+                        {match.ht_score || "-"}
+                      </div>
+                      <div className="font-semibold">
+                        {match.ft_score || "-"}
+                      </div>
+                    </div>
                   </TableCell>
-                  <TableCell className="sticky left-[480px] z-10 bg-gray-900 text-white border-r-2 border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.5)] text-xs">
+                  <TableCell className="sticky left-[532px] z-10 bg-gray-900 text-white border-r-2 border-gray-700 shadow-[2px_0_5px_rgba(0,0,0,0.5)] text-xs p-2 w-[150px] min-w-[150px] max-w-[150px]">
                     {match.away_team}
                   </TableCell>
 

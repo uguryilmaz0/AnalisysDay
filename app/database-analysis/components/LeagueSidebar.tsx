@@ -17,13 +17,13 @@ export default function LeagueSidebar({
   leagues,
   selectedLeagues,
   onLeagueToggle,
-  onSelectAll,
+  // onSelectAll, // Currently unused
   onClearAll,
   onApplySelection,
   matchCounts = {},
 }: LeagueSidebarProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAllLeagues, setShowAllLeagues] = useState(false);
+  const [showAllLeagues, setShowAllLeagues] = useState(false); // En popüler 10 lig göster (default)
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // En popüler ligleri bul (maç sayısına göre)

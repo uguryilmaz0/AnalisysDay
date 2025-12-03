@@ -239,6 +239,7 @@ export interface MatchesResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  hasMore?: boolean;
 }
 
 export interface LeaguesResponse {

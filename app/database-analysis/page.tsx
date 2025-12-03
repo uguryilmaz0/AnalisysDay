@@ -20,6 +20,9 @@ export default function DatabaseAnalysisPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
+  // Not: LocalStorage boyut limiti nedeniyle kaldırıldı (239 kolon * 1000 maç = ~5MB)
+  // Her maç ortalama 5KB yer kaplıyor, 1000 maç = 5MB (browser limit aşıyor)
+
   // State - Hook'lar her zaman aynı sırada olmalı (conditional return'den önce)
   const [leagues, setLeagues] = useState<string[]>([]);
   const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
@@ -31,9 +34,10 @@ export default function DatabaseAnalysisPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<string>("");
+  const pageSize = 1000; // Supabase max limit 1000 kayıt
   const [allTeams, setAllTeams] = useState<string[]>([]);
   const [leagueMatchCounts, setLeagueMatchCounts] = useState<
     Record<string, number>
@@ -44,6 +48,7 @@ export default function DatabaseAnalysisPage() {
     try {
       // Cache'den gelecek - çok hızlı
       const { leagues: leagueData } = await getLeagues();
+      console.log(`📋 Sidebar'a ${leagueData.length} lig yüklendi`);
       setLeagues(leagueData);
     } catch (error) {
       console.error("Ligler yüklenirken hata:", error);
@@ -146,20 +151,21 @@ export default function DatabaseAnalysisPage() {
     setAppliedFilters(finalFilters);
 
     try {
-      console.log("🔍 Seçili Ligler:", selectedLeagues);
-
       const [matchesData, stats] = await Promise.all([
-        getMatches(finalFilters, 1, 100),
+        getMatches(finalFilters, 1, pageSize),
         getMatchStatistics(finalFilters),
       ]);
 
-      console.log("✅ Maçlar yüklendi:", matchesData.count);
-
       setMatches(matchesData.data);
       setTotalPages(matchesData.totalPages);
-      setTotalMatches(matchesData.count);
-      setHasMore(matchesData.page < matchesData.totalPages);
+      setTotalMatches(stats?.totalMatches || matchesData.data.length);
+      setHasMore(matchesData.hasMore || false);
       setStatistics(stats);
+      console.log("✅ İlk yükleme:", {
+        dataLength: matchesData.data.length,
+        totalMatches: stats?.totalMatches,
+        hasMore: matchesData.hasMore,
+      });
     } catch (error) {
       console.error("❌ Veriler yüklenirken hata:", error);
       alert(
@@ -189,15 +195,20 @@ export default function DatabaseAnalysisPage() {
 
     try {
       const [matchesData, stats] = await Promise.all([
-        getMatches(finalFilters, 1, 100),
+        getMatches(finalFilters, 1, pageSize),
         getMatchStatistics(finalFilters),
       ]);
 
       setMatches(matchesData.data);
       setTotalPages(matchesData.totalPages);
-      setTotalMatches(matchesData.count);
-      setHasMore(matchesData.page < matchesData.totalPages);
+      setTotalMatches(stats?.totalMatches || matchesData.data.length);
+      setHasMore(matchesData.hasMore || false);
       setStatistics(stats);
+      console.log("✅ Filtre uygulandı:", {
+        dataLength: matchesData.data.length,
+        totalMatches: stats?.totalMatches,
+        hasMore: matchesData.hasMore,
+      });
     } catch (error) {
       console.error("Veriler yüklenirken hata:", error);
     } finally {
@@ -243,12 +254,20 @@ export default function DatabaseAnalysisPage() {
     const nextPage = page + 1;
 
     try {
-      const matchesData = await getMatches(appliedFilters, nextPage, 100);
-      setMatches((prev) => [...prev, ...matchesData.data]); // Mevcut veriye ekle
+      const matchesData = await getMatches(appliedFilters, nextPage, pageSize);
+      const newTotalDisplayed = matches.length + matchesData.data.length;
+      setMatches((prev) => [...prev, ...matchesData.data]);
+      // totalMatches filtre sonucu toplam maç sayısı - değişmemeli
       setPage(nextPage);
-      setHasMore(matchesData.page < matchesData.totalPages);
+      setHasMore(matchesData.hasMore || false);
+      console.log("✅ Daha fazla yüklendi:", {
+        newDataLength: matchesData.data.length,
+        totalDisplayed: newTotalDisplayed,
+        totalMatches: totalMatches,
+        hasMore: matchesData.hasMore,
+      });
     } catch (error) {
-      console.error("Daha fazla veri yüklenirken hata:", error);
+      console.error("❌ Daha fazla maç yüklenirken hata:", error);
     } finally {
       setIsLoadingMore(false);
     }
@@ -343,6 +362,7 @@ export default function DatabaseAnalysisPage() {
               <p className="text-gray-300 mb-6">
                 730,000+ maç verisi üzerinden detaylı analiz yapın
               </p>
+
               <div className="bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto border border-blue-500/30">
                 <h4 className="text-lg font-semibold text-blue-400 mb-4">
                   🚀 Hızlı Başlangıç
@@ -406,14 +426,14 @@ export default function DatabaseAnalysisPage() {
                 </div>
 
                 {/* Load More Butonu */}
-                {hasMore && matches.length > 0 && (
+                {hasMore && (
                   <button
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                   >
                     {isLoadingMore ? (
-                      <>
+                      <span className="flex items-center justify-center gap-2">
                         <svg
                           className="animate-spin h-5 w-5"
                           viewBox="0 0 24 24"
@@ -434,31 +454,15 @@ export default function DatabaseAnalysisPage() {
                           />
                         </svg>
                         Yükleniyor...
-                      </>
+                      </span>
                     ) : (
-                      <>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                        Daha Fazla Yükle ({totalMatches - matches.length} maç
-                        kaldı)
-                      </>
+                      "Daha Fazla Yükle"
                     )}
                   </button>
                 )}
 
-                {/* Klasik Sayfalama (Opsiyonel) */}
-                {totalPages > 1 && (
+                {/* Klasik Sayfalama - Kaldırıldı */}
+                {false && totalPages > 1 && (
                   <div className="flex gap-2 mt-4 justify-center">
                     <button
                       onClick={() => handlePageChange(page - 1)}

@@ -54,19 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Dynamic import to avoid SSR issues
           import("@/lib/matchService").then(
             ({ getLeagues, getAllTeams, getLeagueMatchCounts }) => {
-              const startTime = Date.now();
-              console.log("🚀 Analiz verileri yükleniyor... (2x hızlı batch)");
-
-              Promise.all([getLeagues(), getAllTeams(), getLeagueMatchCounts()])
-                .then(() => {
-                  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-                  console.log(
-                    `✅ Analiz verileri ${duration}s'de yüklendi (localStorage cache)`
-                  );
-                })
-                .catch((error) => {
-                  console.error("❌ Analiz verileri yükleme hatası:", error);
-                });
+              // Analiz verilerini arka planda yükle
+              Promise.all([
+                getLeagues(),
+                getAllTeams(),
+                getLeagueMatchCounts(),
+              ]).catch((error) => {
+                console.error("❌ Analiz verileri yüklenemedi:", error);
+              });
             }
           );
         }
@@ -167,6 +162,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         loginSuccess = true;
+
+        // 🔇 Silent cache preload (arka planda, blocking değil)
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            import("@/lib/matchService").then(({ preloadAnalysisCache }) => {
+              preloadAnalysisCache().catch(() => {
+                // Silent fail
+              });
+            });
+          }, 2000); // 2 saniye sonra başlat (kullanıcı zaten giriş yapmış)
+        }
       }
 
       // Login activity'yi IP bilgisiyle kaydet

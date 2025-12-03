@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Bell,
   BellOff,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -43,6 +44,7 @@ export default function ProfilePage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [updatingNotifications, setUpdatingNotifications] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
   const { getDaysRemaining } = useSubscriptionStatus();
 
   // Show loading spinner while auth is being checked
@@ -111,6 +113,44 @@ export default function ProfilePage() {
     }
   };
 
+  const handleClearCache = async () => {
+    if (
+      !confirm(
+        "⚠️ Analiz cache'i temizlenecek ve tüm veriler yeniden yüklenecek (3-5 dakika sürebilir).\n\n✅ Bu işlem şu durumlarda gereklidir:\n• Veritabanında güncelleme yapıldıysa\n• Lig/takım verileri eksikse\n• Hatalı veri görünüyorsa\n\nDevam edilsin mi?"
+      )
+    ) {
+      return;
+    }
+
+    setClearingCache(true);
+    try {
+      // 1. matchService cache'ini temizle
+      const { clearCache, preloadAnalysisCache } = await import(
+        "@/lib/matchService"
+      );
+      clearCache();
+      console.log("🗑️ matchService cache temizlendi");
+
+      // 3. Verileri yeniden yükle
+      console.log("🚀 Veriler yeniden yükleniyor...");
+      await preloadAnalysisCache();
+
+      showToast(
+        "✅ Cache yenilendi! Veriler yeniden yüklendi.",
+        "success",
+        5000
+      );
+    } catch (error) {
+      console.error("Cache temizleme hatası:", error);
+      showToast(
+        "❌ Cache temizlenirken hata oluştu. Console'u kontrol edin.",
+        "error"
+      );
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -174,6 +214,45 @@ export default function ProfilePage() {
                   }
                 />
               )}
+            </div>
+
+            {/* Cache Temizleme */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-blue-400" />
+                Veri Yönetimi
+              </h2>
+
+              <div className="space-y-4">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-300 mb-2">
+                    📦 <strong>Analiz Cache</strong>
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Lig ve takım verileri hızlı erişim için cache'lenir. Veri
+                    güncellemeleri veya hata durumlarında cache'i
+                    temizleyebilirsiniz.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleClearCache}
+                  disabled={clearingCache}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                >
+                  {clearingCache ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Temizleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-5 w-5" />
+                      Cache'i Temizle ve Yenile
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
