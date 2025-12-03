@@ -50,37 +50,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = userDoc.data() as User;
         setUserData(data);
 
-        // ✅ SADECE PREMIUM veya ADMIN kullanıcılar için maç verilerini yükle
+        // ✅ TÜM KULLANICILAR için lig listesini yükle (hafif veri)
+        // Admin veya Premium kullanıcılar maç verilerine erişebilir
         const isPremium = data.isPaid || data.role === "admin";
         const hasActiveSubscription = data.subscriptionEndDate
           ? data.subscriptionEndDate.toDate() > new Date()
           : false;
 
-        if (
-          isPremium &&
-          hasActiveSubscription &&
-          typeof window !== "undefined"
-        ) {
+        // Lig listesi herkes için yüklenir (sadece isim listesi - hafif)
+        if (typeof window !== "undefined") {
           // Dynamic import to avoid SSR issues
-          import("@/lib/matchService").then(
-            ({ getLeagues, getAllTeams, getLeagueMatchCounts }) => {
-              console.log(
-                "🔓 Premium kullanıcı - analiz verileri yükleniyor..."
-              );
-              // Analiz verilerini arka planda yükle
-              Promise.all([
-                getLeagues(),
-                getAllTeams(),
-                getLeagueMatchCounts(),
-              ]).catch((error) => {
-                console.error("❌ Analiz verileri yüklenemedi:", error);
-              });
-            }
-          );
-        } else if (typeof window !== "undefined") {
-          console.log(
-            "🔒 Premium olmayan kullanıcı - maç verileri yüklenmiyor"
-          );
+          import("@/lib/matchService").then(({ getLeagues }) => {
+            const userType =
+              data.role === "admin"
+                ? "Admin"
+                : isPremium && hasActiveSubscription
+                ? "Premium"
+                : "Free";
+            console.log(
+              `🚀 ${userType} kullanıcı - favori ligler yükleniyor...`
+            );
+            // Sadece favori ligleri yükle (çok hızlı - DB sorgusu yok)
+            getLeagues({ favoritesOnly: true }).catch((error) => {
+              console.error("❌ Favori ligler yüklenemedi:", error);
+            });
+          });
         }
       }
     } catch {
@@ -186,24 +180,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? userData.subscriptionEndDate.toDate() > new Date()
           : false;
 
-        if (
-          isPremium &&
-          hasActiveSubscription &&
-          typeof window !== "undefined"
-        ) {
-          setTimeout(() => {
-            import("@/lib/matchService").then(({ preloadAnalysisCache }) => {
-              console.log(
-                "🔓 Premium kullanıcı - cache preload başlatılıyor..."
-              );
-              preloadAnalysisCache().catch(() => {
-                // Silent fail
-              });
-            });
-          }, 2000); // 2 saniye sonra başlat (kullanıcı zaten giriş yapmış)
-        } else if (typeof window !== "undefined") {
-          console.log("🔒 Premium olmayan kullanıcı - cache preload atlanıyor");
-        }
+        // Not: Cache kaldırıldı - direkt API çağrıları kullanılıyor
+        // Lig listesi ilk çağrıda yüklenir
       }
 
       // Login activity'yi IP bilgisiyle kaydet

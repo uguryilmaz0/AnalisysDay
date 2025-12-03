@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getLeagues, getAllTeams, getLeagueMatchCounts } from "@/lib/matchService";
+import { getLeagues } from "@/lib/matchService";
 
 /**
- * Global veri yükleme hook'u
- * Kullanıcı giriş yaptığında otomatik olarak analiz verilerini cache'e yükler
+ * @deprecated Cache kullanımı kaldırıldı - direkt API çağrıları kullanılıyor
+ * Geriye uyumluluk için bırakıldı
  */
 export function usePreloadAnalysisData(shouldLoad: boolean = false) {
   const [isPreloading, setIsPreloading] = useState(false);
@@ -18,20 +18,16 @@ export function usePreloadAnalysisData(shouldLoad: boolean = false) {
     const preloadData = async () => {
       setIsPreloading(true);
       setPreloadError(null);
-      console.log("🚀 Analiz verileri arka planda yükleniyor...");
+      console.log("🚀 Lig listesi yükleniyor (API - cache yok)...");
 
       try {
-        // Paralel olarak tüm verileri yükle ve localStorage'a cache'le
-        await Promise.all([
-          getLeagues(),
-          getAllTeams(),
-          getLeagueMatchCounts(),
-        ]);
+        // Lig listesini yükle (direkt API)
+        await getLeagues();
 
         setPreloadComplete(true);
-        console.log("✅ Analiz verileri başarıyla cache'lendi (localStorage)");
+        console.log("✅ Lig listesi yüklendi");
       } catch (error) {
-        console.error("❌ Analiz verileri yükleme hatası:", error);
+        console.error("❌ Lig listesi yükleme hatası:", error);
         setPreloadError(error instanceof Error ? error.message : "Unknown error");
       } finally {
         setIsPreloading(false);

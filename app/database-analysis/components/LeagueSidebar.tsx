@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, Search, AlertCircle } from "lucide-react";
+import { getLeagues } from "@/lib/matchService";
 
 interface LeagueSidebarProps {
   leagues: string[];
@@ -13,6 +14,8 @@ interface LeagueSidebarProps {
   matchCounts?: Record<string, number>;
 }
 
+const MAX_LEAGUE_SELECTION = 3;
+
 export default function LeagueSidebar({
   leagues,
   selectedLeagues,
@@ -23,32 +26,71 @@ export default function LeagueSidebar({
   matchCounts = {},
 }: LeagueSidebarProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAllLeagues, setShowAllLeagues] = useState(false); // En popüler 10 lig göster (default)
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // En popüler ligleri bul (maç sayısına göre)
-  const topLeagues = useMemo(() => {
-    const sorted = [...leagues].sort((a, b) => {
-      const countA = matchCounts[a] || 0;
-      const countB = matchCounts[b] || 0;
-      return countB - countA;
-    });
-    return sorted.slice(0, 10);
-  }, [leagues, matchCounts]);
+  // Maksimum seçim kontrolü
+  const canSelectMore = selectedLeagues.length < MAX_LEAGUE_SELECTION;
 
-  // Arama sonuçları
-  const filteredLeagues = useMemo(() => {
-    if (!searchTerm) return showAllLeagues ? leagues : topLeagues;
-    return leagues.filter((league) =>
-      league.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [leagues, topLeagues, searchTerm, showAllLeagues]);
+  // Debounced search - API'den tüm liglerden ara (yeni RPC ile hızlı)
+  useEffect(() => {
+    const abortController = new AbortController();
 
-  const displayLeagues = searchTerm
-    ? filteredLeagues
-    : showAllLeagues
-    ? leagues
-    : topLeagues;
+    // Boş arama - favorileri göster
+    if (!searchTerm.trim()) {
+      Promise.resolve().then(() => {
+        setSearchResults([]);
+        setIsSearching(false);
+      });
+      return () => abortController.abort();
+    }
+
+    // Arama başladı
+    Promise.resolve().then(() => setIsSearching(true));
+
+    const timer = setTimeout(async () => {
+      try {
+        // Tüm liglerden ara (search_leagues RPC ile hızlı)
+        const { leagues: results } = await getLeagues({
+          search: searchTerm,
+          favoritesOnly: false,
+        });
+
+        if (!abortController.signal.aborted) {
+          setSearchResults(results);
+          setIsSearching(false);
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.error("Lig arama hatası:", error);
+          setSearchResults([]);
+          setIsSearching(false);
+        }
+      }
+    }, 400); // 400ms debounce
+
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [searchTerm]);
+
+  // Görüntülenecek ligler: Arama varsa arama sonuçları, yoksa favoriler
+  const displayLeagues = searchTerm.trim() ? searchResults : leagues;
+
+  // Lig seçimi handler - maksimum kontrolü ile
+  const handleLeagueToggle = (league: string) => {
+    const isSelected = selectedLeagues.includes(league);
+
+    // Eğer seçili değilse ve maksimum sınıra ulaşıldıysa
+    if (!isSelected && !canSelectMore) {
+      alert(`En fazla ${MAX_LEAGUE_SELECTION} lig seçebilirsiniz!`);
+      return;
+    }
+
+    onLeagueToggle(league);
+  };
 
   return (
     <>
@@ -62,7 +104,7 @@ export default function LeagueSidebar({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
             <input
               type="text"
-              placeholder="Lig ara..."
+              placeholder="Tüm liglerden ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -73,18 +115,37 @@ export default function LeagueSidebar({
           <div className="flex gap-2">
             <button
               onClick={onClearAll}
-              className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+              disabled={selectedLeagues.length === 0}
+              className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Seçimi Temizle
             </button>
           </div>
+
+          {/* Limit Uyarısı */}
+          {!canSelectMore && (
+            <div className="mt-3 p-2 bg-amber-900/30 border border-amber-600/50 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-300">
+                Maksimum {MAX_LEAGUE_SELECTION} lig seçebilirsiniz
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Lig Listesi - Scrollable */}
         <div className="flex-1 overflow-y-auto p-3 bg-gray-800">
           {!searchTerm && (
             <p className="text-xs text-gray-400 mb-2 px-2">
-              {showAllLeagues ? "Tüm Ligler" : "⭐ En Popüler Ligler"}
+              ⭐ Favori Ligler (En Popüler 20)
+            </p>
+          )}
+
+          {searchTerm && (
+            <p className="text-xs text-gray-400 mb-2 px-2">
+              {isSearching
+                ? "🔍 Tüm liglerden aranıyor..."
+                : `📋 ${displayLeagues.length} lig bulundu`}
             </p>
           )}
 
@@ -97,10 +158,16 @@ export default function LeagueSidebar({
               {displayLeagues.map((league) => {
                 const isSelected = selectedLeagues.includes(league);
                 const count = matchCounts[league] || 0;
+                const isDisabled = !isSelected && !canSelectMore;
+
                 return (
                   <label
                     key={league}
-                    className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors ${
+                    className={`flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                      isDisabled
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer hover:bg-gray-700"
+                    } ${
                       isSelected
                         ? "bg-blue-900/30 border border-blue-500"
                         : "border border-transparent"
@@ -110,8 +177,9 @@ export default function LeagueSidebar({
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => onLeagueToggle(league)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 shrink-0 bg-gray-700 border-gray-600"
+                        disabled={isDisabled}
+                        onChange={() => handleLeagueToggle(league)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 shrink-0 bg-gray-700 border-gray-600 disabled:cursor-not-allowed"
                       />
                       <span
                         className={`ml-2 text-sm truncate ${
@@ -135,37 +203,31 @@ export default function LeagueSidebar({
             </div>
           )}
 
-          {/* Daha Fazla Göster */}
-          {!searchTerm && leagues.length > 10 && (
-            <button
-              onClick={() => setShowAllLeagues(!showAllLeagues)}
-              className="w-full mt-3 px-4 py-2 text-sm text-blue-400 hover:bg-gray-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-            >
-              {showAllLeagues
-                ? "Daha Az Göster"
-                : `Tüm Ligleri Göster (+${leagues.length - 10})`}
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${
-                  showAllLeagues ? "rotate-180" : ""
-                }`}
-              />
-            </button>
+          {/* Arama Yardımı */}
+          {!searchTerm && leagues.length === 20 && (
+            <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <p className="text-xs text-blue-300 mb-1">💡 İpucu:</p>
+              <p className="text-xs text-gray-300">
+                Bu liste en popüler 20 ligi gösteriyor. Arama yaparak diğer
+                ligleri bulabilirsiniz.
+              </p>
+            </div>
           )}
         </div>
 
         {/* Alt Kısım - Footer (Sticky) */}
         <div className="border-t border-gray-700 bg-gray-900">
           {/* Seçim Sayısı */}
-          {selectedLeagues.length > 0 && (
-            <div className="px-4 py-2 border-b border-gray-700">
-              <p className="text-sm text-gray-300">
-                <span className="font-bold text-blue-400">
-                  {selectedLeagues.length}
-                </span>{" "}
-                lig seçildi
-              </p>
-            </div>
-          )}
+          <div className="px-4 py-2 border-b border-gray-700">
+            <p className="text-sm text-gray-300">
+              <span className="font-bold text-blue-400">
+                {selectedLeagues.length}
+              </span>
+              {" / "}
+              <span className="text-gray-400">{MAX_LEAGUE_SELECTION}</span>
+              {" lig seçildi"}
+            </p>
+          </div>
 
           {/* Uygula Butonu */}
           {selectedLeagues.length > 0 && (
@@ -207,7 +269,7 @@ export default function LeagueSidebar({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Lig ara..."
+                  placeholder="Tüm liglerden ara..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-400"
@@ -218,11 +280,22 @@ export default function LeagueSidebar({
               <div className="flex gap-2 px-4 py-3">
                 <button
                   onClick={onClearAll}
-                  className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  disabled={selectedLeagues.length === 0}
+                  className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                   Seçimi Temizle
                 </button>
               </div>
+
+              {/* Limit Uyarısı (Mobile) */}
+              {!canSelectMore && (
+                <div className="mx-4 mb-3 p-2 bg-amber-900/30 border border-amber-600/50 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-300">
+                    Maksimum {MAX_LEAGUE_SELECTION} lig seçebilirsiniz
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Lig Listesi - Scrollable */}
@@ -230,10 +303,16 @@ export default function LeagueSidebar({
               {displayLeagues.map((league) => {
                 const isSelected = selectedLeagues.includes(league);
                 const matchCount = matchCounts[league] || 0;
+                const isDisabled = !isSelected && !canSelectMore;
+
                 return (
                   <label
                     key={league}
-                    className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer hover:bg-gray-700/50 transition-colors ${
+                    className={`flex items-center justify-between p-2.5 rounded-lg transition-colors ${
+                      isDisabled
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer hover:bg-gray-700/50"
+                    } ${
                       isSelected ? "bg-blue-900/30 border border-blue-500" : ""
                     }`}
                   >
@@ -241,8 +320,9 @@ export default function LeagueSidebar({
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => onLeagueToggle(league)}
-                        className="w-4 h-4 text-blue-600 rounded bg-gray-700 border-gray-600"
+                        disabled={isDisabled}
+                        onChange={() => handleLeagueToggle(league)}
+                        className="w-4 h-4 text-blue-600 rounded bg-gray-700 border-gray-600 disabled:cursor-not-allowed"
                       />
                       <span
                         className={`ml-2 text-sm ${

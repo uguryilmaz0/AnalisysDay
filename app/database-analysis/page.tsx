@@ -43,32 +43,24 @@ export default function DatabaseAnalysisPage() {
     Record<string, number>
   >({});
 
-  // loadLeagues ve loadTeams fonksiyonları
+  // Sadece ligleri yükle - takımlar artık gerekli değil
   const loadLeagues = async () => {
     try {
-      // Cache'den gelecek - çok hızlı
-      const { leagues: leagueData } = await getLeagues();
-      console.log(`📋 Sidebar'a ${leagueData.length} lig yüklendi`);
+      // Sadece favori 20 ligi yükle (anında - DB sorgusu yok)
+      const { leagues: leagueData } = await getLeagues({ favoritesOnly: true });
+      console.log(`✅ ${leagueData.length} favori lig yüklendi`);
       setLeagues(leagueData);
+      // Loading mesajını temizle
+      setLoadingProgress("");
     } catch (error) {
-      console.error("Ligler yüklenirken hata:", error);
+      console.error("❌ Favori ligler yüklenirken hata:", error);
+      setLoadingProgress("❌ Lig listesi yüklenemedi");
+      setTimeout(() => setLoadingProgress(""), 3000);
     }
   };
 
-  const loadTeams = async () => {
-    try {
-      // Cache'den gelecek - çok hızlı
-      const [teams, leagueCounts] = await Promise.all([
-        getAllTeams(),
-        getLeagueMatchCounts(),
-      ]);
-
-      setAllTeams(teams);
-      setLeagueMatchCounts(leagueCounts);
-    } catch (error) {
-      console.error("Takımlar yüklenirken hata:", error);
-    }
-  };
+  // loadTeams() KALDIRILDI - artık gerekli değil
+  // Takımlar ve lig sayıları lazy loading ile gelecek
 
   // Auth kontrolü - giriş yapmamışsa login'e yönlendir
   useEffect(() => {
@@ -77,19 +69,20 @@ export default function DatabaseAnalysisPage() {
     }
   }, [user, authLoading, router]);
 
-  // Sayfa yüklendiğinde ligleri ve takımları yükle (cache'den gelecek - hızlı)
+  // Sayfa yüklendiğinde sadece ligleri yükle (çok hızlı - API'den)
   useEffect(() => {
     if (authLoading || !user) return;
 
     const initializeData = async () => {
-      setLoadingProgress("🚀 Veriler hazırlanıyor... (2x hızlı yükleme)");
+      setLoadingProgress("🚀 Lig listesi yükleniyor...");
       try {
-        // Paralel yükleme - ligler ve takımlar aynı anda
-        await Promise.all([loadLeagues(), loadTeams()]);
+        // API'den ligleri çek (loadLeagues içinde loading temizlenecek)
+        await loadLeagues();
+        console.log("✅ Sayfa hazır - lig seçimi yapılabilir");
       } catch (error) {
-        console.error("Sayfa yükleme hatası:", error);
-      } finally {
-        setLoadingProgress("");
+        console.error("❌ Sayfa yükleme hatası:", error);
+        setLoadingProgress("❌ Lig listesi yüklenemedi");
+        setTimeout(() => setLoadingProgress(""), 3000);
       }
     };
 

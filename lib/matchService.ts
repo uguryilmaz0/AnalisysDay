@@ -5,313 +5,112 @@ import { MatchData, MatchFilters, MatchesResponse, LeaguesResponse } from '@/typ
 const TABLE_NAME = 'matches'; // ⚠️ Kendi tablo adınızı buraya yazın
 
 // =============================================
-// LocalStorage Cache (Browser-side - Persistent)
+// CACHE KALDIRILDI - Direkt API Çağrıları
+// =============================================
+// Artık localStorage/sessionStorage kullanılmıyor
+// HTTP cache headers (API level) ile caching yapılıyor
 // =============================================
 
-// 🔄 CACHE VERSION: Tablo yapısı değişince bu sayıyı artırın!
-// Değiştiğinde eski cache otomatik temizlenir
-const CACHE_VERSION = 4; // Production ready - 727K kayıt optimizasyonu (03.12.2025)
-const CACHE_VERSION_KEY = 'analysis_cache_version';
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  version: number;
-}
-
-const CACHE_DURATION = 60 * 60 * 1000; // 60 dakika (1 saat) - uzun süreli cache
-const CACHE_PREFIX = 'analysis_cache_';
-
-// SessionStorage for matches (tab kapanana kadar kalacak, sayfa yenilenince kalmaya devam edecek)
-const SESSION_CACHE_PREFIX = 'session_match_';
-const SESSION_CACHE_DURATION = 30 * 60 * 1000; // 30 dakika
-
-function getSessionCached<T>(key: string): T | null {
-  if (typeof window === 'undefined' || !window.sessionStorage) return null;
-  
-  try {
-    const cacheKey = SESSION_CACHE_PREFIX + key;
-    const item = sessionStorage.getItem(cacheKey);
-    if (!item) return null;
-    
-    const entry: CacheEntry<T> = JSON.parse(item);
-    
-    // Version kontrolü
-    if (entry.version !== CACHE_VERSION) {
-      sessionStorage.removeItem(cacheKey);
-      return null;
-    }
-    
-    // Expire kontrolü
-    if (Date.now() - entry.timestamp > SESSION_CACHE_DURATION) {
-      sessionStorage.removeItem(cacheKey);
-      return null;
-    }
-    
-    return entry.data;
-  } catch {
-    return null;
-  }
-}
-
-function setSessionCache<T>(key: string, data: T): void {
-  if (typeof window === 'undefined' || !window.sessionStorage) return;
-  
-  try {
-    const cacheKey = SESSION_CACHE_PREFIX + key;
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-    };
-    sessionStorage.setItem(cacheKey, JSON.stringify(entry));
-  } catch (error) {
-    // SessionStorage dolu olabilir, eski cache'leri temizle
-    if (error instanceof Error && error.name === 'QuotaExceededError') {
-      const keys = Object.keys(sessionStorage);
-      keys.forEach(key => {
-        if (key.startsWith(SESSION_CACHE_PREFIX)) {
-          sessionStorage.removeItem(key);
-        }
-      });
-    }
-  }
-}
-
-// Cache version kontrolü - sayfa yüklendiğinde
-function checkCacheVersion(): void {
-  if (!isLocalStorageAvailable()) return;
-  
-  try {
-    const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
-    const currentVersion = CACHE_VERSION.toString();
-    
-    console.log(`🔍 Cache Version Check: stored=${storedVersion}, current=${currentVersion}`);
-    
-    if (storedVersion !== currentVersion) {
-      console.warn(`⚠️ Cache version mismatch! Clearing all cache...`);
-      clearCache();
-      localStorage.setItem(CACHE_VERSION_KEY, currentVersion);
-      console.log(`✅ Cache cleared, new version set: ${currentVersion}`);
-    } else {
-      console.log(`✅ Cache version OK: ${currentVersion}`);
-    }
-  } catch (error: unknown) {
-    console.error('❌ Cache version check failed:', error);
-  }
-}
-
-// Sayfa yüklendiğinde cache version kontrolü
-if (typeof window !== 'undefined') {
-  checkCacheVersion();
-}
-
-// localStorage kullanılabilir mi kontrol et
-function isLocalStorageAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const test = '__test__';
-    localStorage.setItem(test, test);
-    localStorage.removeItem(test);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getCached<T>(key: string): T | null {
-  if (!isLocalStorageAvailable()) return null;
-  
-  try {
-    const cacheKey = CACHE_PREFIX + key;
-    const item = localStorage.getItem(cacheKey);
-    if (!item) return null;
-    
-    const entry: CacheEntry<T> = JSON.parse(item);
-    
-    // Version kontrolü - eski cache'i otomatik sil
-    if (entry.version !== CACHE_VERSION) {
-      localStorage.removeItem(cacheKey);
-      return null;
-    }
-    
-    // Cache expire kontrolü
-    if (Date.now() - entry.timestamp > CACHE_DURATION) {
-      localStorage.removeItem(cacheKey);
-      return null;
-    }
-    
-    // Data validation - array mi ve boş değil mi?
-    if (Array.isArray(entry.data) && entry.data.length === 0) {
-      localStorage.removeItem(cacheKey);
-      return null;
-    }
-    
-    return entry.data;
-  } catch {
-    // Bozuk cache'i temizle
-    try {
-      const cacheKey = CACHE_PREFIX + key;
-      localStorage.removeItem(cacheKey);
-    } catch {}
-    return null;
-  }
-}
-
-function setCache<T>(key: string, data: T): void {
-  if (!isLocalStorageAvailable()) return;
-  
-  try {
-    // Boş data'yı cache'leme
-    if (Array.isArray(data) && data.length === 0) {
-      return;
-    }
-    
-    const cacheKey = CACHE_PREFIX + key;
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      version: CACHE_VERSION, // Version bilgisi ekle
-    };
-    localStorage.setItem(cacheKey, JSON.stringify(entry));
-  } catch (error) {
-    // localStorage dolu olabilir, eski cache'leri temizle
-    if (error instanceof Error && error.name === 'QuotaExceededError') {
-      clearCache();
-    }
-  }
-}
-
-function clearCache(): void {
-  if (!isLocalStorageAvailable()) return;
-  
-  try {
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith(CACHE_PREFIX)) {
-        localStorage.removeItem(key);
-      }
-    });
-  } catch {
-    // Silent fail
-  }
-}
-
-// Cache temizleme fonksiyonunu export et
-export { clearCache };
-
 /**
- * Tüm ligleri getir (Batch processing ile - TÜM ligleri alır)
+ * @deprecated Cache functions - artık kullanılmıyor
  */
-export async function getLeagues(): Promise<LeaguesResponse> {
-  try {
-    // Cache kontrolü
-    const cacheKey = 'all_leagues';
-    const cached = getCached<string[]>(cacheKey);
-    if (cached) {
-      console.log(`✅ Ligler cache'den geldi (${cached.length} lig)`);
-      return { leagues: cached, count: cached.length };
-    }
-
-    // Direkt batch processing kullan (RPC yerine)
-    return await getLeaguesFallback();
-  } catch (error) {
-    console.error('Ligler alınamadı:', error);
-    return { leagues: [], count: 0 };
-  }
-}
-
-// Fallback: RPC yoksa batch processing
-async function getLeaguesFallback(): Promise<LeaguesResponse> {
-  try {
-    const leagues = new Set<string>();
-    const batchSize = 1000;
-    let page = 0;
-    let hasMore = true;
-    
-    console.log('🔄 Fallback: Batch processing başlatıldı...');
-
-    while (hasMore) {
-      const from = page * batchSize;
-      const to = from + batchSize - 1;
-
-      // Retry mekanizması (3 deneme)
-      let retryCount = 0;
-      let success = false;
-      let data = null;
-
-      while (retryCount < 3 && !success) {
-        const result = await supabase
-          .from(TABLE_NAME)
-          .select('league')
-          .range(from, to);
-
-        if (result.error) {
-          retryCount++;
-          console.warn(`⚠️ Batch ${page + 1} hata aldı (deneme ${retryCount}/3):`, result.error.message);
-          if (retryCount < 3) {
-            // Kısa bekleme sonrası tekrar dene
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          } else {
-            // 3 denemede başarısız - şimdiye kadar toplananları kaydet
-            console.error(`❌ Batch ${page + 1} 3 denemede başarısız, toplanan veriler kaydediliyor...`);
-            hasMore = false;
-            break;
-          }
-        } else {
-          data = result.data;
-          success = true;
-        }
-      }
-
-      if (!success || !data || data.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      // Ligleri set'e ekle (otomatik unique)
-      data.forEach((item: { league: string }) => {
-        leagues.add(item.league);
-      });
-
-      // Progress log (her 10 batch'te bir)
-      if (page % 10 === 0) {
-        console.log(`  📦 Batch ${page + 1}: ${leagues.size} lig bulundu (${page * batchSize} kayıt işlendi)`);
-      }
-
-      if (data.length < batchSize) {
-        console.log(`✅ Son batch'e ulaşıldı: ${data.length} kayıt`);
-        hasMore = false;
-      }
-
-      page++;
-
-      // Güvenlik: Maksimum 1000 batch (1M+ veri için yeterli)
-      if (page >= 1000) {
-        console.warn('⚠️ Maksimum batch limitine ulaşıldı (1000 batch)');
-        break;
-      }
-    }
-
-    const result = Array.from(leagues).sort();
-    const totalRecords = page * batchSize;
-    console.log(`✅ Toplam ${leagues.size} lig bulundu, ${page} batch işlendi (~${totalRecords.toLocaleString()} kayıt tarandı)`);
-    
-    // Cache'e kaydet
-    setCache('all_leagues', result);
-
-    return {
-      leagues: result,
-      count: result.length,
-    };
-  } catch (error) {
-    console.error('Ligler alınamadı:', error);
-    return { leagues: [], count: 0 };
-  }
+function setCache<T>(key: string, data: T): void {
+  // Cache kullanımı kaldırıldı
 }
 
 /**
- * Filtrelenmiş maçları getir
+ * @deprecated Cache functions - artık kullanılmıyor
+ */
+function getCached<T>(key: string): T | null {
+  return null;
+}
+
+/**
+ * @deprecated Cache functions - artık kullanılmıyor
+ */
+function getSessionCached<T>(key: string): T | null {
+  return null;
+}
+
+/**
+ * @deprecated Cache functions - artık kullanılmıyor
+ */
+function setSessionCache<T>(key: string, data: T): void {
+  // Cache kullanımı kaldırıldı
+}
+
+/**
+ * @deprecated Cache kullanımı kaldırıldı - artık gerekli değil
+ * Geriye uyumluluk için bırakıldı
+ */
+export function clearCache(): void {
+  console.warn('⚠️ clearCache() deprecated - cache kullanımı kaldırıldı');
+}
+
+/**
+ * Tüm ligleri getir (API endpoint kullanarak - HIZLI)
+ * @param options.search - Lig adında arama yapar
+ * @param options.favoritesOnly - Sadece favori ligleri getirir (default: true)
+ */
+export async function getLeagues(options?: { 
+  search?: string; 
+  favoritesOnly?: boolean 
+}): Promise<LeaguesResponse> {
+  try {
+    const { search, favoritesOnly = true } = options || {};
+    
+    // Query params oluştur
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (favoritesOnly) params.append('favorites', 'true');
+    
+    // API endpoint'ten çek (RPC function kullanıyor - çok hızlı)
+    console.log(`🚀 API'den ligler çekiliyor... (favorites: ${favoritesOnly}, search: "${search || 'yok'}")`);
+    
+    // Client-side: relative URL, Server-side: absolute URL
+    const apiUrl = typeof window === 'undefined' 
+      ? `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/matches/leagues?${params}`
+      : `/api/matches/leagues?${params}`;
+    
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch leagues');
+    }
+    
+    const data = await response.json();
+    
+    console.log(`✅ ${data.count} lig API'den geldi (${data.source})`);
+    console.log(`📊 İlk 5 lig:`, data.leagues.slice(0, 5).map((l: { league: string }) => l.league));
+    console.log(`📊 Son 5 lig:`, data.leagues.slice(-5).map((l: { league: string }) => l.league));
+    
+    return { 
+      leagues: data.leagues.map((l: { league: string }) => l.league),
+      count: data.count 
+    };
+  } catch (error) {
+    console.error('❌ Ligler API\'den alınamadı, fallback\'e geçiliyor:', error);
+    
+    // Fallback: Direkt Supabase (RPC)
+    try {
+      const { data, error } = await supabase.rpc('get_unique_leagues');
+      if (error) throw error;
+      
+      const leagues = data?.map((d: { league: string }) => d.league) || [];
+      
+      return { leagues, count: leagues.length };
+    } catch (fallbackError) {
+      console.error('❌ Fallback da başarısız:', fallbackError);
+      return { leagues: [], count: 0 };
+    }
+  }
+}
+
+// Batch processing fonksiyonları kaldırıldı - artık API endpoint kullanılıyor
+// getLeaguesFallback() - REMOVED (artık gerekli değil)
+
+/**
+ * Filtrelenmiş maçları getir (API endpoint kullanarak)
  */
 export async function getMatches(
   filters: MatchFilters = {},
@@ -319,15 +118,51 @@ export async function getMatches(
   pageSize: number = 50
 ): Promise<MatchesResponse> {
   try {
-    // SessionStorage cache kontrolü (sayfa yenilenince tekrar çekmesin)
-    const cacheKey = `${JSON.stringify(filters)}_p${page}_s${pageSize}`;
-    const cached = getSessionCached<MatchesResponse>(cacheKey);
-    if (cached) {
-      console.log('✅ Maçlar sessionStorage\'dan geldi (sayfa', page, ')');
-      return cached;
+    // API endpoint kullan (optimize edilmiş)
+    console.log('🚀 API\'den maçlar çekiliyor...', { filters, page, pageSize });
+    
+    const params = new URLSearchParams();
+    if (filters.league && filters.league.length > 0) {
+      params.append('leagues', filters.league.join(','));
     }
+    if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters.homeTeam) params.append('homeTeam', filters.homeTeam);
+    if (filters.awayTeam) params.append('awayTeam', filters.awayTeam);
+    params.append('page', page.toString());
+    params.append('limit', pageSize.toString());
 
-    let query = supabase.from(TABLE_NAME).select('*', { count: 'exact' });
+    // Client-side: relative URL, Server-side: absolute URL
+    const apiUrl = typeof window === 'undefined'
+      ? `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/matches`
+      : '/api/matches';
+
+    const response = await fetch(`${apiUrl}?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch matches');
+    }
+    
+    const data = await response.json();
+    
+    const result: MatchesResponse = {
+      data: data.data || [],
+      count: data.count || 0,
+      page: data.page || page,
+      pageSize: data.limit || pageSize,
+      totalPages: data.totalPages || 1,
+      hasMore: data.hasMore || false
+    };
+    
+    console.log('✅ API\'den', result.count, 'maç geldi');
+    
+    return result;
+  } catch (error) {
+    console.error('❌ Maçlar API\'den alınamadı, fallback\'e geçiliyor:', error);
+    
+    // Fallback: Direkt Supabase sorgusu
+    try {
+      let query = supabase.from(TABLE_NAME).select('*', { count: 'exact' });
 
     // Lig filtresi - Özel karakterleri handle et
     if (filters.league && filters.league.length > 0) {
@@ -447,19 +282,14 @@ export async function getMatches(
       hasMore,
     };
 
-    // SessionStorage'a kaydet (sayfa yenilenince tekrar çekmesin)
-    setSessionCache(cacheKey, response);
+      // SessionStorage'a kaydet (sayfa yenilenince tekrar çekmesin)
+      setSessionCache(cacheKey, response);
 
-    return response;
-  } catch (error) {
-    console.error('❌ Maçlar alınamadı:', error);
-    
-    // Error'u yukarı fırlat ki kullanıcı görebilsin
-    if (error instanceof Error) {
-      throw error;
+      return response;
+    } catch (fallbackError) {
+      console.error('❌ Fallback da başarısız:', fallbackError);
+      throw new Error('Maçlar yüklenemedi');
     }
-    
-    throw new Error('Maçlar yüklenirken bilinmeyen bir hata oluştu');
   }
 }
 
@@ -484,246 +314,79 @@ export async function getMatchById(id: number): Promise<MatchData | null> {
 }
 
 /**
- * Tüm unique takımları getir (Batch processing ile)
- * 713k veriyi 1000'er parça halinde işler
+ * @deprecated ARTIK KULLANILMIYOR - Lazy loading ile değiştirildi
+ * Tüm unique takımları getir
+ * Not: Bu fonksiyon performans sorunları nedeniyle kaldırılmıştır.
+ * Takımlar artık filtrelenmiş maçlardan otomatik çıkarılır.
  */
 export async function getAllTeams(): Promise<string[]> {
-  try {
-    // Cache kontrolü
-    const cacheKey = 'all_teams';
-    const cached = getCached<string[]>(cacheKey);
-    if (cached) {
-      console.log('✅ Takımlar cache\'den geldi');
-      return cached;
-    }
-
-    // Direkt batch processing kullan
-    return await getAllTeamsFallback();
-  } catch (error) {
-    console.error('Takımlar alınamadı:', error);
-    return [];
-  }
+  console.warn('⚠️ getAllTeams() deprecated - artık kullanılmamalı');
+  return [];
 }
 
-async function getAllTeamsFallback(): Promise<string[]> {
-  try {
-    const teams = new Set<string>();
-    const batchSize = 1000;
-    let page = 0;
-    let hasMore = true;
-    
-    console.log('🔄 Fallback: Batch processing başlatıldı...');
-
-    while (hasMore) {
-      const from = page * batchSize;
-      const to = from + batchSize - 1;
-
-      // Retry mekanizması
-      let retryCount = 0;
-      let success = false;
-      let data = null;
-
-      while (retryCount < 3 && !success) {
-        const result = await supabase
-          .from(TABLE_NAME)
-          .select('home_team, away_team')
-          .range(from, to);
-
-        if (result.error) {
-          retryCount++;
-          console.warn(`⚠️ Batch ${page + 1} hata (takımlar, deneme ${retryCount}/3)`);
-          if (retryCount < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          } else {
-            console.error(`❌ Batch ${page + 1} başarısız (takımlar)`);
-            hasMore = false;
-            break;
-          }
-        } else {
-          data = result.data;
-          success = true;
-        }
-      }
-
-      if (!success || !data || data.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      // Takımları set'e ekle
-      data.forEach((match: { home_team: string; away_team: string }) => {
-        teams.add(match.home_team);
-        teams.add(match.away_team);
-      });
-
-      // Progress log (her 10 batch'te bir)
-      if (page % 10 === 0) {
-        console.log(`  📦 Batch ${page + 1}: ${teams.size} takım bulundu`);
-      }
-
-      if (data.length < batchSize) {
-        console.log(`✅ Son batch (takımlar): ${data.length} kayıt`);
-        hasMore = false;
-      }
-
-      page++;
-
-      if (page >= 1000) {
-        console.warn('⚠️ Maksimum batch limitine ulaşıldı (takımlar)');
-        break;
-      }
-    }
-
-    const result = Array.from(teams).sort();
-    console.log(`✅ Toplam ${teams.size} takım bulundu (${page} batch)`);
-    
-    // Cache'e kaydet
-    setCache('all_teams', result);
-    
-    return result;
-  } catch (error) {
-    console.error('Takımlar alınamadı:', error);
-    return [];
-  }
-}
-
-// getTeamsByLeagues fonksiyonu kaldırıldı - artık tüm takımlar direkt kullanılıyor (performans optimizasyonu)
+// getAllTeamsFallback() - REMOVED (deprecated)
+// getTeamsByLeagues() - REMOVED (deprecated)
 
 /**
- * Lig başına maç sayılarını getir (Batch processing ile)
- * 713k veriyi 1000'er parça halinde işler
+ * @deprecated ARTIK KULLANILMIYOR - Lazy loading ile değiştirildi
+ * Lig başına maç sayılarını getir
+ * Not: Bu bilgi artık getLeagues() içinde gelir (RPC function)
  */
 export async function getLeagueMatchCounts(): Promise<Record<string, number>> {
-  try {
-    // Cache kontrolü
-    const cacheKey = 'league_match_counts';
-    const cached = getCached<Record<string, number>>(cacheKey);
-    if (cached) {
-      console.log('✅ Lig sayıları cache\'den geldi');
-      return cached;
-    }
-
-    // Direkt batch processing kullan
-    return await getLeagueMatchCountsFallback();
-  } catch (error) {
-    console.error('Lig sayıları alınamadı:', error);
-    return {};
-  }
+  console.warn('⚠️ getLeagueMatchCounts() deprecated - getLeagues() kullanın');
+  return {};
 }
 
-async function getLeagueMatchCountsFallback(): Promise<Record<string, number>> {
-  try {
-    const counts: Record<string, number> = {};
-    const batchSize = 1000;
-    let page = 0;
-    let hasMore = true;
-    let totalProcessed = 0;
-    
-    console.log('🔄 Fallback: Batch processing başlatıldı...');
-
-    while (hasMore) {
-      const from = page * batchSize;
-      const to = from + batchSize - 1;
-
-      // Retry mekanizması
-      let retryCount = 0;
-      let success = false;
-      let data = null;
-
-      while (retryCount < 3 && !success) {
-        const result = await supabase
-          .from(TABLE_NAME)
-          .select('league')
-          .range(from, to);
-
-        if (result.error) {
-          retryCount++;
-          console.warn(`⚠️ Batch ${page + 1} hata (lig sayıları, deneme ${retryCount}/3)`);
-          if (retryCount < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          } else {
-            console.error(`❌ Batch ${page + 1} başarısız (lig sayıları)`);
-            hasMore = false;
-            break;
-          }
-        } else {
-          data = result.data;
-          success = true;
-        }
-      }
-
-      if (!success || !data || data.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      // Sayımları güncelle
-      data.forEach((item: { league: string }) => {
-        counts[item.league] = (counts[item.league] || 0) + 1;
-      });
-
-      totalProcessed += data.length;
-
-      // Progress log (her 10 batch'te bir)
-      if (page % 10 === 0) {
-        const leagueCount = Object.keys(counts).length;
-        console.log(`  📦 Batch ${page + 1}: ${totalProcessed.toLocaleString()} maç, ${leagueCount} lig`);
-      }
-
-      if (data.length < batchSize) {
-        console.log(`✅ Son batch (lig sayıları): ${data.length} kayıt`);
-        hasMore = false;
-      }
-
-      page++;
-
-      if (page >= 1000) {
-        console.warn('⚠️ Maksimum batch limitine ulaşıldı (lig sayıları)');
-        break;
-      }
-    }
-
-    console.log(`✅ Toplam ${Object.keys(counts).length} lig bulundu, ${totalProcessed} maç işlendi (${page} batch)`);
-    
-    const leagueCount = Object.keys(counts).length;
-    console.log(`✅ Toplam ${leagueCount} lig, ${totalProcessed} maç (${page} batch)`);
-    
-    // Cache'e kaydet
-    setCache('league_match_counts', counts);
-
-    return counts;
-  } catch (error) {
-    console.error('Lig sayıları alınamadı:', error);
-    return {};
-  }
-}
+// getLeagueMatchCountsFallback() - REMOVED (deprecated)
 
 /**
- * İstatistikler getir (Optimize edilmiş - TEK query ile hesapla)
- * 4 ayrı COUNT query yerine sadece gerekli alanları çekip client-side hesapla
+ * İstatistikler getir (API endpoint kullanarak - RPC function ile hızlı)
  */
 export async function getMatchStatistics(filters: MatchFilters = {}) {
   try {
-    // Cache key oluştur
-    const cacheKey = `stats_${JSON.stringify(filters)}`;
-    const cached = getCached<{
-      totalMatches: number;
-      over15: { count: number; percentage: string };
-      over25: { count: number; percentage: string };
-      btts: { count: number; percentage: string };
-    }>(cacheKey);
-    if (cached) {
-      console.log('✅ İstatistikler cache\'den geldi');
-      return cached;
+    // API endpoint kullan (RPC function ile optimize edilmiş)
+    console.log('🚀 API\'den istatistikler çekiliyor...');
+    
+    const params = new URLSearchParams();
+    if (filters.league && filters.league.length > 0) {
+      params.append('leagues', filters.league.join(','));
     }
+    if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.append('dateTo', filters.dateTo);
 
-    console.log('🔄 İstatistikler hesaplanıyor (batch processing)...');
+    // Client-side: relative URL, Server-side: absolute URL
+    const apiUrl = typeof window === 'undefined'
+      ? `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/matches/stats`
+      : '/api/matches/stats';
 
-    // Batch processing ile tüm maçları çek (COUNT timeout verdiği için)
-    let allMatches: Array<{ ft_over_15: number; ft_over_25: number; btts: number }> = [];
-    let page = 0;
-    const batchSize = 1000;
-    let hasMoreData = true;
+    const response = await fetch(`${apiUrl}?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch stats');
+    }
+    
+    const data = await response.json();
+    
+    const result = {
+      totalMatches: data.totalMatches,
+      over15: data.over15,
+      over25: data.over25,
+      btts: data.btts
+    };
+    
+    console.log(`✅ İstatistikler API'den geldi (${data.source}):`, result.totalMatches, 'maç');
+    
+    return result;
+  } catch (error) {
+    console.error('❌ İstatistikler API\'den alınamadı, fallback\'e geçiliyor:', error);
+    
+    // Fallback: Batch processing
+    try {
+      console.log('🔄 Fallback: Batch processing başlatıldı...');
+      let allMatches: Array<{ ft_over_15: number; ft_over_25: number; btts: number }> = [];
+      let page = 0;
+      const batchSize = 1000;
+      let hasMoreData = true;
 
     while (hasMoreData) {
       let query = supabase
@@ -862,54 +525,23 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
       },
     };
 
-    // Cache'e kaydet (1 dakika - daha kısa süre)
-    setCache(cacheKey, result);
-    
-    console.log(`✅ İstatistikler hesaplandı: ${totalMatches} maç`);
-    return result;
-  } catch (error) {
-    console.error('İstatistikler alınamadı:', error);
-    return null;
+      // Cache'e kaydet
+      setCache(cacheKey, result);
+      
+      console.log(`✅ İstatistikler hesaplandı: ${totalMatches} maç`);
+      return result;
+    } catch (fallbackError) {
+      console.error('❌ Fallback da başarısız:', fallbackError);
+      return null;
+    }
   }
 }
 
 /**
- * Cache'i preload et (Login sonrası çağrılır)
- * Tüm ligleri, takımları ve lig sayılarını arka planda yükler
- */
-/**
- * Cache'i preload et - SESSIZ mod (background)
- * Kullanıcı siteyi kullanırken arka planda yükler
+ * @deprecated Cache kullanımı kaldırıldı - artık direkt API çağrısı yapılıyor
+ * Eski preload fonksiyonu - geriye uyumluluk için bırakıldı
  */
 export async function preloadAnalysisCache(): Promise<void> {
-  try {
-    // Zaten cache varsa tekrar yükleme
-    const leaguesCache = getCached<string[]>('all_leagues');
-    const teamsCache = getCached<string[]>('all_teams');
-    const countsCache = getCached<Record<string, number>>('league_match_counts');
-    
-    if (leaguesCache && teamsCache && countsCache) {
-      return; // Sessiz çıkış
-    }
-
-    console.log('🔇 Cache arka planda yüklenmeye başladı (~5 dakika sürebilir)...');
-    
-    // Sıralı yükleme (paralelden daha stabil)
-    if (!leaguesCache) {
-      await getLeagues().catch(() => {}); // Hata olsa bile devam
-    }
-    
-    if (!countsCache) {
-      await getLeagueMatchCounts().catch(() => {});
-    }
-    
-    if (!teamsCache) {
-      await getAllTeams().catch(() => {});
-    }
-    
-    console.log('✅ Cache yüklendi!');
-  } catch (error) {
-    // Sessiz hata - kullanıcıyı etkilemesin
-    console.error('❌ Cache yükleme hatası:', error);
-  }
+  console.log('ℹ️ preloadAnalysisCache() deprecated - cache kullanımı kaldırıldı');
+  // Artık hiçbir şey yapmıyor - direkt API çağrıları kullanılıyor
 }
