@@ -114,6 +114,21 @@ export default function ProfilePage() {
   };
 
   const handleClearCache = async () => {
+    // Premium kontrolü
+    const isPremium = userData?.isPaid || userData?.role === "admin";
+    const hasActiveSubscription = userData?.subscriptionEndDate
+      ? new Date(userData.subscriptionEndDate) > new Date()
+      : false;
+
+    if (!isPremium || !hasActiveSubscription) {
+      showToast(
+        "🔒 Bu özellik sadece premium üyeler içindir. Lütfen premium üyelik satın alın.",
+        "error",
+        5000
+      );
+      return;
+    }
+
     if (
       !confirm(
         "⚠️ Analiz cache'i temizlenecek ve tüm veriler yeniden yüklenecek (3-5 dakika sürebilir).\n\n✅ Bu işlem şu durumlarda gereklidir:\n• Veritabanında güncelleme yapıldıysa\n• Lig/takım verileri eksikse\n• Hatalı veri görünüyorsa\n\nDevam edilsin mi?"

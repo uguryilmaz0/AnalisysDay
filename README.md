@@ -15,12 +15,14 @@
 
 - 🔥 **Firebase Authentication** - Google'ın güvenlik standardı
 - 📊 **Firestore** - Real-time NoSQL database
+- 🗄️ **Supabase PostgreSQL** - 730K+ maç verisi + RLS güvenlik
 - ☁️ **Cloudinary** - Görsel CDN ve yönetimi
 - 🛡️ **Security Rules** - Server-side güvenlik
 
 ### Güvenlik & Compliance
 
 - 🔐 **Enhanced Rate Limiting** - Multi-action brute force koruması
+- 🔒 **Supabase RLS** - Row Level Security (PostgreSQL güvenliği)
 - 📝 **Error Tracking (Sentry)** - Production monitoring
 - ⚖️ **18+ Age Verification** - Yaş onay sistemi
 - 📋 **KVKK Uyumlu** - Türk veri koruma yasalarına uygun
@@ -71,6 +73,11 @@ NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=analysis_preset
 NEXT_PUBLIC_CLOUDINARY_RECEIPT_PRESET=receipt_preset
 
+# Supabase (zorunlu - maç veritabanı)
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  # Opsiyonel - admin işlemleri için
+
 # App Config (zorunlu)
 NEXT_PUBLIC_WHATSAPP_NUMBER=905551234567
 NEXT_PUBLIC_IBAN=TR00 0000 0000 0000 0000 0000 00
@@ -103,7 +110,27 @@ Detaylı kurulum için: [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
 3. Config değerlerini `.env.local`'e ekle
 4. Security Rules'ları deploy et
 
-### 4. Cloudinary Kurulumu
+### 4. Supabase Kurulumu (RLS Güvenlik)
+
+**ÖNEMLİ:** Supabase'de Row Level Security (RLS) **mutlaka** aktif olmalıdır!
+
+Detaylı kurulum için: **[SUPABASE_RLS_SETUP.md](./SUPABASE_RLS_SETUP.md)** ⭐
+
+**Hızlı Kurulum:**
+
+1. Supabase Dashboard → SQL Editor'e gidin
+2. `supabase-rls-policies.sql` dosyasını çalıştırın
+3. RLS politikaları otomatik oluşturulur:
+   - ✅ **SELECT**: Herkese açık (güvenli okuma)
+   - ❌ **INSERT/UPDATE/DELETE**: Reddedilir (veri koruması)
+
+**Neden RLS Gerekli?**
+
+- 🔒 Client-side'dan gelen tehlikeli istekleri bloke eder
+- 🛡️ SQL injection saldırılarına karşı koruma
+- ⚠️ RLS olmadan tüm veri silinebilir veya değiştirilebilir!
+
+### 5. Cloudinary Kurulumu
 
 1. [Cloudinary Console](https://cloudinary.com/console)'da hesap oluştur
 2. Settings > Upload > Upload Presets:
@@ -111,7 +138,7 @@ Detaylı kurulum için: [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
    - `receipt_preset` (dekont görselleri için)
 3. Cloud Name ve Preset isimlerini `.env.local`'e ekle
 
-### 5. Geliştirme Sunucusu
+### 6. Geliştirme Sunucusu
 
 ```bash
 npm run dev

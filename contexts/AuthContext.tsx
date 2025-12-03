@@ -47,13 +47,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
-        setUserData(userDoc.data() as User);
+        const data = userDoc.data() as User;
+        setUserData(data);
 
-        // Kullanıcı giriş yaptıysa analiz verilerini arka planda yükle (2x hızlı paralel)
-        if (typeof window !== "undefined") {
+        // ✅ SADECE PREMIUM veya ADMIN kullanıcılar için maç verilerini yükle
+        const isPremium = data.isPaid || data.role === "admin";
+        const hasActiveSubscription = data.subscriptionEndDate
+          ? data.subscriptionEndDate.toDate() > new Date()
+          : false;
+
+        if (
+          isPremium &&
+          hasActiveSubscription &&
+          typeof window !== "undefined"
+        ) {
           // Dynamic import to avoid SSR issues
           import("@/lib/matchService").then(
             ({ getLeagues, getAllTeams, getLeagueMatchCounts }) => {
+              console.log(
+                "🔓 Premium kullanıcı - analiz verileri yükleniyor..."
+              );
               // Analiz verilerini arka planda yükle
               Promise.all([
                 getLeagues(),
@@ -63,6 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.error("❌ Analiz verileri yüklenemedi:", error);
               });
             }
+          );
+        } else if (typeof window !== "undefined") {
+          console.log(
+            "🔒 Premium olmayan kullanıcı - maç verileri yüklenmiyor"
           );
         }
       }
@@ -163,15 +180,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         loginSuccess = true;
 
-        // 🔇 Silent cache preload (arka planda, blocking değil)
-        if (typeof window !== "undefined") {
+        // 🔇 Silent cache preload (SADECE PREMIUM kullanıcılar için)
+        const isPremium = userData.isPaid || userData.role === "admin";
+        const hasActiveSubscription = userData.subscriptionEndDate
+          ? userData.subscriptionEndDate.toDate() > new Date()
+          : false;
+
+        if (
+          isPremium &&
+          hasActiveSubscription &&
+          typeof window !== "undefined"
+        ) {
           setTimeout(() => {
             import("@/lib/matchService").then(({ preloadAnalysisCache }) => {
+              console.log(
+                "🔓 Premium kullanıcı - cache preload başlatılıyor..."
+              );
               preloadAnalysisCache().catch(() => {
                 // Silent fail
               });
             });
           }, 2000); // 2 saniye sonra başlat (kullanıcı zaten giriş yapmış)
+        } else if (typeof window !== "undefined") {
+          console.log("🔒 Premium olmayan kullanıcı - cache preload atlanıyor");
         }
       }
 
