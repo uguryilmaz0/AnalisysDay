@@ -13,7 +13,7 @@ import {
 } from "@/lib/matchService";
 import LeagueSidebar from "./components/LeagueSidebar";
 import FilterBar from "./components/FilterBar";
-import MatchTable from "./components/MatchTable";
+import MatchTableNew from "./components/MatchTableNew";
 import StatisticsCard from "./components/StatisticsCard";
 
 export default function DatabaseAnalysisPage() {
@@ -389,7 +389,7 @@ export default function DatabaseAnalysisPage() {
           {/* Maç Tablosu */}
           {(matches.length > 0 || isLoading) && (
             <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
-              <MatchTable matches={matches} isLoading={isLoading} />
+              <MatchTableNew matches={matches} isLoading={isLoading} />
 
               {/* Load More Butonu + Sayfalama */}
               <div className="px-6 py-4 border-t border-gray-700 bg-gray-800">

@@ -200,7 +200,7 @@ export default function Home() {
             Öğrenmeye Bugün Başlayın
           </h2>
           <p className="text-xl text-emerald-100 mb-8">
-            Sadece ayda 600 TL ile profesyonel spor istatistik analizi
+            Sadece ayda 750 TL ile profesyonel spor istatistik analizi
             eğitimlerine sınırsız erişim
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

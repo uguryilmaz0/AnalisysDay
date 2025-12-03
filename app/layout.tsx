@@ -30,13 +30,13 @@ export const metadata: Metadata = {
   ),
   title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
   description:
-    "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+    "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
   keywords: ["maç analizi", "yapay zeka", "tahmin", "spor", "istatistik"],
   authors: [{ name: "Analiz Günü" }],
   openGraph: {
     title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
     description:
-      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
     url: "https://analizgunu.com",
     siteName: "Analiz Günü",
     locale: "tr_TR",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
     description:
-      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle spor bahis deneyiminizi geliştirin.",
+      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
   },
   manifest: "/manifest.json",
 };

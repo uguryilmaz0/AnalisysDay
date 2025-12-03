@@ -202,21 +202,47 @@ export async function getMatches(
       query = query.lte('time', filters.timeTo);
     }
 
-    // Ev sahibi takım filtresi
-    if (filters.homeTeam) {
-      query = query.ilike('home_team', `%${filters.homeTeam}%`);
-    }
-
-    // Deplasman takım filtresi
-    if (filters.awayTeam) {
-      query = query.ilike('away_team', `%${filters.awayTeam}%`);
-    }
-
-    // Takım arama (eski - backward compatibility)
-    if (filters.teamSearch) {
+    // Takım filtreleri
+    // ÖZEL DURUM: Hem homeTeam HEM awayTeam varsa, sadece bu iki takım arasındaki maçlar
+    const homeTeamTrim = filters.homeTeam?.trim();
+    const awayTeamTrim = filters.awayTeam?.trim();
+    
+    if (homeTeamTrim && awayTeamTrim && homeTeamTrim.length > 0 && awayTeamTrim.length > 0) {
+      // İKİ TAKIMIN BİRBİRİNE KARŞI OYNADIĞI MAÇLAR
+      console.log(`🎯 İki takım filtresi: "${homeTeamTrim}" vs "${awayTeamTrim}"`);
+      // (Team A ev sahibi ve Team B deplasman) VEYA (Team B ev sahibi ve Team A deplasman)
       query = query.or(
-        `home_team.ilike.%${filters.teamSearch}%,away_team.ilike.%${filters.teamSearch}%`
+        `and(home_team.eq.${homeTeamTrim},away_team.eq.${awayTeamTrim}),and(home_team.eq.${awayTeamTrim},away_team.eq.${homeTeamTrim})`
       );
+    } else {
+      // NORMAL DURUM: Tek takım veya genel arama
+      const teamConditions: string[] = [];
+      
+      if (homeTeamTrim && homeTeamTrim.length > 0) {
+        // Ev sahibi takım filtresi
+        teamConditions.push(`home_team.eq.${homeTeamTrim}`);
+        teamConditions.push(`home_team.ilike.${homeTeamTrim}%`);
+      }
+
+      if (awayTeamTrim && awayTeamTrim.length > 0) {
+        // Deplasman takım filtresi
+        teamConditions.push(`away_team.eq.${awayTeamTrim}`);
+        teamConditions.push(`away_team.ilike.${awayTeamTrim}%`);
+      }
+
+      if (filters.teamSearch) {
+        const searchTerm = filters.teamSearch.trim();
+        if (searchTerm.length > 0) {
+          // Her iki takımda da ara
+          teamConditions.push(`home_team.ilike.${searchTerm}%`);
+          teamConditions.push(`away_team.ilike.${searchTerm}%`);
+        }
+      }
+      
+      // Tek bir or() ile tüm koşulları uygula
+      if (teamConditions.length > 0) {
+        query = query.or(teamConditions.join(','));
+      }
     }
 
     // Pagination
@@ -224,8 +250,11 @@ export async function getMatches(
     const to = from + pageSize - 1;
     query = query.range(from, to);
 
-    // Sıralama
+    // Sıralama (Index kullanımı: idx_matches_match_date)
     query = query.order('match_date', { ascending: false });
+    
+    // Safety: Maximum 10000 row scan limit (statement timeout önleme)
+    query = query.limit(Math.min(pageSize, 1000));
 
     const { data, error, count } = await query;
 
@@ -472,14 +501,44 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
     if (filters.dateTo) {
       query = query.lte('match_date', filters.dateTo);
     }
-    if (filters.teamSearch) {
+    
+    // Takım filtreleri (getMatches ile aynı mantık)
+    const homeTeamTrim = filters.homeTeam?.trim();
+    const awayTeamTrim = filters.awayTeam?.trim();
+    
+    if (homeTeamTrim && awayTeamTrim && homeTeamTrim.length > 0 && awayTeamTrim.length > 0) {
+      // İki takımın birbirine karşı oynadığı maçlar
       query = query.or(
-        `home_team.ilike.%${filters.teamSearch}%,away_team.ilike.%${filters.teamSearch}%`
+        `and(home_team.eq.${homeTeamTrim},away_team.eq.${awayTeamTrim}),and(home_team.eq.${awayTeamTrim},away_team.eq.${homeTeamTrim})`
       );
+    } else {
+      const teamConditions: string[] = [];
+      
+      if (homeTeamTrim && homeTeamTrim.length > 0) {
+        teamConditions.push(`home_team.eq.${homeTeamTrim}`);
+        teamConditions.push(`home_team.ilike.${homeTeamTrim}%`);
+      }
+      
+      if (awayTeamTrim && awayTeamTrim.length > 0) {
+        teamConditions.push(`away_team.eq.${awayTeamTrim}`);
+        teamConditions.push(`away_team.ilike.${awayTeamTrim}%`);
+      }
+      
+      if (filters.teamSearch) {
+        const searchTerm = filters.teamSearch.trim();
+        if (searchTerm.length > 0) {
+          teamConditions.push(`home_team.ilike.${searchTerm}%`);
+          teamConditions.push(`away_team.ilike.${searchTerm}%`);
+        }
+      }
+      
+      if (teamConditions.length > 0) {
+        query = query.or(teamConditions.join(','));
+      }
     }
 
-    // Limit ekle - maksimum 10000 satır (timeout önleme)
-    query = query.limit(10000);
+    // Limit ekle - maksimum 50000 satır (timeout önleme, istatistik için daha fazla)
+    query = query.limit(50000);
 
     const { data, count, error } = await query;
     

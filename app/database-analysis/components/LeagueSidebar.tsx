@@ -72,16 +72,10 @@ export default function LeagueSidebar({
           {/* Hızlı Aksiyonlar */}
           <div className="flex gap-2">
             <button
-              onClick={onSelectAll}
-              className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Tümünü Seç
-            </button>
-            <button
               onClick={onClearAll}
-              className="flex-1 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+              className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
             >
-              Temizle
+              Seçimi Temizle
             </button>
           </div>
         </div>
@@ -221,18 +215,12 @@ export default function LeagueSidebar({
               </div>
 
               {/* Hızlı Aksiyonlar */}
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={onSelectAll}
-                  className="flex-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg"
-                >
-                  Tümünü Seç
-                </button>
+              <div className="flex gap-2 px-4 py-3">
                 <button
                   onClick={onClearAll}
-                  className="flex-1 px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg"
+                  className="w-full px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  Temizle
+                  Seçimi Temizle
                 </button>
               </div>
             </div>

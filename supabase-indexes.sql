@@ -11,13 +11,20 @@ ON matches(match_date DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_league 
 ON matches(league);
 
--- 3. Team Search Index (Home Team)
+-- 3. Team Search Index (Home Team) - ILIKE için text_pattern_ops
 CREATE INDEX IF NOT EXISTS idx_matches_home_team 
-ON matches(home_team);
+ON matches(home_team text_pattern_ops);
 
--- 4. Team Search Index (Away Team)
+-- 4. Team Search Index (Away Team) - ILIKE için text_pattern_ops
 CREATE INDEX IF NOT EXISTS idx_matches_away_team 
-ON matches(away_team);
+ON matches(away_team text_pattern_ops);
+
+-- 5. Lowercase team indexes (case-insensitive search için)
+CREATE INDEX IF NOT EXISTS idx_matches_home_team_lower 
+ON matches(LOWER(home_team) text_pattern_ops);
+
+CREATE INDEX IF NOT EXISTS idx_matches_away_team_lower 
+ON matches(LOWER(away_team) text_pattern_ops);
 
 -- 5. Composite Index (Lig + Tarih kombinasyonu)
 CREATE INDEX IF NOT EXISTS idx_matches_league_date 
@@ -42,10 +49,13 @@ CREATE INDEX IF NOT EXISTS idx_matches_teams_fulltext
 ON matches USING GIN (to_tsvector('english', home_team || ' ' || away_team));
 
 -- =============================================
--- ⚠️ VACUUM komutu ayrı çalıştırılmalı!
+-- ⚠️ ANALYZE komutu (Opsiyonel)
 -- =============================================
 -- Index'ler oluştuktan SONRA, ayrı bir sorgu olarak çalıştırın:
--- VACUUM ANALYZE matches;
+-- ANALYZE matches;
+-- 
+-- NOT: VACUUM Supabase SQL Editor'de ÇALIŞMAZ (transaction error)
+-- Supabase otomatik olarak arka planda VACUUM yapar.
 
 -- =============================================
 -- Index Kullanım İstatistikleri (Kontrol için)

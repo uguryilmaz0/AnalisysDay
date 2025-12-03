@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { useRouter } from "next/navigation";
 import {
   CreditCard,
@@ -25,7 +26,16 @@ export default function PricingPage() {
   const { copy } = useCopyToClipboard();
   const router = useRouter();
 
-  const price = process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE || "500";
+  const [selectedPackage, setSelectedPackage] = React.useState<"1" | "3" | "12">("1");
+
+  const packages = {
+    "1": { months: 1, price: 750, pricePerMonth: 750 },
+    "3": { months: 3, price: 2000, pricePerMonth: 667 },
+    "12": { months: 12, price: 7500, pricePerMonth: 625 },
+  };
+
+  const currentPackage = packages[selectedPackage];
+
   const iban =
     process.env.NEXT_PUBLIC_IBAN || "TR00 0000 0000 0000 0000 0000 00";
   const bankName = process.env.NEXT_PUBLIC_BANK_NAME || "Banka Adı";
@@ -100,16 +110,83 @@ export default function PricingPage() {
           </p>
         </div>
 
+        {/* Paket Seçimi */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* 1 Aylık Paket */}
+            <button
+              onClick={() => setSelectedPackage("1")}
+              className={`p-6 rounded-xl border-2 transition-all ${
+                selectedPackage === "1"
+                  ? "border-blue-500 bg-blue-900/30 shadow-xl shadow-blue-500/20"
+                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
+              }`}
+            >
+              <div className="text-center">
+                <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
+                <p className="text-3xl font-bold text-white mb-1">750 TL</p>
+                <p className="text-sm text-gray-400">750 TL / Ay</p>
+              </div>
+            </button>
+
+            {/* 3 Aylık Paket */}
+            <button
+              onClick={() => setSelectedPackage("3")}
+              className={`p-6 rounded-xl border-2 transition-all relative ${
+                selectedPackage === "3"
+                  ? "border-purple-500 bg-purple-900/30 shadow-xl shadow-purple-500/20"
+                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
+              }`}
+            >
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                  Popüler
+                </span>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400 text-sm mb-1">3 Aylık</p>
+                <p className="text-3xl font-bold text-white mb-1">2.000 TL</p>
+                <p className="text-sm text-green-400">667 TL / Ay</p>
+              </div>
+            </button>
+
+            {/* 12 Aylık Paket */}
+            <button
+              onClick={() => setSelectedPackage("12")}
+              className={`p-6 rounded-xl border-2 transition-all relative ${
+                selectedPackage === "12"
+                  ? "border-green-500 bg-green-900/30 shadow-xl shadow-green-500/20"
+                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
+              }`}
+            >
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-green-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                  En Avantajlı
+                </span>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400 text-sm mb-1">12 Aylık</p>
+                <p className="text-3xl font-bold text-white mb-1">7.500 TL</p>
+                <p className="text-sm text-green-400">625 TL / Ay</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Sol: Paket Detayları */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 hover:border-gray-700 transition-all">
             <div className="bg-linear-to-r from-blue-600 via-purple-600 to-blue-600 text-white rounded-xl p-6 mb-6 shadow-xl">
-              <h2 className="text-2xl font-bold mb-2">Aylık Abonelik</h2>
+              <h2 className="text-2xl font-bold mb-2">
+                {currentPackage.months} Aylık Abonelik
+              </h2>
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-bold">{price}</span>
+                <span className="text-5xl font-bold">{currentPackage.price}</span>
                 <span className="text-2xl">TL</span>
-                <span className="text-blue-100">/ Ay</span>
               </div>
+              <p className="text-blue-100 mt-2">
+                Aylık {currentPackage.pricePerMonth} TL
+              </p>
             </div>
 
             <div className="space-y-4 mb-8">
@@ -129,7 +206,7 @@ export default function PricingPage() {
                 <div>
                   <p className="font-semibold text-white">Sınırsız Erişim</p>
                   <p className="text-sm text-gray-400">
-                    30 gün boyunca tüm analizlere erişim
+                    {currentPackage.months * 30} gün boyunca tüm analizlere erişim
                   </p>
                 </div>
               </div>
@@ -254,8 +331,11 @@ export default function PricingPage() {
                     href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
                       "Merhaba, Analiz Günü için ödeme yaptım.\n\nKayıtlı Email: " +
                         (user?.email || "") +
+                        "\nPaket: " +
+                        currentPackage.months +
+                        " Ay" +
                         "\nÖdeme Tutarı: " +
-                        price +
+                        currentPackage.price +
                         " TL"
                     )}`}
                     target="_blank"
