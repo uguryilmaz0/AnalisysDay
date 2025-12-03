@@ -282,9 +282,6 @@ export async function getMatches(
       hasMore,
     };
 
-      // SessionStorage'a kaydet (sayfa yenilenince tekrar çekmesin)
-      setSessionCache(cacheKey, response);
-
       return response;
     } catch (fallbackError) {
       console.error('❌ Fallback da başarısız:', fallbackError);
@@ -525,9 +522,6 @@ export async function getMatchStatistics(filters: MatchFilters = {}) {
       },
     };
 
-      // Cache'e kaydet
-      setCache(cacheKey, result);
-      
       console.log(`✅ İstatistikler hesaplandı: ${totalMatches} maç`);
       return result;
     } catch (fallbackError) {

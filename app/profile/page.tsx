@@ -117,7 +117,7 @@ export default function ProfilePage() {
     // Premium kontrolü
     const isPremium = userData?.isPaid || userData?.role === "admin";
     const hasActiveSubscription = userData?.subscriptionEndDate
-      ? new Date(userData.subscriptionEndDate) > new Date()
+      ? new Date(userData.subscriptionEndDate.toDate()) > new Date()
       : false;
 
     if (!isPremium || !hasActiveSubscription) {
