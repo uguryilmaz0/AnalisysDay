@@ -9,6 +9,18 @@ import { supabase } from '@/lib/supabase';
  * - dateFrom: string (YYYY-MM-DD)
  * - dateTo: string (YYYY-MM-DD)
  */
+// Parse odds filter helper (same as matches route)
+function parseOddsFilter(filterValue: string): { operator: 'gt' | 'lt' | 'eq', value: number } | null {
+  if (!filterValue) return null;
+  if (filterValue.startsWith('>')) {
+    return { operator: 'gt', value: parseFloat(filterValue.substring(1)) };
+  } else if (filterValue.startsWith('<')) {
+    return { operator: 'lt', value: parseFloat(filterValue.substring(1)) };
+  } else {
+    return { operator: 'eq', value: parseFloat(filterValue) };
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -18,6 +30,29 @@ export async function GET(request: NextRequest) {
     const leagues = leaguesParam ? leaguesParam.split(',').map(l => l.trim()) : [];
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    const timeFrom = searchParams.get('timeFrom');
+    const timeTo = searchParams.get('timeTo');
+    const homeTeam = searchParams.get('homeTeam');
+    const awayTeam = searchParams.get('awayTeam');
+    const teamSearch = searchParams.get('teamSearch');
+    
+    // Odds filters - 25 columns
+    const oddsFilters: Record<string, string> = {};
+    const oddsColumns = [
+      'ft_home_odds_close', 'ft_draw_odds_close', 'ft_away_odds_close',
+      'ht_home_odds_close', 'ht_draw_odds_close', 'ht_away_odds_close',
+      'ft_dc_1x_odds_close', 'ft_dc_12_odds_close', 'ft_dc_x2_odds_close',
+      'ht_dc_1x_odds_close', 'ht_dc_12_odds_close', 'ht_dc_x2_odds_close',
+      'ah_minus_05_home_odds_close', 'ah_0_home_odds_close', 'ah_plus_05_home_odds_close',
+      'eh_minus_1_home_odds_close',
+      'ht_ft_11_odds_close', 'ht_ft_1x_odds_close', 'ht_ft_12_odds_close',
+      'ht_ft_x1_odds_close', 'ht_ft_xx_odds_close', 'ht_ft_x2_odds_close',
+      'ht_ft_21_odds_close', 'ht_ft_2x_odds_close', 'ht_ft_22_odds_close'
+    ];
+    oddsColumns.forEach(column => {
+      const value = searchParams.get(column.replace('_close', ''));
+      if (value) oddsFilters[column] = value;
+    });
 
     // RPC function kullan (çok daha hızlı)
     if (leagues.length > 0) {
@@ -56,7 +91,7 @@ export async function GET(request: NextRequest) {
     // Fallback: Manuel hesaplama (RPC yoksa veya hata varsa)
     let query = supabase
       .from('matches')
-      .select('ft_over_15, ft_over_25, btts');
+      .select('ft_over_15, ft_over_25, btts', { count: 'exact' });
 
     // League filter
     if (leagues.length > 0) {
@@ -73,6 +108,55 @@ export async function GET(request: NextRequest) {
     }
     if (dateTo) {
       query = query.lte('match_date', dateTo);
+    }
+
+    // Time filters
+    if (timeFrom) {
+      query = query.gte('time', timeFrom);
+    }
+    if (timeTo) {
+      query = query.lte('time', timeTo);
+    }
+
+    // Team filters
+    const teamConditions: string[] = [];
+    if (homeTeam && awayTeam) {
+      query = query.or(
+        `and(home_team.eq.${homeTeam},away_team.eq.${awayTeam}),and(home_team.eq.${awayTeam},away_team.eq.${homeTeam})`
+      );
+    } else {
+      if (homeTeam) {
+        teamConditions.push(`home_team.eq.${homeTeam}`);
+        teamConditions.push(`home_team.ilike.${homeTeam}%`);
+      }
+      if (awayTeam) {
+        teamConditions.push(`away_team.eq.${awayTeam}`);
+        teamConditions.push(`away_team.ilike.${awayTeam}%`);
+      }
+      if (teamSearch) {
+        teamConditions.push(`home_team.ilike.%${teamSearch}%`);
+        teamConditions.push(`away_team.ilike.%${teamSearch}%`);
+      }
+      
+      if (teamConditions.length > 0) {
+        query = query.or(teamConditions.join(','));
+      }
+    }
+
+    // Odds filters - Her kolon ayrı ayrı filtrele
+    for (const [column, filterValue] of Object.entries(oddsFilters)) {
+      if (!filterValue) continue;
+      
+      const parsed = parseOddsFilter(filterValue);
+      if (!parsed) continue;
+      
+      if (parsed.operator === 'gt') {
+        query = query.gt(column, parsed.value);
+      } else if (parsed.operator === 'lt') {
+        query = query.lt(column, parsed.value);
+      } else if (parsed.operator === 'eq') {
+        query = query.eq(column, parsed.value);
+      }
     }
 
     const { data, error } = await query;

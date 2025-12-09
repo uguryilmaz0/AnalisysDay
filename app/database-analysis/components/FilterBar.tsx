@@ -7,7 +7,6 @@ import { Search, X } from "lucide-react";
 interface FilterBarProps {
   filters: MatchFilters;
   onFilterChange: (filters: Partial<MatchFilters>) => void;
-  onApplyFilters: () => void;
   onResetFilters: () => void;
   allTeams?: string[];
   selectedLeagues?: string[];
@@ -16,7 +15,6 @@ interface FilterBarProps {
 export default function FilterBar({
   filters,
   onFilterChange,
-  onApplyFilters,
   onResetFilters,
   allTeams = [],
   selectedLeagues = [],
@@ -35,6 +33,7 @@ export default function FilterBar({
 
   // Tüm takımları kullan (lig bazlı filtreleme kaldırıldı - performans optimizasyonu)
   useEffect(() => {
+    console.log("👥 FilterBar allTeams güncellendi:", allTeams.length, "takım");
     setFilteredTeamsByLeague(allTeams);
   }, [allTeams]);
 
@@ -46,6 +45,11 @@ export default function FilterBar({
         )
         .slice(0, 10)
     : [];
+
+  // Debug
+  if (homeTeamSearchInput && homeTeamSuggestions.length > 0) {
+    console.log("🏀 Ev sahibi önerileri:", homeTeamSuggestions.length);
+  }
 
   // Deplasman takım önerileri
   const awayTeamSuggestions = awayTeamSearchInput
@@ -100,6 +104,19 @@ export default function FilterBar({
     setSelectedAwayTeam("");
     setAwayTeamSearchInput("");
     onFilterChange({ awayTeam: undefined });
+  };
+
+  const handleReset = () => {
+    // Local state'leri temizle
+    setSelectedHomeTeam("");
+    setSelectedAwayTeam("");
+    setHomeTeamSearchInput("");
+    setAwayTeamSearchInput("");
+    setShowHomeTeamSuggestions(false);
+    setShowAwayTeamSuggestions(false);
+
+    // Parent'a bildir
+    onResetFilters();
   };
 
   return (
@@ -247,16 +264,10 @@ export default function FilterBar({
           </div>
 
           {/* Aksiyon Butonları */}
-          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+          <div className="flex justify-end mt-6">
             <button
-              onClick={onApplyFilters}
-              className="flex-1 sm:flex-none px-8 py-3 bg-linear-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-            >
-              🔍 Filtreleri Uygula
-            </button>
-            <button
-              onClick={onResetFilters}
-              className="flex-1 sm:flex-none px-8 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
+              onClick={handleReset}
+              className="px-8 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
             >
               🔄 Sıfırla
             </button>

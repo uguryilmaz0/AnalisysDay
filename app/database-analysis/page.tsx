@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { MatchData, MatchFilters, MatchStatistics } from "@/types/database";
-import {
-  getLeagues,
-  getMatches,
-  getMatchStatistics,
-  getAllTeams,
-  getLeagueMatchCounts,
-} from "@/lib/matchService";
+import { getLeagues, getMatches, getMatchStatistics } from "@/lib/matchService";
+import { supabase } from "@/lib/supabase";
 import LeagueSidebar from "./components/LeagueSidebar";
 import FilterBar from "./components/FilterBar";
 import MatchTableNew from "./components/MatchTableNew";
@@ -37,13 +32,196 @@ export default function DatabaseAnalysisPage() {
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<string>("");
-  const pageSize = 1000; // Supabase max limit 1000 kayıt
+  const pageSize = 100; // Hızlı yükleme için 100 maç
   const [allTeams, setAllTeams] = useState<string[]>([]);
-  const [leagueMatchCounts, setLeagueMatchCounts] = useState<
-    Record<string, number>
-  >({});
+  const [leagueMatchCounts] = useState<Record<string, number>>({});
 
-  // Sadece ligleri yükle - takımlar artık gerekli değil
+  // Debounced odds filter handler (hooks before early return)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Odds filtre mapping (UI key → API key)
+  const mapOddsFiltersToAPI = useCallback(
+    (oddsFilters: Record<string, string>): Partial<MatchFilters> => {
+      return {
+        ft_home_odds: oddsFilters.msHome || undefined,
+        ft_draw_odds: oddsFilters.msDraw || undefined,
+        ft_away_odds: oddsFilters.msAway || undefined,
+        ht_home_odds: oddsFilters.htHome || undefined,
+        ht_draw_odds: oddsFilters.htDraw || undefined,
+        ht_away_odds: oddsFilters.htAway || undefined,
+        ft_dc_1x_odds: oddsFilters.dc1X || undefined,
+        ft_dc_12_odds: oddsFilters.dc12 || undefined,
+        ft_dc_x2_odds: oddsFilters.dcX2 || undefined,
+        ht_dc_1x_odds: oddsFilters.htdc1X || undefined,
+        ht_dc_12_odds: oddsFilters.htdc12 || undefined,
+        ht_dc_x2_odds: oddsFilters.htdcX2 || undefined,
+        ah_minus_05_odds: oddsFilters.ahMinus || undefined,
+        ah_0_odds: oddsFilters.ahZero || undefined,
+        ah_plus_05_odds: oddsFilters.ahPlus || undefined,
+        eh_minus_1_odds: oddsFilters.ehMinus1 || undefined,
+        ht_ft_11_odds: oddsFilters.htMs1 || undefined,
+        ht_ft_1x_odds: oddsFilters.htMs1X || undefined,
+        ht_ft_12_odds: oddsFilters.htMs12 || undefined,
+        ht_ft_x1_odds: oddsFilters.htMsX1 || undefined,
+        ht_ft_xx_odds: oddsFilters.htMsXX || undefined,
+        ht_ft_x2_odds: oddsFilters.htMsX2 || undefined,
+        ht_ft_21_odds: oddsFilters.htMs21 || undefined,
+        ht_ft_2x_odds: oddsFilters.htMs2X || undefined,
+        ht_ft_22_odds: oddsFilters.htMs22 || undefined,
+      };
+    },
+    []
+  );
+
+  const handleOddsFilterChange = useCallback(
+    (oddsFilters: Record<string, string>) => {
+      // Clear previous timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Set new timer (1500ms debounce)
+      debounceTimerRef.current = setTimeout(async () => {
+        console.log("🔍 Odds filtreleri değişti:", oddsFilters);
+
+        setIsLoading(true);
+        setPage(1);
+        setLoadingProgress("Filtreler uygulanıyor...");
+
+        const mappedOddsFilters = mapOddsFiltersToAPI(oddsFilters);
+        // IMPORTANT: Sadece yeni odds filtreleri + opsiyonel filtreler (tarih, saat, takım) kullan
+        // Eski filters state'ini kullanma - odds filtreler tamamen yenisiyle değişmeli
+        const finalFilters: MatchFilters = {
+          // Opsiyonel filtreler (tarih, saat, takım) - odds olmayan kısım
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          timeFrom: filters.timeFrom,
+          timeTo: filters.timeTo,
+          homeTeam: filters.homeTeam,
+          awayTeam: filters.awayTeam,
+          teamSearch: filters.teamSearch,
+          // Yeni odds filtreleri
+          ...mappedOddsFilters,
+          // League
+          league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+        };
+
+        setAppliedFilters(finalFilters);
+
+        try {
+          const [matchesData, stats] = await Promise.all([
+            getMatches(finalFilters, 1, pageSize),
+            getMatchStatistics(finalFilters),
+          ]);
+
+          setMatches(matchesData.data);
+          setTotalPages(matchesData.totalPages);
+          setTotalMatches(stats?.totalMatches || matchesData.data.length);
+          setHasMore(matchesData.hasMore || false);
+          setStatistics(stats);
+          console.log("✅ Odds filtresi uygulandı:", {
+            dataLength: matchesData.data.length,
+            totalMatches: stats?.totalMatches,
+          });
+        } catch (error) {
+          console.error("❌ Odds filtresi hatası:", error);
+        } finally {
+          setIsLoading(false);
+          setLoadingProgress("");
+        }
+      }, 1500);
+    },
+    [filters, selectedLeagues, pageSize, mapOddsFiltersToAPI]
+  );
+
+  // Filtre değişikliği - otomatik trigger (800ms debounce)
+  const handleFilterChange = useCallback(
+    (newFilters: Partial<MatchFilters>) => {
+      setFilters((prev) => ({ ...prev, ...newFilters }));
+
+      // Clear previous timer
+      if (filterDebounceTimerRef.current) {
+        clearTimeout(filterDebounceTimerRef.current);
+      }
+
+      // Set new timer (800ms debounce)
+      filterDebounceTimerRef.current = setTimeout(async () => {
+        console.log("🔍 Opsiyonel filtreler değişti:", newFilters);
+
+        setIsLoading(true);
+        setPage(1);
+        setLoadingProgress("Filtreler uygulanıyor...");
+
+        // appliedFilters'ı closure içinde yakalamak yerine callback ile güncel değeri al
+        setAppliedFilters((currentAppliedFilters) => {
+          // Opsiyonel filtreler güncellenince, odds filtrelerini koru
+          const finalFilters: MatchFilters = {
+            // Eski odds filtreleri (appliedFilters'dan al)
+            ft_home_odds: currentAppliedFilters.ft_home_odds,
+            ft_draw_odds: currentAppliedFilters.ft_draw_odds,
+            ft_away_odds: currentAppliedFilters.ft_away_odds,
+            ht_home_odds: currentAppliedFilters.ht_home_odds,
+            ht_draw_odds: currentAppliedFilters.ht_draw_odds,
+            ht_away_odds: currentAppliedFilters.ht_away_odds,
+            ft_dc_1x_odds: currentAppliedFilters.ft_dc_1x_odds,
+            ft_dc_12_odds: currentAppliedFilters.ft_dc_12_odds,
+            ft_dc_x2_odds: currentAppliedFilters.ft_dc_x2_odds,
+            ht_dc_1x_odds: currentAppliedFilters.ht_dc_1x_odds,
+            ht_dc_12_odds: currentAppliedFilters.ht_dc_12_odds,
+            ht_dc_x2_odds: currentAppliedFilters.ht_dc_x2_odds,
+            ah_minus_05_odds: currentAppliedFilters.ah_minus_05_odds,
+            ah_0_odds: currentAppliedFilters.ah_0_odds,
+            ah_plus_05_odds: currentAppliedFilters.ah_plus_05_odds,
+            eh_minus_1_odds: currentAppliedFilters.eh_minus_1_odds,
+            ht_ft_11_odds: currentAppliedFilters.ht_ft_11_odds,
+            ht_ft_1x_odds: currentAppliedFilters.ht_ft_1x_odds,
+            ht_ft_12_odds: currentAppliedFilters.ht_ft_12_odds,
+            ht_ft_x1_odds: currentAppliedFilters.ht_ft_x1_odds,
+            ht_ft_xx_odds: currentAppliedFilters.ht_ft_xx_odds,
+            ht_ft_x2_odds: currentAppliedFilters.ht_ft_x2_odds,
+            ht_ft_21_odds: currentAppliedFilters.ht_ft_21_odds,
+            ht_ft_2x_odds: currentAppliedFilters.ht_ft_2x_odds,
+            ht_ft_22_odds: currentAppliedFilters.ht_ft_22_odds,
+            // Yeni opsiyonel filtreler
+            ...newFilters,
+            // League
+            league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+          };
+
+          // API çağrısını async olarak yap
+          (async () => {
+            try {
+              const [matchesData, stats] = await Promise.all([
+                getMatches(finalFilters, 1, pageSize),
+                getMatchStatistics(finalFilters),
+              ]);
+
+              setMatches(matchesData.data);
+              setTotalPages(matchesData.totalPages);
+              setTotalMatches(stats?.totalMatches || matchesData.data.length);
+              setHasMore(matchesData.hasMore || false);
+              setStatistics(stats);
+              console.log("✅ Opsiyonel filtre uygulandı:", {
+                dataLength: matchesData.data.length,
+                totalMatches: stats?.totalMatches,
+              });
+            } catch (error) {
+              console.error("❌ Opsiyonel filtre hatası:", error);
+            } finally {
+              setIsLoading(false);
+              setLoadingProgress("");
+            }
+          })();
+
+          return finalFilters;
+        });
+      }, 800);
+    },
+    [selectedLeagues, pageSize]
+  );
+
+  // Sadece ligleri yükle
   const loadLeagues = async () => {
     try {
       // Sadece favori 20 ligi yükle (anında - DB sorgusu yok)
@@ -59,8 +237,40 @@ export default function DatabaseAnalysisPage() {
     }
   };
 
-  // loadTeams() KALDIRILDI - artık gerekli değil
-  // Takımlar ve lig sayıları lazy loading ile gelecek
+  // Takımları yükle (seçili liglerden)
+  const loadTeams = useCallback(async () => {
+    if (selectedLeagues.length === 0) {
+      setAllTeams([]);
+      return;
+    }
+
+    console.log(`🔍 ${selectedLeagues.length} lig için takımlar yükleniyor...`);
+
+    try {
+      const { data, error } = await supabase
+        .from("matches")
+        .select("home_team, away_team")
+        .in("league", selectedLeagues)
+        .limit(500); // İlk 500 maçtan takımları al
+
+      if (error) throw error;
+
+      const teamsSet = new Set<string>();
+      data?.forEach((match) => {
+        if (match.home_team) teamsSet.add(match.home_team);
+        if (match.away_team) teamsSet.add(match.away_team);
+      });
+
+      const teamsList = Array.from(teamsSet).sort();
+      setAllTeams(teamsList);
+      console.log(
+        `✅ ${teamsList.length} takım yüklendi:`,
+        teamsList.slice(0, 5)
+      );
+    } catch (error) {
+      console.error("❌ Takımlar yüklenirken hata:", error);
+    }
+  }, [selectedLeagues]);
 
   // Auth kontrolü - giriş yapmamışsa login'e yönlendir
   useEffect(() => {
@@ -69,20 +279,53 @@ export default function DatabaseAnalysisPage() {
     }
   }, [user, authLoading, router]);
 
-  // Sayfa yüklendiğinde sadece ligleri yükle (çok hızlı - API'den)
+  // Lig seçildiğinde takımları yükle
+  useEffect(() => {
+    if (selectedLeagues.length > 0) {
+      loadTeams();
+    } else {
+      setAllTeams([]);
+    }
+  }, [selectedLeagues, loadTeams]);
+
+  // Sayfa yüklendiginde otomatik ilk 1000 maçı yükle
   useEffect(() => {
     if (authLoading || !user) return;
 
     const initializeData = async () => {
-      setLoadingProgress("🚀 Lig listesi yükleniyor...");
+      setLoadingProgress("🚀 Veriler yüklenyor...");
+      setIsLoading(true);
+
       try {
-        // API'den ligleri çek (loadLeagues içinde loading temizlenecek)
+        // 1. Ligleri yükle (favori 20 lig)
         await loadLeagues();
-        console.log("✅ Sayfa hazır - lig seçimi yapılabilir");
+
+        // 2. Otomatik ilk 100 maçı yükle (filtre yok)
+        setLoadingProgress("📊 İlk maçlar yüklenyor...");
+        const [matchesData, stats] = await Promise.all([
+          getMatches({}, 1, pageSize),
+          getMatchStatistics({}),
+        ]);
+
+        setMatches(matchesData.data);
+        setTotalPages(matchesData.totalPages);
+        setTotalMatches(stats?.totalMatches || matchesData.data.length);
+        setHasMore(matchesData.hasMore || false);
+        setStatistics(stats);
+        setAppliedFilters({});
+
+        console.log(
+          "✅ Sayfa hazır - ",
+          matchesData.data.length,
+          "maç yüklendi"
+        );
+        setLoadingProgress("");
       } catch (error) {
         console.error("❌ Sayfa yükleme hatası:", error);
-        setLoadingProgress("❌ Lig listesi yüklenemedi");
+        setLoadingProgress("❌ Veriler yüklenemedi");
         setTimeout(() => setLoadingProgress(""), 3000);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -116,11 +359,6 @@ export default function DatabaseAnalysisPage() {
 
   const handleClearAllLeagues = () => {
     setSelectedLeagues([]);
-  };
-
-  // Filtre değişikliği
-  const handleFilterChange = (newFilters: Partial<MatchFilters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
   // Lig seçimini uygula (sadece lig filtresi ile)
@@ -172,52 +410,52 @@ export default function DatabaseAnalysisPage() {
     }
   };
 
-  // Filtreleri uygula (opsiyonel ince ayar filtreler)
-  const handleApplyFilters = async () => {
-    setIsLoading(true);
-    setPage(1);
-    setMatches([]);
-    setLoadingProgress("Filtreler uygulanıyor...");
-
-    const finalFilters: MatchFilters = {
-      ...filters,
-      league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
-    };
-
-    setAppliedFilters(finalFilters);
-
-    try {
-      const [matchesData, stats] = await Promise.all([
-        getMatches(finalFilters, 1, pageSize),
-        getMatchStatistics(finalFilters),
-      ]);
-
-      setMatches(matchesData.data);
-      setTotalPages(matchesData.totalPages);
-      setTotalMatches(stats?.totalMatches || matchesData.data.length);
-      setHasMore(matchesData.hasMore || false);
-      setStatistics(stats);
-      console.log("✅ Filtre uygulandı:", {
-        dataLength: matchesData.data.length,
-        totalMatches: stats?.totalMatches,
-        hasMore: matchesData.hasMore,
-      });
-    } catch (error) {
-      console.error("Veriler yüklenirken hata:", error);
-    } finally {
-      setIsLoading(false);
-      setLoadingProgress("");
-    }
-  };
-
   // Filtreleri sıfırla
-  const handleResetFilters = () => {
+  const handleResetFilters = async () => {
+    console.log("🔄 Filtreler sıfırlanıyor...");
+
+    // Filtreleri temizle
     setFilters({});
-    setSelectedLeagues([]);
     setAppliedFilters({});
-    setMatches([]);
-    setStatistics(null);
     setPage(1);
+
+    // Eğer lig seçiliyse, sadece lig filtresiyle API çağrısı yap
+    if (selectedLeagues.length > 0) {
+      setIsLoading(true);
+      setLoadingProgress("Filtreler sıfırlanıyor...");
+
+      const finalFilters: MatchFilters = {
+        league: selectedLeagues,
+      };
+
+      setAppliedFilters(finalFilters);
+
+      try {
+        const [matchesData, stats] = await Promise.all([
+          getMatches(finalFilters, 1, pageSize),
+          getMatchStatistics(finalFilters),
+        ]);
+
+        setMatches(matchesData.data);
+        setTotalPages(matchesData.totalPages);
+        setTotalMatches(stats?.totalMatches || matchesData.data.length);
+        setHasMore(matchesData.hasMore || false);
+        setStatistics(stats);
+        console.log("✅ Filtreler sıfırlandı, sadece lig filtresi aktif:", {
+          dataLength: matchesData.data.length,
+          totalMatches: stats?.totalMatches,
+        });
+      } catch (error) {
+        console.error("❌ Filtre sıfırlama hatası:", error);
+      } finally {
+        setIsLoading(false);
+        setLoadingProgress("");
+      }
+    } else {
+      // Hiç lig seçili değilse tabloyu temizle
+      setMatches([]);
+      setStatistics(null);
+    }
   };
 
   // Sayfa değiştirme
@@ -309,7 +547,6 @@ export default function DatabaseAnalysisPage() {
           key={filters.teamSearch || "no-team"} // Reset olunca component yeniden mount olur
           filters={filters}
           onFilterChange={handleFilterChange}
-          onApplyFilters={handleApplyFilters}
           onResetFilters={handleResetFilters}
           allTeams={allTeams}
           selectedLeagues={selectedLeagues}
@@ -346,7 +583,7 @@ export default function DatabaseAnalysisPage() {
             </div>
           )}
 
-          {/* Bilgi Mesajı */}
+          {/* Bilgi Mesajı - Sadece hata durumunda */}
           {matches.length === 0 && !isLoading && (
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
               <h3 className="text-xl font-bold text-blue-400 mb-2">
@@ -358,7 +595,7 @@ export default function DatabaseAnalysisPage() {
 
               <div className="bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto border border-blue-500/30">
                 <h4 className="text-lg font-semibold text-blue-400 mb-4">
-                  🚀 Hızlı Başlangıç
+                  🚀 Kullanım
                 </h4>
                 <ol className="text-left text-gray-300 space-y-3">
                   <li className="flex items-start gap-3">
@@ -368,7 +605,7 @@ export default function DatabaseAnalysisPage() {
                         Sol panelden lig seçin
                       </span>
                       <p className="text-sm text-gray-400">
-                        İstediğiniz kadar lig seçebilirsiniz
+                        Opsiyonel - İstediğiniz kadar lig seçebilirsiniz
                       </p>
                     </div>
                   </li>
@@ -376,10 +613,10 @@ export default function DatabaseAnalysisPage() {
                     <span className="text-2xl">2️⃣</span>
                     <div>
                       <span className="font-semibold text-blue-400">
-                        &quot;Maçları Listele&quot; butonuna tıklayın
+                        &quot;Filtrele&quot; butonu ile filtre uygula
                       </span>
                       <p className="text-sm text-gray-400">
-                        Seçili liglerin tüm maçları listelenecek
+                        Seçili liglerin maçları listelenecek
                       </p>
                     </div>
                   </li>
@@ -387,10 +624,10 @@ export default function DatabaseAnalysisPage() {
                     <span className="text-2xl">3️⃣</span>
                     <div>
                       <span className="font-semibold text-blue-400">
-                        İsteğe bağlı: İleri seviye filtreler
+                        Tablodaki kolon filtrelerini kullan
                       </span>
                       <p className="text-sm text-gray-400">
-                        Tarih, saat, takım bazlı detaylı filtreleme
+                        Odds bazlı hızlı filtreleme (&gt;2.5, &lt;1.8)
                       </p>
                     </div>
                   </li>
@@ -400,82 +637,80 @@ export default function DatabaseAnalysisPage() {
           )}
 
           {/* Maç Tablosu */}
-          {(matches.length > 0 || isLoading) && (
-            <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
-              <MatchTableNew matches={matches} isLoading={isLoading} />
+          <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
+            <MatchTableNew
+              matches={matches}
+              onOddsFilterChange={handleOddsFilterChange}
+            />
 
-              {/* Load More Butonu + Sayfalama */}
-              <div className="px-6 py-4 border-t border-gray-700 bg-gray-800">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-gray-300">
-                    <span className="font-medium text-blue-400">
-                      {matches.length}
-                    </span>{" "}
-                    / {totalMatches} maç gösteriliyor
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Sayfa {page} / {totalPages}
-                  </div>
+            {/* Load More Butonu + Sayfalama */}
+            <div className="px-6 py-4 border-t border-gray-700 bg-gray-800">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm text-gray-300">
+                  <span className="font-medium text-blue-400">
+                    {matches.length}
+                  </span>{" "}
+                  / {totalMatches} maç gösteriliyor
                 </div>
-
-                {/* Load More Butonu */}
-                {hasMore && (
-                  <button
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                  >
-                    {isLoadingMore ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg
-                          className="animate-spin h-5 w-5"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                            fill="none"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Yükleniyor...
-                      </span>
-                    ) : (
-                      "Daha Fazla Yükle"
-                    )}
-                  </button>
-                )}
-
-                {/* Klasik Sayfalama - Kaldırıldı */}
-                {false && totalPages > 1 && (
-                  <div className="flex gap-2 mt-4 justify-center">
-                    <button
-                      onClick={() => handlePageChange(page - 1)}
-                      disabled={page === 1}
-                      className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      ← Önceki
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(page + 1)}
-                      disabled={page === totalPages}
-                      className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Sonraki →
-                    </button>
-                  </div>
-                )}
+                <div className="text-xs text-gray-400">
+                  Sayfa {page} / {totalPages}
+                </div>
               </div>
+
+              {/* Load More Butonu */}
+              {hasMore && (
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {isLoadingMore ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Yükleniyor...
+                    </span>
+                  ) : (
+                    "Daha Fazla Yükle"
+                  )}
+                </button>
+              )}
+
+              {/* Klasik Sayfalama - Kaldırıldı */}
+              {false && totalPages > 1 && (
+                <div className="flex gap-2 mt-4 justify-center">
+                  <button
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 1}
+                    className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ← Önceki
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page === totalPages}
+                    className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sonraki →
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

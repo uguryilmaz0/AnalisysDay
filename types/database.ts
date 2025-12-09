@@ -230,6 +230,34 @@ export interface MatchFilters {
   homeTeam?: string; // Ev sahibi takım
   awayTeam?: string; // Deplasman takım
   teamSearch?: string;
+  
+  // Odds Filtreleri (Server-side)
+  // Format: ">2.5", "<1.8", "1.75"
+  ft_home_odds?: string;
+  ft_draw_odds?: string;
+  ft_away_odds?: string;
+  ht_home_odds?: string;
+  ht_draw_odds?: string;
+  ht_away_odds?: string;
+  ft_dc_1x_odds?: string;
+  ft_dc_12_odds?: string;
+  ft_dc_x2_odds?: string;
+  ht_dc_1x_odds?: string;
+  ht_dc_12_odds?: string;
+  ht_dc_x2_odds?: string;
+  ah_minus_05_odds?: string;
+  ah_0_odds?: string;
+  ah_plus_05_odds?: string;
+  eh_minus_1_odds?: string;
+  ht_ft_11_odds?: string;
+  ht_ft_1x_odds?: string;
+  ht_ft_12_odds?: string;
+  ht_ft_x1_odds?: string;
+  ht_ft_xx_odds?: string;
+  ht_ft_x2_odds?: string;
+  ht_ft_21_odds?: string;
+  ht_ft_2x_odds?: string;
+  ht_ft_22_odds?: string;
 }
 
 // API Response type'ları

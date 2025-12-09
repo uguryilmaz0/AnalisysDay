@@ -127,8 +127,39 @@ export async function getMatches(
     }
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters.timeFrom) params.append('timeFrom', filters.timeFrom);
+    if (filters.timeTo) params.append('timeTo', filters.timeTo);
     if (filters.homeTeam) params.append('homeTeam', filters.homeTeam);
     if (filters.awayTeam) params.append('awayTeam', filters.awayTeam);
+    if (filters.teamSearch) params.append('teamSearch', filters.teamSearch);
+    
+    // Odds filtreleri
+    if (filters.ft_home_odds) params.append('ft_home_odds', filters.ft_home_odds);
+    if (filters.ft_draw_odds) params.append('ft_draw_odds', filters.ft_draw_odds);
+    if (filters.ft_away_odds) params.append('ft_away_odds', filters.ft_away_odds);
+    if (filters.ht_home_odds) params.append('ht_home_odds', filters.ht_home_odds);
+    if (filters.ht_draw_odds) params.append('ht_draw_odds', filters.ht_draw_odds);
+    if (filters.ht_away_odds) params.append('ht_away_odds', filters.ht_away_odds);
+    if (filters.ft_dc_1x_odds) params.append('ft_dc_1x_odds', filters.ft_dc_1x_odds);
+    if (filters.ft_dc_12_odds) params.append('ft_dc_12_odds', filters.ft_dc_12_odds);
+    if (filters.ft_dc_x2_odds) params.append('ft_dc_x2_odds', filters.ft_dc_x2_odds);
+    if (filters.ht_dc_1x_odds) params.append('ht_dc_1x_odds', filters.ht_dc_1x_odds);
+    if (filters.ht_dc_12_odds) params.append('ht_dc_12_odds', filters.ht_dc_12_odds);
+    if (filters.ht_dc_x2_odds) params.append('ht_dc_x2_odds', filters.ht_dc_x2_odds);
+    if (filters.ah_minus_05_odds) params.append('ah_minus_05_odds', filters.ah_minus_05_odds);
+    if (filters.ah_0_odds) params.append('ah_0_odds', filters.ah_0_odds);
+    if (filters.ah_plus_05_odds) params.append('ah_plus_05_odds', filters.ah_plus_05_odds);
+    if (filters.eh_minus_1_odds) params.append('eh_minus_1_odds', filters.eh_minus_1_odds);
+    if (filters.ht_ft_11_odds) params.append('ht_ft_11_odds', filters.ht_ft_11_odds);
+    if (filters.ht_ft_1x_odds) params.append('ht_ft_1x_odds', filters.ht_ft_1x_odds);
+    if (filters.ht_ft_12_odds) params.append('ht_ft_12_odds', filters.ht_ft_12_odds);
+    if (filters.ht_ft_x1_odds) params.append('ht_ft_x1_odds', filters.ht_ft_x1_odds);
+    if (filters.ht_ft_xx_odds) params.append('ht_ft_xx_odds', filters.ht_ft_xx_odds);
+    if (filters.ht_ft_x2_odds) params.append('ht_ft_x2_odds', filters.ht_ft_x2_odds);
+    if (filters.ht_ft_21_odds) params.append('ht_ft_21_odds', filters.ht_ft_21_odds);
+    if (filters.ht_ft_2x_odds) params.append('ht_ft_2x_odds', filters.ht_ft_2x_odds);
+    if (filters.ht_ft_22_odds) params.append('ht_ft_22_odds', filters.ht_ft_22_odds);
+    
     params.append('page', page.toString());
     params.append('limit', pageSize.toString());
 
@@ -342,14 +373,52 @@ export async function getLeagueMatchCounts(): Promise<Record<string, number>> {
 export async function getMatchStatistics(filters: MatchFilters = {}) {
   try {
     // API endpoint kullan (RPC function ile optimize edilmiş)
-    console.log('🚀 API\'den istatistikler çekiliyor...');
+    console.log('🚀 API\'den istatistikler çekiliyor...', filters);
     
     const params = new URLSearchParams();
+    
+    // League filter
     if (filters.league && filters.league.length > 0) {
       params.append('leagues', filters.league.join(','));
     }
+    
+    // Date/Time filters
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters.timeFrom) params.append('timeFrom', filters.timeFrom);
+    if (filters.timeTo) params.append('timeTo', filters.timeTo);
+    
+    // Team filters
+    if (filters.homeTeam) params.append('homeTeam', filters.homeTeam);
+    if (filters.awayTeam) params.append('awayTeam', filters.awayTeam);
+    if (filters.teamSearch) params.append('teamSearch', filters.teamSearch);
+    
+    // Odds filters - 25 columns
+    if (filters.ft_home_odds) params.append('ft_home_odds', filters.ft_home_odds);
+    if (filters.ft_draw_odds) params.append('ft_draw_odds', filters.ft_draw_odds);
+    if (filters.ft_away_odds) params.append('ft_away_odds', filters.ft_away_odds);
+    if (filters.ht_home_odds) params.append('ht_home_odds', filters.ht_home_odds);
+    if (filters.ht_draw_odds) params.append('ht_draw_odds', filters.ht_draw_odds);
+    if (filters.ht_away_odds) params.append('ht_away_odds', filters.ht_away_odds);
+    if (filters.ft_dc_1x_odds) params.append('ft_dc_1x_odds', filters.ft_dc_1x_odds);
+    if (filters.ft_dc_12_odds) params.append('ft_dc_12_odds', filters.ft_dc_12_odds);
+    if (filters.ft_dc_x2_odds) params.append('ft_dc_x2_odds', filters.ft_dc_x2_odds);
+    if (filters.ht_dc_1x_odds) params.append('ht_dc_1x_odds', filters.ht_dc_1x_odds);
+    if (filters.ht_dc_12_odds) params.append('ht_dc_12_odds', filters.ht_dc_12_odds);
+    if (filters.ht_dc_x2_odds) params.append('ht_dc_x2_odds', filters.ht_dc_x2_odds);
+    if (filters.ah_minus_05_odds) params.append('ah_minus_05_odds', filters.ah_minus_05_odds);
+    if (filters.ah_0_odds) params.append('ah_0_odds', filters.ah_0_odds);
+    if (filters.ah_plus_05_odds) params.append('ah_plus_05_odds', filters.ah_plus_05_odds);
+    if (filters.eh_minus_1_odds) params.append('eh_minus_1_odds', filters.eh_minus_1_odds);
+    if (filters.ht_ft_11_odds) params.append('ht_ft_11_odds', filters.ht_ft_11_odds);
+    if (filters.ht_ft_1x_odds) params.append('ht_ft_1x_odds', filters.ht_ft_1x_odds);
+    if (filters.ht_ft_12_odds) params.append('ht_ft_12_odds', filters.ht_ft_12_odds);
+    if (filters.ht_ft_x1_odds) params.append('ht_ft_x1_odds', filters.ht_ft_x1_odds);
+    if (filters.ht_ft_xx_odds) params.append('ht_ft_xx_odds', filters.ht_ft_xx_odds);
+    if (filters.ht_ft_x2_odds) params.append('ht_ft_x2_odds', filters.ht_ft_x2_odds);
+    if (filters.ht_ft_21_odds) params.append('ht_ft_21_odds', filters.ht_ft_21_odds);
+    if (filters.ht_ft_2x_odds) params.append('ht_ft_2x_odds', filters.ht_ft_2x_odds);
+    if (filters.ht_ft_22_odds) params.append('ht_ft_22_odds', filters.ht_ft_22_odds);
 
     // Client-side: relative URL, Server-side: absolute URL
     const apiUrl = typeof window === 'undefined'
