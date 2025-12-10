@@ -46,8 +46,8 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (u) =>
-          u.username.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query) ||
+          u.username?.toLowerCase().includes(query) ||
+          u.email?.toLowerCase().includes(query) ||
           u.firstName?.toLowerCase().includes(query) ||
           u.lastName?.toLowerCase().includes(query)
       );

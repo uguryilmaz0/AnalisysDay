@@ -670,6 +670,47 @@ export async function deleteExpiredAnalyses(): Promise<number> {
   }
 }
 
+/**
+ * 1 hafta önceki tüm analizleri siler (günlük + yapay zeka)
+ * Cumartesi sabahı 05:00'da çalışır
+ */
+export async function deleteOldAnalyses(): Promise<{ 
+  dailyDeleted: number; 
+  aiDeleted: number 
+}> {
+  try {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const timestamp = Timestamp.fromDate(oneWeekAgo);
+
+    // Günlük analizleri sil
+    const dailyQuery = query(
+      collection(db, 'daily_analysis'),
+      where('createdAt', '<=', timestamp)
+    );
+    const dailySnapshot = await getDocs(dailyQuery);
+    const dailyDeletePromises = dailySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(dailyDeletePromises);
+
+    // Yapay zeka analizlerini sil
+    const aiQuery = query(
+      collection(db, 'ai_analysis'),
+      where('createdAt', '<=', timestamp)
+    );
+    const aiSnapshot = await getDocs(aiQuery);
+    const aiDeletePromises = aiSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(aiDeletePromises);
+
+    return {
+      dailyDeleted: dailySnapshot.size,
+      aiDeleted: aiSnapshot.size
+    };
+  } catch (error) {
+    console.error('1 haftalık eski analizler silinemedi:', error);
+    throw error;
+  }
+}
+
 // ==================== GÖRSEL YÜKLEMESİ (CLOUDINARY) ====================
 // Not: Cloudinary upload işlemleri client-side'da yapılacak
 // Bu fonksiyonlar sadece URL'leri kaydetmek için kullanılacak

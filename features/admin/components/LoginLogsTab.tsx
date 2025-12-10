@@ -45,25 +45,13 @@ export function LoginLogsTab() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const { showToast } = useToast();
-
-  const itemsPerPage = 20;
 
   // Fetch login logs
   const fetchLogs = async () => {
     try {
       setLoading(true);
-
-      const params = new URLSearchParams();
-      if (filter === "success") params.append("success", "true");
-      if (filter === "failed") params.append("success", "false");
-      if (filter === "vpn") params.append("vpnOnly", "true");
-      params.append("limit", "500");
-
-      const response = await authFetch(
-        `/api/admin/login-logs?${params.toString()}`
-      );
+      const response = await authFetch(`/api/admin/login-logs?pageSize=200&page=0`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch login logs");
@@ -83,33 +71,41 @@ export function LoginLogsTab() {
   useEffect(() => {
     fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, []);
 
   // Filter and search logs
   const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        log.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.ipAddress.includes(searchQuery) ||
-        (log.country &&
-          log.country.toLowerCase().includes(searchQuery.toLowerCase()));
+    let result = logs;
+    
+    // Filter by type
+    if (filter === "success") {
+      result = result.filter((log) => log.success);
+    } else if (filter === "failed") {
+      result = result.filter((log) => !log.success);
+    } else if (filter === "vpn") {
+      result = result.filter((log) => log.isVPN || log.isProxy || log.isTor);
+    }
+    
+    // Search filter
+    if (searchQuery) {
+      result = result.filter((log) => {
+        return (
+          log.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.ipAddress.includes(searchQuery) ||
+          (log.country &&
+            log.country.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+      });
+    }
 
-      return matchesSearch;
-    });
-  }, [logs, searchQuery]);
-
-  // Paginate logs
-  const paginatedLogs = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredLogs, currentPage]);
-
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+    return result;
+  }, [logs, searchQuery, filter]);
 
   // Format timestamp
-  const formatDate = (timestamp: { _seconds: number }) => {
-    const date = new Date(timestamp._seconds * 1000);
+  const formatDate = (timestamp: number | { _seconds: number }) => {
+    const date = typeof timestamp === 'number' 
+      ? new Date(timestamp) 
+      : new Date(timestamp._seconds * 1000);
     return date.toLocaleString("tr-TR", {
       year: "numeric",
       month: "2-digit",

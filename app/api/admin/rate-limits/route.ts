@@ -53,6 +53,17 @@ export async function GET(req: NextRequest) {
 
     console.log(`Rate limit check: ${keys.length} total keys, ${recentKeys.length} recent keys`);
     
+    // Eğer hiç key yoksa boş array dön
+    if (recentKeys.length === 0) {
+      return NextResponse.json({
+        success: true,
+        bans: [],
+        total: 0,
+        processed: 0,
+        skipped: keys.length,
+      });
+    }
+    
     // PIPELINE kullanarak tüm TYPE sorgularını tek seferde yap
     const pipeline = redis.pipeline();
     recentKeys.forEach(key => {

@@ -27,24 +27,50 @@ interface SystemLog {
 export function SystemLogsTab() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
   const [filter, setFilter] = useState<"all" | "info" | "warn" | "error">(
     "all"
   );
   const { showToast } = useToast();
 
-  const loadLogs = async () => {
-    setLoading(true);
+  const loadLogs = async (reset = true) => {
+    if (reset) {
+      setLoading(true);
+      setLogs([]);
+      setCurrentPage(0);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
-      const response = await authFetch(`/api/admin/logs?level=${filter}`);
+      const page = reset ? 0 : currentPage + 1;
+      const response = await authFetch(`/api/admin/logs?level=${filter}&pageSize=50&page=${page}`);
       if (!response.ok) throw new Error("Failed to load");
 
       const data = await response.json();
-      setLogs(data.logs || []);
+      
+      if (reset) {
+        setLogs(data.logs || []);
+      } else {
+        setLogs(prev => [...prev, ...(data.logs || [])]);
+        setCurrentPage(data.currentPage);
+      }
+      
+      setHasMore(data.hasMore || false);
     } catch (error) {
       console.error("Load logs error:", error);
       showToast("Loglar yüklenemedi!", "error");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+  
+  const loadMoreLogs = () => {
+    if (!loadingMore && hasMore) {
+      loadLogs(false);
     }
   };
 
@@ -66,7 +92,7 @@ export function SystemLogsTab() {
       if (!response.ok) throw new Error("Failed to clear");
 
       showToast("Loglar temizlendi!", "success");
-      await loadLogs();
+      await loadLogs(true);
     } catch (error) {
       console.error("Clear logs error:", error);
       showToast("Loglar temizlenemedi!", "error");
@@ -76,15 +102,15 @@ export function SystemLogsTab() {
   };
 
   useEffect(() => {
-    loadLogs();
+    loadLogs(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   useEffect(() => {
-    // Auto-refresh her 10 saniyede
+    // Auto-refresh her 30 saniyede (sadece ilk sayfa)
     const interval = setInterval(() => {
-      loadLogs();
-    }, 10000);
+      loadLogs(true);
+    }, 30000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
@@ -111,9 +137,8 @@ export function SystemLogsTab() {
     }
   };
 
-  const filteredLogs = logs.filter(
-    (log) => filter === "all" || log.level === filter
-  );
+  // Backend'de filtreleme yapılıyor, burada sadece göster
+  const filteredLogs = logs;
 
   if (loading && logs.length === 0) {
     return <LoadingSpinner size="lg" text="System logları yükleniyor..." />;
@@ -158,7 +183,7 @@ export function SystemLogsTab() {
           }`}
         >
           <Filter className="h-4 w-4" />
-          <span className="hidden sm:inline">Tümü</span> ({logs.length})
+          <span className="hidden sm:inline">Tümü</span>
         </button>
         <button
           onClick={() => setFilter("info")}
@@ -169,8 +194,7 @@ export function SystemLogsTab() {
           }`}
         >
           <Info className="h-4 w-4" />
-          <span className="hidden sm:inline">Info</span> (
-          {logs.filter((l) => l.level === "info").length})
+          <span className="hidden sm:inline">Info</span>
         </button>
         <button
           onClick={() => setFilter("warn")}
@@ -181,8 +205,7 @@ export function SystemLogsTab() {
           }`}
         >
           <AlertTriangle className="h-4 w-4" />
-          <span className="hidden sm:inline">Warn</span> (
-          {logs.filter((l) => l.level === "warn").length})
+          <span className="hidden sm:inline">Warn</span>
         </button>
         <button
           onClick={() => setFilter("error")}
@@ -193,8 +216,7 @@ export function SystemLogsTab() {
           }`}
         >
           <AlertCircle className="h-4 w-4" />
-          <span className="hidden sm:inline">Error</span> (
-          {logs.filter((l) => l.level === "error").length})
+          <span className="hidden sm:inline">Error</span>
         </button>
       </div>
 
@@ -210,57 +232,80 @@ export function SystemLogsTab() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {filteredLogs.map((log) => (
-            <div
-              key={log.id}
-              className={`border rounded-lg p-3 md:p-4 ${getLogColor(
-                log.level
-              )}`}
-            >
-              <div className="flex items-start gap-2 md:gap-3">
-                {getLogIcon(log.level)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-0 mb-2">
-                    <span className="text-white font-semibold text-sm md:text-base wrap-break-word">
-                      {log.message}
-                    </span>
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString("tr-TR", {
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+        <div className="space-y-3">
+          <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            {filteredLogs.map((log) => (
+              <div
+                key={log.id}
+                className={`border rounded-lg p-3 md:p-4 ${getLogColor(
+                  log.level
+                )}`}
+              >
+                <div className="flex items-start gap-2 md:gap-3">
+                  {getLogIcon(log.level)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-0 mb-2">
+                      <span className="text-white font-semibold text-sm md:text-base wrap-break-word">
+                        {log.message}
+                      </span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {new Date(log.timestamp).toLocaleString("tr-TR", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+
+                    {log.action && (
+                      <p className="text-xs md:text-sm text-gray-400 mb-2 wrap-break-word">
+                        <strong>Action:</strong> {log.action}
+                      </p>
+                    )}
+
+                    {log.userId && (
+                      <p className="text-xs md:text-sm text-gray-400 mb-2 break-all">
+                        <strong>User ID:</strong> {log.userId}
+                      </p>
+                    )}
+
+                    {log.context && Object.keys(log.context).length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-xs md:text-sm text-gray-400 cursor-pointer hover:text-gray-300">
+                          Context Details
+                        </summary>
+                        <pre className="mt-2 text-xs text-gray-300 bg-gray-900/50 rounded p-2 md:p-3 overflow-x-auto">
+                          {JSON.stringify(log.context, null, 2)}
+                        </pre>
+                      </details>
+                    )}
                   </div>
-
-                  {log.action && (
-                    <p className="text-xs md:text-sm text-gray-400 mb-2 wrap-break-word">
-                      <strong>Action:</strong> {log.action}
-                    </p>
-                  )}
-
-                  {log.userId && (
-                    <p className="text-xs md:text-sm text-gray-400 mb-2 break-all">
-                      <strong>User ID:</strong> {log.userId}
-                    </p>
-                  )}
-
-                  {log.context && Object.keys(log.context).length > 0 && (
-                    <details className="mt-2">
-                      <summary className="text-xs md:text-sm text-gray-400 cursor-pointer hover:text-gray-300">
-                        Context Details
-                      </summary>
-                      <pre className="mt-2 text-xs text-gray-300 bg-gray-900/50 rounded p-2 md:p-3 overflow-x-auto">
-                        {JSON.stringify(log.context, null, 2)}
-                      </pre>
-                    </details>
-                  )}
                 </div>
               </div>
+            ))}
+          </div>
+          
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={loadMoreLogs}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span className="ml-2">Yükleniyor...</span>
+                  </>
+                ) : (
+                  `Daha Fazla Yükle (${logs.length} log gösteriliyor)`
+                )}
+              </Button>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

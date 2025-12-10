@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Turbopack için boş config (webpack yerine)
+  turbopack: {},
 };
 
 export default nextConfig;

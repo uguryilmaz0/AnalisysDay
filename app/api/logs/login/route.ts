@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Redis } from '@upstash/redis';
 import { getClientIP, getIPInfo, getDeviceType } from '@/lib/ipUtils';
 
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
 /**
- * POST - Login activity'yi kaydet
+ * POST - Login activity'yi kaydet (REDIS)
  * Bu endpoint client-side'dan çağrılır (AuthContext.signIn içinde)
  */
 export async function POST(req: NextRequest) {
@@ -27,8 +31,10 @@ export async function POST(req: NextRequest) {
     // Detaylı IP bilgisi al (VPN, country, ISP etc.)
     const ipInfo = await getIPInfo(req);
 
+    const timestamp = Date.now();
     // Login log oluştur
     const loginLog = {
+      id: `${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
       userId: userId || null,
       email,
       ipAddress,
@@ -42,12 +48,17 @@ export async function POST(req: NextRequest) {
       isTor: ipInfo.isTor || false,
       success: success || false,
       failReason: failReason || null,
-      timestamp: Timestamp.now(),
-      createdAt: Timestamp.now(),
+      timestamp,
     };
 
-    // Firestore'a kaydet (Admin SDK kullanarak)
-    await adminDb.collection('login_logs').add(loginLog);
+    // Redis'e kaydet (sorted set - timestamp score)
+    await redis.zadd('login_logs:all', {
+      score: timestamp,
+      member: JSON.stringify(loginLog),
+    });
+    
+    // Son 2000 login log tut
+    await redis.zremrangebyrank('login_logs:all', 0, -2001);
 
     return NextResponse.json({ success: true });
   } catch (error) {

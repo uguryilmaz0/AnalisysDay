@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { Redis } from '@upstash/redis';
 import { requireSuperAdmin } from '@/middleware/auth';
 
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
 /**
- * GET - Login loglarını getir
+ * GET - Login loglarını getir (REDIS - PAGINATION)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -18,49 +23,49 @@ export async function GET(req: NextRequest) {
 
     // Query params
     const { searchParams } = new URL(req.url);
-    const email = searchParams.get('email');
-    const success = searchParams.get('success'); // 'true', 'false', or null for all
-    const vpnOnly = searchParams.get('vpnOnly') === 'true';
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const pageSize = parseInt(searchParams.get('pageSize') || '50');
+    const page = parseInt(searchParams.get('page') || '0');
 
-    // Build query
-    let query = adminDb
-      .collection('login_logs')
-      .orderBy('timestamp', 'desc')
-      .limit(limit);
+    console.log('🔐 [Login Logs] Fetching from Redis - page:', page);
 
-    // Apply filters
-    if (email) {
-      query = query.where('email', '==', email);
+    // Redis'ten son login logları çek
+    const start = page * pageSize;
+    const end = start + pageSize;
+
+
+    const logStrings = await redis.zrange('login_logs:all', start, end, { rev: true }) as string[];
+    
+    const hasMore = logStrings.length > pageSize;
+    const logs = logStrings
+      .slice(0, pageSize)
+      .map((logStr) => {
+        try {
+          return JSON.parse(logStr);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    interface LogEntry {
+      success: boolean;
+      isVPN?: boolean;
+      isProxy?: boolean;
+      isTor?: boolean;
+      country?: string;
+      email: string;
     }
 
-    if (success === 'true') {
-      query = query.where('success', '==', true);
-    } else if (success === 'false') {
-      query = query.where('success', '==', false);
-    }
+    const typedLogs = logs as LogEntry[];
 
-    if (vpnOnly) {
-      query = query.where('isVPN', '==', true);
-    }
-
-    // Execute query
-    const snapshot = await query.get();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const logs = snapshot.docs.map((doc): any => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    // Get stats
+    // Stats hesapla
     const stats = {
-      total: logs.length,
-      successful: logs.filter((l) => l.success).length,
-      failed: logs.filter((l) => l.success === false).length,
-      vpnCount: logs.filter((l) => l.isVPN || l.isProxy || l.isTor).length,
-      byCountry: logs.reduce(
-        (acc, log) => {
+      total: typedLogs.length,
+      successful: typedLogs.filter((l) => l.success).length,
+      failed: typedLogs.filter((l) => l.success === false).length,
+      vpnCount: typedLogs.filter((l) => l.isVPN || l.isProxy || l.isTor).length,
+      byCountry: typedLogs.reduce(
+        (acc: Record<string, number>, log) => {
           const country = log.country || 'Unknown';
           acc[country] = (acc[country] || 0) + 1;
           return acc;
@@ -68,8 +73,8 @@ export async function GET(req: NextRequest) {
         {} as Record<string, number>
       ),
       topEmails: Object.entries(
-        logs.reduce(
-          (acc, log) => {
+        typedLogs.reduce(
+          (acc: Record<string, number>, log) => {
             acc[log.email] = (acc[log.email] || 0) + 1;
             return acc;
           },
@@ -84,6 +89,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       logs,
       stats,
+      hasMore,
+      currentPage: page,
+      nextPage: hasMore ? page + 1 : null,
     });
   } catch (error) {
     console.error('Get login logs error:', error);

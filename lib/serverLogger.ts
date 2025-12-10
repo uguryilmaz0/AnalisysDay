@@ -1,10 +1,15 @@
 /**
  * Server-Side Logging Service
  * Bu logger sadece API routes ve server components'te kullanılmalı
- * Firestore'a log kaydeder
+ * Redis'e log kaydeder (Firebase quota sorunu yok)
  */
 
-import { adminDb } from './firebaseAdmin';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -19,6 +24,8 @@ interface LogContext {
 
 class ServerLogger {
   private isDevelopment = process.env.NODE_ENV === 'development';
+  private readonly LOG_KEY_PREFIX = 'system_logs:';
+  private readonly MAX_LOGS = 1000; // Redis'te max 1000 log tut
 
   private formatMessage(level: LogLevel, message: string): string {
     const timestamp = new Date().toISOString();
@@ -32,32 +39,45 @@ class ServerLogger {
     return `${emoji} [${timestamp}] [${level.toUpperCase()}] ${message}`;
   }
 
-  private log(level: LogLevel, message: string, context?: LogContext): void {
+  private async log(level: LogLevel, message: string, context?: LogContext): Promise<void> {
     const formattedMessage = this.formatMessage(level, message);
 
     // Console'a her zaman yaz
     const consoleMethod = level === 'debug' ? 'log' : level;
     console[consoleMethod](formattedMessage, context || '');
 
-    // Firestore'a kaydet (fire-and-forget)
-    // Undefined değerleri filtrele
-    const logData: Record<string, any> = {
+    // Redis'e kaydet (fire-and-forget)
+    const timestamp = Date.now();
+    const logData = {
+      id: `${timestamp}-${Math.random().toString(36).substr(2, 9)}`,
       level,
       message,
       context: context || {},
-      timestamp: Date.now(),
-      createdAt: new Date(),
+      timestamp,
+      userId: context?.userId,
+      action: context?.action,
+      path: context?.path,
     };
 
-    // Optional fields - sadece tanımlıysa ekle
-    if (context?.userId) logData.userId = context.userId;
-    if (context?.action) logData.action = context.action;
-    if (context?.path) logData.path = context.path;
+    try {
+      // ZADD ile sorted set'e ekle (timestamp score olarak)
+      await redis.zadd(`${this.LOG_KEY_PREFIX}all`, {
+        score: timestamp,
+        member: JSON.stringify(logData),
+      });
 
-    adminDb.collection('system_logs').add(logData).catch((error) => {
-      // Firestore'a kaydedilemezse sadece console'a yaz
-      console.error('[ServerLogger] Failed to save log to Firestore:', error);
-    });
+      // Level bazlı ayrı set (filtreleme için)
+      await redis.zadd(`${this.LOG_KEY_PREFIX}${level}`, {
+        score: timestamp,
+        member: JSON.stringify(logData),
+      });
+
+      // Eski logları temizle (sadece son 1000 log kalsın)
+      await redis.zremrangebyrank(`${this.LOG_KEY_PREFIX}all`, 0, -this.MAX_LOGS - 1);
+      await redis.zremrangebyrank(`${this.LOG_KEY_PREFIX}${level}`, 0, -this.MAX_LOGS - 1);
+    } catch (error) {
+      console.error('[ServerLogger] Failed to save log to Redis:', error);
+    }
   }
 
   /**

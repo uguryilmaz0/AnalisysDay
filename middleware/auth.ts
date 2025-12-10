@@ -13,6 +13,30 @@ import { NextRequest } from 'next/server';
 import { verifyIdToken, getUserData, isAdmin as checkIsAdmin } from '@/lib/firebaseAdmin';
 import { serverLogger as logger } from '@/lib/serverLogger';
 
+// In-memory cache for super admin check (prevent Firebase quota exhaustion)
+const superAdminCache = new Map<string, { isSuperAdmin: boolean; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 dakika
+
+function checkSuperAdminCache(email: string): boolean | null {
+  const cached = superAdminCache.get(email);
+  if (!cached) return null;
+  
+  const isExpired = Date.now() - cached.timestamp > CACHE_TTL;
+  if (isExpired) {
+    superAdminCache.delete(email);
+    return null;
+  }
+  
+  return cached.isSuperAdmin;
+}
+
+function setSuperAdminCache(email: string, isSuperAdmin: boolean) {
+  superAdminCache.set(email, {
+    isSuperAdmin,
+    timestamp: Date.now()
+  });
+}
+
 /**
  * Request'ten auth token'ı çıkar
  * 
@@ -193,13 +217,38 @@ export async function requireSuperAdmin(
     // Önce token'ı doğrula
     const decodedToken = await verifyAuth(req);
     
+    const userEmail = decodedToken.email?.toLowerCase() || '';
+    
+    // Cache'den kontrol et (Firebase kotasını aşmamak için)
+    const cachedResult = checkSuperAdminCache(userEmail);
+    if (cachedResult !== null) {
+      if (!cachedResult) {
+        return {
+          error: 'Forbidden: Super admin access required',
+          status: 403,
+        };
+      }
+      // Cache hit - Firebase'e gitmeden user data döndür
+      logger.debug('Super admin cache HIT', { email: userEmail });
+      return {
+        user: {
+          uid: decodedToken.uid,
+          email: userEmail,
+          role: 'admin',
+          emailVerified: true,
+        } as Awaited<ReturnType<typeof requireAuth>>,
+      };
+    }
+    
     // Super admin email listesi
     const superAdminEmails = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS
       ?.split(',')
       .map(e => e.trim().toLowerCase()) || [];
 
-    const userEmail = decodedToken.email?.toLowerCase() || '';
     const isSuperAdmin = superAdminEmails.includes(userEmail);
+    
+    // Cache'e kaydet
+    setSuperAdminCache(userEmail, isSuperAdmin);
 
     if (!isSuperAdmin) {
       logger.warn('Super admin access denied - not in super admin list', {
@@ -213,21 +262,17 @@ export async function requireSuperAdmin(
       };
     }
 
-    // Super admin olduğu doğrulandı, user data al (email doğrulama bypass)
-    const userData = await getUserData(decodedToken.uid);
-    
-    if (!userData) {
-      return {
-        error: 'User data not found',
-        status: 404,
-      };
-    }
+    // Super admin olduğu doğrulandı - minimal user data döndür (Firebase'e GİTMEDEN)
+    logger.info('Super admin authenticated (cache MISS)', {
+      uid: decodedToken.uid,
+      email: userEmail,
+    });
 
     const user = {
       uid: decodedToken.uid,
-      email: decodedToken.email || userData.email,
-      role: userData.role || 'admin',
-      ...userData,
+      email: userEmail,
+      role: 'admin',
+      emailVerified: true,
     };
 
     // Super admin authenticated - log atma (her request'te log atılmasın)

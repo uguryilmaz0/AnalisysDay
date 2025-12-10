@@ -62,7 +62,7 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            <Link
+            {/* <Link
               href="/database-analysis"
               className={`${
                 isActive("/database-analysis")
@@ -71,7 +71,7 @@ export default function Header() {
               } transition-all duration-200 flex items-center gap-1`}
             >
               <span>📊</span> Analiz Et
-            </Link>
+            </Link> */}
             <Link
               href="/faq"
               className={`${
@@ -216,7 +216,7 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            <Link
+            {/* <Link
               href="/database-analysis"
               onClick={() => setMobileMenuOpen(false)}
               className={`block py-2 ${
@@ -226,7 +226,7 @@ export default function Header() {
               } transition-colors flex items-center gap-1`}
             >
               <span>📊</span> Analiz Et
-            </Link>
+            </Link> */}
             <Link
               href="/faq"
               onClick={() => setMobileMenuOpen(false)}
