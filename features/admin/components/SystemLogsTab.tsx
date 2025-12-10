@@ -43,21 +43,23 @@ export function SystemLogsTab() {
     } else {
       setLoadingMore(true);
     }
-    
+
     try {
       const page = reset ? 0 : currentPage + 1;
-      const response = await authFetch(`/api/admin/logs?level=${filter}&pageSize=50&page=${page}`);
+      const response = await authFetch(
+        `/api/admin/logs?level=${filter}&pageSize=50&page=${page}`
+      );
       if (!response.ok) throw new Error("Failed to load");
 
       const data = await response.json();
-      
+
       if (reset) {
         setLogs(data.logs || []);
       } else {
-        setLogs(prev => [...prev, ...(data.logs || [])]);
+        setLogs((prev) => [...prev, ...(data.logs || [])]);
         setCurrentPage(data.currentPage);
       }
-      
+
       setHasMore(data.hasMore || false);
     } catch (error) {
       console.error("Load logs error:", error);
@@ -67,7 +69,7 @@ export function SystemLogsTab() {
       setLoadingMore(false);
     }
   };
-  
+
   const loadMoreLogs = () => {
     if (!loadingMore && hasMore) {
       loadLogs(false);
@@ -152,7 +154,7 @@ export function SystemLogsTab() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={loadLogs}
+            onClick={() => loadLogs(true)}
             icon={<Clock className="h-4 w-4" />}
           >
             <span className="hidden sm:inline">Yenile</span>
@@ -285,7 +287,7 @@ export function SystemLogsTab() {
               </div>
             ))}
           </div>
-          
+
           {/* Load More Button */}
           {hasMore && (
             <div className="flex justify-center pt-4">

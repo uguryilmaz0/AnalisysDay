@@ -51,7 +51,9 @@ export function LoginLogsTab() {
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const response = await authFetch(`/api/admin/login-logs?pageSize=200&page=0`);
+      const response = await authFetch(
+        `/api/admin/login-logs?pageSize=200&page=0`
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch login logs");
@@ -76,7 +78,7 @@ export function LoginLogsTab() {
   // Filter and search logs
   const filteredLogs = useMemo(() => {
     let result = logs;
-    
+
     // Filter by type
     if (filter === "success") {
       result = result.filter((log) => log.success);
@@ -85,7 +87,7 @@ export function LoginLogsTab() {
     } else if (filter === "vpn") {
       result = result.filter((log) => log.isVPN || log.isProxy || log.isTor);
     }
-    
+
     // Search filter
     if (searchQuery) {
       result = result.filter((log) => {
@@ -103,9 +105,10 @@ export function LoginLogsTab() {
 
   // Format timestamp
   const formatDate = (timestamp: number | { _seconds: number }) => {
-    const date = typeof timestamp === 'number' 
-      ? new Date(timestamp) 
-      : new Date(timestamp._seconds * 1000);
+    const date =
+      typeof timestamp === "number"
+        ? new Date(timestamp)
+        : new Date(timestamp._seconds * 1000);
     return date.toLocaleString("tr-TR", {
       year: "numeric",
       month: "2-digit",
@@ -162,7 +165,6 @@ export function LoginLogsTab() {
   const resetFilters = () => {
     setSearchQuery("");
     setFilter("all");
-    setCurrentPage(1);
   };
 
   if (loading) {
@@ -224,7 +226,6 @@ export function LoginLogsTab() {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setCurrentPage(1);
               }}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
@@ -237,7 +238,6 @@ export function LoginLogsTab() {
               size="sm"
               onClick={() => {
                 setFilter("all");
-                setCurrentPage(1);
               }}
             >
               Tümü ({logs.length})
@@ -247,7 +247,6 @@ export function LoginLogsTab() {
               size="sm"
               onClick={() => {
                 setFilter("success");
-                setCurrentPage(1);
               }}
             >
               Başarılı ({stats?.successful || 0})
@@ -257,7 +256,6 @@ export function LoginLogsTab() {
               size="sm"
               onClick={() => {
                 setFilter("failed");
-                setCurrentPage(1);
               }}
             >
               Başarısız ({stats?.failed || 0})
@@ -267,7 +265,6 @@ export function LoginLogsTab() {
               size="sm"
               onClick={() => {
                 setFilter("vpn");
-                setCurrentPage(1);
               }}
             >
               VPN/Proxy ({stats?.vpnCount || 0})
@@ -327,7 +324,7 @@ export function LoginLogsTab() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedLogs.map((log) => (
+                {filteredLogs.map((log) => (
                   <tr
                     key={log.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -377,65 +374,6 @@ export function LoginLogsTab() {
               </tbody>
             </table>
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700 dark:text-gray-300">
-                  {filteredLogs.length} kayıttan{" "}
-                  {(currentPage - 1) * itemsPerPage + 1}-
-                  {Math.min(currentPage * itemsPerPage, filteredLogs.length)}{" "}
-                  arası gösteriliyor
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Önceki
-                  </Button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={
-                          currentPage === pageNum ? "primary" : "secondary"
-                        }
-                        size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                  >
-                    Sonraki
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
         </Card>
       )}
     </div>
