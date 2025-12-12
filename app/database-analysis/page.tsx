@@ -3,9 +3,15 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { MatchData, MatchFilters, MatchStatistics } from "@/types/database";
-import { getLeagues, getMatches, getMatchStatistics } from "@/lib/matchService";
-import { supabase } from "@/lib/supabase";
+import { MatchFilters, MatchData as OldMatchData } from "@/types/database";
+import {
+  getLeagues,
+  getMatches,
+  getMatchStats,
+  StatsServiceResponse,
+  MatchServiceFilters,
+} from "@/lib/matchService";
+import { MatchData } from "@/lib/database/types/match.types_v2";
 import LeagueSidebar from "./components/LeagueSidebar";
 import FilterBar from "./components/FilterBar";
 import MatchTableNew from "./components/MatchTableNew";
@@ -13,231 +19,587 @@ import StatisticsCard from "./components/StatisticsCard";
 
 export default function DatabaseAnalysisPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
 
-  // Not: LocalStorage boyut limiti nedeniyle kaldırıldı (239 kolon * 1000 maç = ~5MB)
-  // Her maç ortalama 5KB yer kaplıyor, 1000 maç = 5MB (browser limit aşıyor)
-
-  // State - Hook'lar her zaman aynı sırada olmalı (conditional return'den önce)
+  // ALL HOOKS MUST BE DEFINED BEFORE ANY CONDITIONAL RETURNS
   const [leagues, setLeagues] = useState<string[]>([]);
   const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
   const [filters, setFilters] = useState<MatchFilters>({});
   const [appliedFilters, setAppliedFilters] = useState<MatchFilters>({});
-  const [matches, setMatches] = useState<MatchData[]>([]);
-  const [statistics, setStatistics] = useState<MatchStatistics | null>(null);
+  const [matches, setMatches] = useState<OldMatchData[]>([]);
+  const [statistics, setStatistics] = useState<StatsServiceResponse | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<string>("");
-  const pageSize = 100; // Hızlı yükleme için 100 maç
+  const pageSize = 100;
   const [allTeams, setAllTeams] = useState<string[]>([]);
-  const [leagueMatchCounts] = useState<Record<string, number>>({});
 
-  // Debounced odds filter handler (hooks before early return)
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const oddsFilterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Odds filtre mapping (UI key → API key)
-  const mapOddsFiltersToAPI = useCallback(
-    (oddsFilters: Record<string, string>): Partial<MatchFilters> => {
+  // Helper function to convert new MatchData to old MatchData format
+  const convertMatchData = useCallback((newMatch: MatchData): OldMatchData => {
+    return {
+      id: Math.floor(Math.random() * 1000000), // Generate a random ID
+      home_team: newMatch.home_team,
+      away_team: newMatch.away_team,
+      league: newMatch.league,
+      match_date: `${newMatch.year}-${newMatch.month.padStart(
+        2,
+        "0"
+      )}-${newMatch.day.padStart(2, "0")}`,
+      bookmaker: newMatch.bookmaker || "",
+      ht_score: newMatch.ht_score || "",
+      ft_score: newMatch.ft_score || "",
+      ht_ft: newMatch.ht_ft || "",
+      ht_over_05: newMatch.ht_over_05 || 0,
+      ft_over_15: newMatch.ft_over_15 || 0,
+      ft_over_25: newMatch.ft_over_25 || 0,
+      ft_over_35: newMatch.ft_over_35 || 0,
+      btts: newMatch.btts || 0,
+      day: parseInt(newMatch.day || "0"),
+      month: parseInt(newMatch.month || "0"),
+      year: parseInt(newMatch.year || "0"),
+      time: newMatch.time || "",
+
+      // Map all odds fields
+      ft_home_odds_open: newMatch.ft_home_odds_open,
+      ft_home_odds_close: newMatch.ft_home_odds_close,
+      ft_draw_odds_open: newMatch.ft_draw_odds_open,
+      ft_draw_odds_close: newMatch.ft_draw_odds_close,
+      ft_away_odds_open: newMatch.ft_away_odds_open,
+      ft_away_odds_close: newMatch.ft_away_odds_close,
+
+      ht_home_odds_open: newMatch.ht_home_odds_open,
+      ht_home_odds_close: newMatch.ht_home_odds_close,
+      ht_draw_odds_open: newMatch.ht_draw_odds_open,
+      ht_draw_odds_close: newMatch.ht_draw_odds_close,
+      ht_away_odds_open: newMatch.ht_away_odds_open,
+      ht_away_odds_close: newMatch.ht_away_odds_close,
+
+      sh_home_odds_open: newMatch.sh_home_odds_open,
+      sh_home_odds_close: newMatch.sh_home_odds_close,
+      sh_draw_odds_open: newMatch.sh_draw_odds_open,
+      sh_draw_odds_close: newMatch.sh_draw_odds_close,
+      sh_away_odds_open: newMatch.sh_away_odds_open,
+      sh_away_odds_close: newMatch.sh_away_odds_close,
+
+      home_away_home_odds_open: newMatch.home_away_home_odds_open,
+      home_away_home_odds_close: newMatch.home_away_home_odds_close,
+      home_away_away_odds_open: newMatch.home_away_away_odds_open,
+      home_away_away_odds_close: newMatch.home_away_away_odds_close,
+
+      // BTTS Odds
+      ft_btts_yes_odds_open: newMatch.ft_btts_yes_odds_open || null,
+      ft_btts_yes_odds_close: newMatch.ft_btts_yes_odds_close || null,
+      ft_btts_no_odds_open: newMatch.ft_btts_no_odds_open || null,
+      ft_btts_no_odds_close: newMatch.ft_btts_no_odds_close || null,
+      ht_btts_yes_odds_open: newMatch.ht_btts_yes_odds_open || null,
+      ht_btts_yes_odds_close: newMatch.ht_btts_yes_odds_close || null,
+      ht_btts_no_odds_open: newMatch.ht_btts_no_odds_open || null,
+      ht_btts_no_odds_close: newMatch.ht_btts_no_odds_close || null,
+      sh_btts_yes_odds_open: newMatch.sh_btts_yes_odds_open || null,
+      sh_btts_yes_odds_close: newMatch.sh_btts_yes_odds_close || null,
+      sh_btts_no_odds_open: newMatch.sh_btts_no_odds_open || null,
+      sh_btts_no_odds_close: newMatch.sh_btts_no_odds_close || null,
+
+      // Double Chance
+      ft_dc_1x_odds_open: newMatch.ft_dc_1x_odds_open || null,
+      ft_dc_1x_odds_close: newMatch.ft_dc_1x_odds_close || null,
+      ft_dc_12_odds_open: newMatch.ft_dc_12_odds_open || null,
+      ft_dc_12_odds_close: newMatch.ft_dc_12_odds_close || null,
+      ft_dc_x2_odds_open: newMatch.ft_dc_x2_odds_open || null,
+      ft_dc_x2_odds_close: newMatch.ft_dc_x2_odds_close || null,
+      ht_dc_1x_odds_open: newMatch.ht_dc_1x_odds_open || null,
+      ht_dc_1x_odds_close: newMatch.ht_dc_1x_odds_close || null,
+      ht_dc_12_odds_open: newMatch.ht_dc_12_odds_open || null,
+      ht_dc_12_odds_close: newMatch.ht_dc_12_odds_close || null,
+      ht_dc_x2_odds_open: newMatch.ht_dc_x2_odds_open || null,
+      ht_dc_x2_odds_close: newMatch.ht_dc_x2_odds_close || null,
+
+      // Over/Under - Full Time
+      ft_over_05_odds_open: newMatch.ft_over_05_odds_open || null,
+      ft_over_05_odds_close: newMatch.ft_over_05_odds_close || null,
+      ft_under_05_odds_open: newMatch.ft_under_05_odds_open || null,
+      ft_under_05_odds_close: newMatch.ft_under_05_odds_close || null,
+      ft_over_15_odds_open: newMatch.ft_over_15_odds_open || null,
+      ft_over_15_odds_close: newMatch.ft_over_15_odds_close || null,
+      ft_under_15_odds_open: newMatch.ft_under_15_odds_open || null,
+      ft_under_15_odds_close: newMatch.ft_under_15_odds_close || null,
+      ft_over_25_odds_open: newMatch.ft_over_25_odds_open || null,
+      ft_over_25_odds_close: newMatch.ft_over_25_odds_close || null,
+      ft_under_25_odds_open: newMatch.ft_under_25_odds_open || null,
+      ft_under_25_odds_close: newMatch.ft_under_25_odds_close || null,
+      ft_over_35_odds_open: newMatch.ft_over_35_odds_open || null,
+      ft_over_35_odds_close: newMatch.ft_over_35_odds_close || null,
+      ft_under_35_odds_open: newMatch.ft_under_35_odds_open || null,
+      ft_under_35_odds_close: newMatch.ft_under_35_odds_close || null,
+      ft_over_45_odds_open: newMatch.ft_over_45_odds_open || null,
+      ft_over_45_odds_close: newMatch.ft_over_45_odds_close || null,
+      ft_under_45_odds_open: newMatch.ft_under_45_odds_open || null,
+      ft_under_45_odds_close: newMatch.ft_under_45_odds_close || null,
+      ft_over_55_odds_open: newMatch.ft_over_55_odds_open || null,
+      ft_over_55_odds_close: newMatch.ft_over_55_odds_close || null,
+      ft_under_55_odds_open: newMatch.ft_under_55_odds_open || null,
+      ft_under_55_odds_close: newMatch.ft_under_55_odds_close || null,
+
+      // Over/Under - Half Time
+      ht_over_05_odds_open: newMatch.ht_over_05_odds_open || null,
+      ht_over_05_odds_close: newMatch.ht_over_05_odds_close || null,
+      ht_under_05_odds_open: newMatch.ht_under_05_odds_open || null,
+      ht_under_05_odds_close: newMatch.ht_under_05_odds_close || null,
+      ht_over_15_odds_open: newMatch.ht_over_15_odds_open || null,
+      ht_over_15_odds_close: newMatch.ht_over_15_odds_close || null,
+      ht_under_15_odds_open: newMatch.ht_under_15_odds_open || null,
+      ht_under_15_odds_close: newMatch.ht_under_15_odds_close || null,
+      ht_over_25_odds_open: newMatch.ht_over_25_odds_open || null,
+      ht_over_25_odds_close: newMatch.ht_over_25_odds_close || null,
+      ht_under_25_odds_open: newMatch.ht_under_25_odds_open || null,
+      ht_under_25_odds_close: newMatch.ht_under_25_odds_close || null,
+
+      // Over/Under - Second Half
+      sh_over_05_odds_open: newMatch.sh_over_05_odds_open || null,
+      sh_over_05_odds_close: newMatch.sh_over_05_odds_close || null,
+      sh_under_05_odds_open: newMatch.sh_under_05_odds_open || null,
+      sh_under_05_odds_close: newMatch.sh_under_05_odds_close || null,
+      sh_over_15_odds_open: newMatch.sh_over_15_odds_open || null,
+      sh_over_15_odds_close: newMatch.sh_over_15_odds_close || null,
+      sh_under_15_odds_open: newMatch.sh_under_15_odds_open || null,
+      sh_under_15_odds_close: newMatch.sh_under_15_odds_close || null,
+      sh_over_25_odds_open: newMatch.sh_over_25_odds_open || null,
+      sh_over_25_odds_close: newMatch.sh_over_25_odds_close || null,
+      sh_under_25_odds_open: newMatch.sh_under_25_odds_open || null,
+      sh_under_25_odds_close: newMatch.sh_under_25_odds_close || null,
+
+      // Asian Handicap
+      ah_minus_05_home_odds_open: newMatch.ah_minus_05_home_odds_open || null,
+      ah_minus_05_home_odds_close: newMatch.ah_minus_05_home_odds_close || null,
+      ah_minus_05_away_odds_open: newMatch.ah_minus_05_away_odds_open || null,
+      ah_minus_05_away_odds_close: newMatch.ah_minus_05_away_odds_close || null,
+      ah_0_home_odds_open: newMatch.ah_0_home_odds_open || null,
+      ah_0_home_odds_close: newMatch.ah_0_home_odds_close || null,
+      ah_0_away_odds_open: newMatch.ah_0_away_odds_open || null,
+      ah_0_away_odds_close: newMatch.ah_0_away_odds_close || null,
+      ah_plus_05_home_odds_open: newMatch.ah_plus_05_home_odds_open || null,
+      ah_plus_05_home_odds_close: newMatch.ah_plus_05_home_odds_close || null,
+      ah_plus_05_away_odds_open: newMatch.ah_plus_05_away_odds_open || null,
+      ah_plus_05_away_odds_close: newMatch.ah_plus_05_away_odds_close || null,
+
+      // European Handicap
+      eh_minus_1_home_odds_open: newMatch.eh_minus_1_home_odds_open || null,
+      eh_minus_1_home_odds_close: newMatch.eh_minus_1_home_odds_close || null,
+      eh_minus_1_draw_odds_open: newMatch.eh_minus_1_draw_odds_open || null,
+      eh_minus_1_draw_odds_close: newMatch.eh_minus_1_draw_odds_close || null,
+      eh_minus_1_away_odds_open: newMatch.eh_minus_1_away_odds_open || null,
+      eh_minus_1_away_odds_close: newMatch.eh_minus_1_away_odds_close || null,
+
+      // HT/FT Odds
+      ht_ft_11_odds_open: newMatch.ht_ft_11_odds_open || null,
+      ht_ft_11_odds_close: newMatch.ht_ft_11_odds_close || null,
+      ht_ft_1x_odds_open: newMatch.ht_ft_1x_odds_open || null,
+      ht_ft_1x_odds_close: newMatch.ht_ft_1x_odds_close || null,
+      ht_ft_12_odds_open: newMatch.ht_ft_12_odds_open || null,
+      ht_ft_12_odds_close: newMatch.ht_ft_12_odds_close || null,
+      ht_ft_x1_odds_open: newMatch.ht_ft_x1_odds_open || null,
+      ht_ft_x1_odds_close: newMatch.ht_ft_x1_odds_close || null,
+      ht_ft_xx_odds_open: newMatch.ht_ft_xx_odds_open || null,
+      ht_ft_xx_odds_close: newMatch.ht_ft_xx_odds_close || null,
+      ht_ft_x2_odds_open: newMatch.ht_ft_x2_odds_open || null,
+      ht_ft_x2_odds_close: newMatch.ht_ft_x2_odds_close || null,
+      ht_ft_21_odds_open: newMatch.ht_ft_21_odds_open || null,
+      ht_ft_21_odds_close: newMatch.ht_ft_21_odds_close || null,
+      ht_ft_2x_odds_open: newMatch.ht_ft_2x_odds_open || null,
+      ht_ft_2x_odds_close: newMatch.ht_ft_2x_odds_close || null,
+      ht_ft_22_odds_open: newMatch.ht_ft_22_odds_open || null,
+      ht_ft_22_odds_close: newMatch.ht_ft_22_odds_close || null,
+
+      // HT Correct Score
+      ht_cs_10_odds_open: newMatch.ht_cs_10_odds_open || null,
+      ht_cs_10_odds_close: newMatch.ht_cs_10_odds_close || null,
+      ht_cs_20_odds_open: newMatch.ht_cs_20_odds_open || null,
+      ht_cs_20_odds_close: newMatch.ht_cs_20_odds_close || null,
+      ht_cs_21_odds_open: newMatch.ht_cs_21_odds_open || null,
+      ht_cs_21_odds_close: newMatch.ht_cs_21_odds_close || null,
+      ht_cs_00_odds_open: newMatch.ht_cs_00_odds_open || null,
+      ht_cs_00_odds_close: newMatch.ht_cs_00_odds_close || null,
+      ht_cs_11_odds_open: newMatch.ht_cs_11_odds_open || null,
+      ht_cs_11_odds_close: newMatch.ht_cs_11_odds_close || null,
+      ht_cs_01_odds_open: newMatch.ht_cs_01_odds_open || null,
+      ht_cs_01_odds_close: newMatch.ht_cs_01_odds_close || null,
+      ht_cs_02_odds_open: newMatch.ht_cs_02_odds_open || null,
+      ht_cs_02_odds_close: newMatch.ht_cs_02_odds_close || null,
+      ht_cs_12_odds_open: newMatch.ht_cs_12_odds_open || null,
+      ht_cs_12_odds_close: newMatch.ht_cs_12_odds_close || null,
+
+      // FT Correct Scores (using placeholders since not all exist in new data)
+      ft_cs_10_odds_open: newMatch.ft_cs_10_odds_open || null,
+      ft_cs_10_odds_close: newMatch.ft_cs_10_odds_close || null,
+      ft_cs_20_odds_open: newMatch.ft_cs_20_odds_open || null,
+      ft_cs_20_odds_close: newMatch.ft_cs_20_odds_close || null,
+      ft_cs_21_odds_open: newMatch.ft_cs_21_odds_open || null,
+      ft_cs_21_odds_close: newMatch.ft_cs_21_odds_close || null,
+      ft_cs_30_odds_open: newMatch.ft_cs_30_odds_open || null,
+      ft_cs_30_odds_close: newMatch.ft_cs_30_odds_close || null,
+      ft_cs_31_odds_open: newMatch.ft_cs_31_odds_open || null,
+      ft_cs_31_odds_close: newMatch.ft_cs_31_odds_close || null,
+      ft_cs_00_odds_open: newMatch.ft_cs_00_odds_open || null,
+      ft_cs_00_odds_close: newMatch.ft_cs_00_odds_close || null,
+      ft_cs_11_odds_open: newMatch.ft_cs_11_odds_open || null,
+      ft_cs_11_odds_close: newMatch.ft_cs_11_odds_close || null,
+      ft_cs_22_odds_open: newMatch.ft_cs_22_odds_open || null,
+      ft_cs_22_odds_close: newMatch.ft_cs_22_odds_close || null,
+      ft_cs_01_odds_open: newMatch.ft_cs_01_odds_open || null,
+      ft_cs_01_odds_close: newMatch.ft_cs_01_odds_close || null,
+      ft_cs_02_odds_open: newMatch.ft_cs_02_odds_open || null,
+      ft_cs_02_odds_close: newMatch.ft_cs_02_odds_close || null,
+      ft_cs_12_odds_open: newMatch.ft_cs_12_odds_open || null,
+      ft_cs_12_odds_close: newMatch.ft_cs_12_odds_close || null,
+
+      // Metadata
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }, []);
+
+  // Helper function to convert MatchFilters to MatchServiceFilters
+  const convertFiltersToServiceFilters = useCallback(
+    (
+      filters: MatchFilters,
+      page?: number,
+      limit?: number
+    ): MatchServiceFilters => {
       return {
-        ft_home_odds: oddsFilters.msHome || undefined,
-        ft_draw_odds: oddsFilters.msDraw || undefined,
-        ft_away_odds: oddsFilters.msAway || undefined,
-        ht_home_odds: oddsFilters.htHome || undefined,
-        ht_draw_odds: oddsFilters.htDraw || undefined,
-        ht_away_odds: oddsFilters.htAway || undefined,
-        ft_dc_1x_odds: oddsFilters.dc1X || undefined,
-        ft_dc_12_odds: oddsFilters.dc12 || undefined,
-        ft_dc_x2_odds: oddsFilters.dcX2 || undefined,
-        ht_dc_1x_odds: oddsFilters.htdc1X || undefined,
-        ht_dc_12_odds: oddsFilters.htdc12 || undefined,
-        ht_dc_x2_odds: oddsFilters.htdcX2 || undefined,
-        ah_minus_05_odds: oddsFilters.ahMinus || undefined,
-        ah_0_odds: oddsFilters.ahZero || undefined,
-        ah_plus_05_odds: oddsFilters.ahPlus || undefined,
-        eh_minus_1_odds: oddsFilters.ehMinus1 || undefined,
-        ht_ft_11_odds: oddsFilters.htMs1 || undefined,
-        ht_ft_1x_odds: oddsFilters.htMs1X || undefined,
-        ht_ft_12_odds: oddsFilters.htMs12 || undefined,
-        ht_ft_x1_odds: oddsFilters.htMsX1 || undefined,
-        ht_ft_xx_odds: oddsFilters.htMsXX || undefined,
-        ht_ft_x2_odds: oddsFilters.htMsX2 || undefined,
-        ht_ft_21_odds: oddsFilters.htMs21 || undefined,
-        ht_ft_2x_odds: oddsFilters.htMs2X || undefined,
-        ht_ft_22_odds: oddsFilters.htMs22 || undefined,
+        leagues: filters.league,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        timeFrom: filters.timeFrom,
+        timeTo: filters.timeTo,
+        homeTeam: filters.homeTeam,
+        awayTeam: filters.awayTeam,
+        teamSearch: filters.teamSearch,
+        page: page,
+        limit: limit,
+        // Pass through odds filters
+        ...Object.keys(filters)
+          .filter((key) => key.includes("_odds"))
+          .reduce(
+            (obj, key) => ({
+              ...obj,
+              [key]: filters[key as keyof MatchFilters],
+            }),
+            {}
+          ),
       };
     },
     []
   );
 
+  // Load matches with proper typing - ÖNCE TANIMLA
+  const loadMatches = useCallback(
+    async (filtersToApply: MatchFilters, pageNum: number = 1) => {
+      console.log("🔄 Matches loading with filters:", filtersToApply);
+      setIsLoading(true);
+      setLoadingProgress("📊 Maçlar yükleniyor...");
+
+      try {
+        const serviceFilters = convertFiltersToServiceFilters(
+          filtersToApply,
+          pageNum,
+          pageSize
+        );
+
+        const [matchesData, stats] = await Promise.all([
+          getMatches(serviceFilters),
+          getMatchStats(serviceFilters), // TÜM FİLTRELERİ GÖNDER (odds dahil)
+        ]);
+
+        if (matchesData.success) {
+          setMatches(matchesData.data.map(convertMatchData));
+          setTotalPages(Math.ceil(matchesData.total / pageSize));
+          setTotalMatches(matchesData.total);
+          setPage(pageNum);
+        }
+
+        if (stats.success) {
+          setStatistics(stats);
+        }
+      } catch (error) {
+        console.error("❌ Maç yükleme hatası:", error);
+      } finally {
+        setIsLoading(false);
+        setLoadingProgress("");
+      }
+    },
+    [convertFiltersToServiceFilters, pageSize, convertMatchData]
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setFilters({});
+    setAppliedFilters({});
+    setSelectedLeagues([]);
+    loadMatches({}, 1);
+  }, [loadMatches]);
+
+  // Tablo içi odds filtreleme handler'ı
   const handleOddsFilterChange = useCallback(
     (oddsFilters: Record<string, string>) => {
-      // Clear previous timer
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      if (oddsFilterDebounceTimerRef.current) {
+        clearTimeout(oddsFilterDebounceTimerRef.current);
       }
 
-      // Set new timer (1500ms debounce)
-      debounceTimerRef.current = setTimeout(async () => {
-        console.log("🔍 Odds filtreleri değişti:", oddsFilters);
+      oddsFilterDebounceTimerRef.current = setTimeout(() => {
+        console.log("🎯 Odds filtreleri uygulanıyor:", oddsFilters);
 
-        setIsLoading(true);
-        setPage(1);
-        setLoadingProgress("Filtreler uygulanıyor...");
+        // Odds filtrelerini MatchFilters formatına dönüştür
+        const oddsMatchFilters: Partial<MatchFilters> = {};
+        let hasValidFilter = false;
 
-        const mappedOddsFilters = mapOddsFiltersToAPI(oddsFilters);
-        // IMPORTANT: Sadece yeni odds filtreleri + opsiyonel filtreler (tarih, saat, takım) kullan
-        // Eski filters state'ini kullanma - odds filtreler tamamen yenisiyle değişmeli
-        const finalFilters: MatchFilters = {
-          // Opsiyonel filtreler (tarih, saat, takım) - odds olmayan kısım
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          timeFrom: filters.timeFrom,
-          timeTo: filters.timeTo,
-          homeTeam: filters.homeTeam,
-          awayTeam: filters.awayTeam,
-          teamSearch: filters.teamSearch,
-          // Yeni odds filtreleri
-          ...mappedOddsFilters,
-          // League
-          league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+        // MS 1X2
+        if (oddsFilters.msHome && oddsFilters.msHome.trim()) {
+          const value = oddsFilters.msHome.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_home_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.msDraw && oddsFilters.msDraw.trim()) {
+          const value = oddsFilters.msDraw.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_draw_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.msAway && oddsFilters.msAway.trim()) {
+          const value = oddsFilters.msAway.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_away_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // İY 1X2
+        if (oddsFilters.htHome && oddsFilters.htHome.trim()) {
+          const value = oddsFilters.htHome.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_home_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htDraw && oddsFilters.htDraw.trim()) {
+          const value = oddsFilters.htDraw.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_draw_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htAway && oddsFilters.htAway.trim()) {
+          const value = oddsFilters.htAway.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_away_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // MS Çifte Şans
+        if (oddsFilters.dc1X && oddsFilters.dc1X.trim()) {
+          const value = oddsFilters.dc1X.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_dc_1x_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.dc12 && oddsFilters.dc12.trim()) {
+          const value = oddsFilters.dc12.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_dc_12_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.dcX2 && oddsFilters.dcX2.trim()) {
+          const value = oddsFilters.dcX2.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ft_dc_x2_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // İY Çifte Şans
+        if (oddsFilters.htdc1X && oddsFilters.htdc1X.trim()) {
+          const value = oddsFilters.htdc1X.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_dc_1x_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htdc12 && oddsFilters.htdc12.trim()) {
+          const value = oddsFilters.htdc12.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_dc_12_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htdcX2 && oddsFilters.htdcX2.trim()) {
+          const value = oddsFilters.htdcX2.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_dc_x2_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // Asya Handikap
+        if (oddsFilters.ahMinus && oddsFilters.ahMinus.trim()) {
+          const value = oddsFilters.ahMinus.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ah_minus_05_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.ahZero && oddsFilters.ahZero.trim()) {
+          const value = oddsFilters.ahZero.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ah_0_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.ahPlus && oddsFilters.ahPlus.trim()) {
+          const value = oddsFilters.ahPlus.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ah_plus_05_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // Avrupa Handikap
+        if (oddsFilters.ehMinus1 && oddsFilters.ehMinus1.trim()) {
+          const value = oddsFilters.ehMinus1.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.eh_minus_1_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // İY/MS Kombinasyonları
+        if (oddsFilters.htMs1 && oddsFilters.htMs1.trim()) {
+          const value = oddsFilters.htMs1.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_11_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMs1X && oddsFilters.htMs1X.trim()) {
+          const value = oddsFilters.htMs1X.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_1x_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMs12 && oddsFilters.htMs12.trim()) {
+          const value = oddsFilters.htMs12.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_12_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMsX1 && oddsFilters.htMsX1.trim()) {
+          const value = oddsFilters.htMsX1.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_x1_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMsXX && oddsFilters.htMsXX.trim()) {
+          const value = oddsFilters.htMsXX.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_xx_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMsX2 && oddsFilters.htMsX2.trim()) {
+          const value = oddsFilters.htMsX2.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_x2_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMs21 && oddsFilters.htMs21.trim()) {
+          const value = oddsFilters.htMs21.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_21_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMs2X && oddsFilters.htMs2X.trim()) {
+          const value = oddsFilters.htMs2X.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_2x_odds = value;
+            hasValidFilter = true;
+          }
+        }
+        if (oddsFilters.htMs22 && oddsFilters.htMs22.trim()) {
+          const value = oddsFilters.htMs22.trim();
+          if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
+            oddsMatchFilters.ht_ft_22_odds = value;
+            hasValidFilter = true;
+          }
+        }
+
+        // Sadece geçerli filtre varsa API çağrısı yap
+        if (!hasValidFilter) {
+          console.log(
+            "⚠️ Geçerli odds filtresi bulunamadı, API çağrısı yapılmayacak"
+          );
+          return;
+        }
+
+        console.log("✅ Geçerli odds filtreleri:", oddsMatchFilters);
+
+        // Mevcut filtrelerle birleştir ve API'ye gönder
+        const finalFilters = {
+          ...appliedFilters,
+          ...oddsMatchFilters,
         };
 
         setAppliedFilters(finalFilters);
-
-        try {
-          const [matchesData, stats] = await Promise.all([
-            getMatches(finalFilters, 1, pageSize),
-            getMatchStatistics(finalFilters),
-          ]);
-
-          setMatches(matchesData.data);
-          setTotalPages(matchesData.totalPages);
-          setTotalMatches(stats?.totalMatches || matchesData.data.length);
-          setHasMore(matchesData.hasMore || false);
-          setStatistics(stats);
-          console.log("✅ Odds filtresi uygulandı:", {
-            dataLength: matchesData.data.length,
-            totalMatches: stats?.totalMatches,
-          });
-        } catch (error) {
-          console.error("❌ Odds filtresi hatası:", error);
-        } finally {
-          setIsLoading(false);
-          setLoadingProgress("");
-        }
-      }, 1500);
+        loadMatches(finalFilters, 1);
+      }, 800); // 800ms debounce
     },
-    [filters, selectedLeagues, pageSize, mapOddsFiltersToAPI]
+    [appliedFilters, loadMatches]
   );
 
-  // Filtre değişikliği - otomatik trigger (800ms debounce)
   const handleFilterChange = useCallback(
-    (newFilters: Partial<MatchFilters>) => {
-      setFilters((prev) => ({ ...prev, ...newFilters }));
-
-      // Clear previous timer
+    (newFilters: MatchFilters) => {
       if (filterDebounceTimerRef.current) {
         clearTimeout(filterDebounceTimerRef.current);
       }
 
-      // Set new timer (800ms debounce)
-      filterDebounceTimerRef.current = setTimeout(async () => {
-        console.log("🔍 Opsiyonel filtreler değişti:", newFilters);
+      filterDebounceTimerRef.current = setTimeout(() => {
+        const finalFilters = {
+          ...newFilters,
+          league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+        };
 
-        setIsLoading(true);
-        setPage(1);
-        setLoadingProgress("Filtreler uygulanıyor...");
-
-        // appliedFilters'ı closure içinde yakalamak yerine callback ile güncel değeri al
-        setAppliedFilters((currentAppliedFilters) => {
-          // Opsiyonel filtreler güncellenince, odds filtrelerini koru
-          const finalFilters: MatchFilters = {
-            // Eski odds filtreleri (appliedFilters'dan al)
-            ft_home_odds: currentAppliedFilters.ft_home_odds,
-            ft_draw_odds: currentAppliedFilters.ft_draw_odds,
-            ft_away_odds: currentAppliedFilters.ft_away_odds,
-            ht_home_odds: currentAppliedFilters.ht_home_odds,
-            ht_draw_odds: currentAppliedFilters.ht_draw_odds,
-            ht_away_odds: currentAppliedFilters.ht_away_odds,
-            ft_dc_1x_odds: currentAppliedFilters.ft_dc_1x_odds,
-            ft_dc_12_odds: currentAppliedFilters.ft_dc_12_odds,
-            ft_dc_x2_odds: currentAppliedFilters.ft_dc_x2_odds,
-            ht_dc_1x_odds: currentAppliedFilters.ht_dc_1x_odds,
-            ht_dc_12_odds: currentAppliedFilters.ht_dc_12_odds,
-            ht_dc_x2_odds: currentAppliedFilters.ht_dc_x2_odds,
-            ah_minus_05_odds: currentAppliedFilters.ah_minus_05_odds,
-            ah_0_odds: currentAppliedFilters.ah_0_odds,
-            ah_plus_05_odds: currentAppliedFilters.ah_plus_05_odds,
-            eh_minus_1_odds: currentAppliedFilters.eh_minus_1_odds,
-            ht_ft_11_odds: currentAppliedFilters.ht_ft_11_odds,
-            ht_ft_1x_odds: currentAppliedFilters.ht_ft_1x_odds,
-            ht_ft_12_odds: currentAppliedFilters.ht_ft_12_odds,
-            ht_ft_x1_odds: currentAppliedFilters.ht_ft_x1_odds,
-            ht_ft_xx_odds: currentAppliedFilters.ht_ft_xx_odds,
-            ht_ft_x2_odds: currentAppliedFilters.ht_ft_x2_odds,
-            ht_ft_21_odds: currentAppliedFilters.ht_ft_21_odds,
-            ht_ft_2x_odds: currentAppliedFilters.ht_ft_2x_odds,
-            ht_ft_22_odds: currentAppliedFilters.ht_ft_22_odds,
-            // Yeni opsiyonel filtreler
-            ...newFilters,
-            // League
-            league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
-          };
-
-          // API çağrısını async olarak yap
-          (async () => {
-            try {
-              const [matchesData, stats] = await Promise.all([
-                getMatches(finalFilters, 1, pageSize),
-                getMatchStatistics(finalFilters),
-              ]);
-
-              setMatches(matchesData.data);
-              setTotalPages(matchesData.totalPages);
-              setTotalMatches(stats?.totalMatches || matchesData.data.length);
-              setHasMore(matchesData.hasMore || false);
-              setStatistics(stats);
-              console.log("✅ Opsiyonel filtre uygulandı:", {
-                dataLength: matchesData.data.length,
-                totalMatches: stats?.totalMatches,
-              });
-            } catch (error) {
-              console.error("❌ Opsiyonel filtre hatası:", error);
-            } finally {
-              setIsLoading(false);
-              setLoadingProgress("");
-            }
-          })();
-
-          return finalFilters;
-        });
-      }, 800);
+        setAppliedFilters(finalFilters);
+        loadMatches(finalFilters, 1);
+      }, 500);
     },
-    [selectedLeagues, pageSize]
+    [selectedLeagues, loadMatches]
   );
 
-  // Sadece ligleri yükle
-  const loadLeagues = async () => {
+  // Load leagues
+  const loadLeagues = useCallback(async () => {
     try {
-      // Sadece favori 20 ligi yükle (anında - DB sorgusu yok)
-      const { leagues: leagueData } = await getLeagues({ favoritesOnly: true });
-      console.log(`✅ ${leagueData.length} favori lig yüklendi`);
-      setLeagues(leagueData);
-      // Loading mesajını temizle
-      setLoadingProgress("");
+      const { leagues: leagueData } = await getLeagues({ favorites: true });
+      setLeagues(leagueData.map((l) => l.league));
     } catch (error) {
-      console.error("❌ Favori ligler yüklenirken hata:", error);
-      setLoadingProgress("❌ Lig listesi yüklenemedi");
-      setTimeout(() => setLoadingProgress(""), 3000);
+      console.error("❌ Ligler yüklenirken hata:", error);
     }
-  };
+  }, []);
 
-  // Takımları yükle (seçili liglerden)
+  // Load teams from matches
   const loadTeams = useCallback(async () => {
     if (selectedLeagues.length === 0) {
       setAllTeams([]);
@@ -247,39 +609,49 @@ export default function DatabaseAnalysisPage() {
     console.log(`🔍 ${selectedLeagues.length} lig için takımlar yükleniyor...`);
 
     try {
-      const { data, error } = await supabase
-        .from("matches")
-        .select("home_team, away_team")
-        .in("league", selectedLeagues)
-        .limit(500); // İlk 500 maçtan takımları al
-
-      if (error) throw error;
-
-      const teamsSet = new Set<string>();
-      data?.forEach((match) => {
-        if (match.home_team) teamsSet.add(match.home_team);
-        if (match.away_team) teamsSet.add(match.away_team);
+      const response = await getMatches({
+        leagues: selectedLeagues,
+        limit: 500,
       });
 
-      const teamsList = Array.from(teamsSet).sort();
-      setAllTeams(teamsList);
-      console.log(
-        `✅ ${teamsList.length} takım yüklendi:`,
-        teamsList.slice(0, 5)
-      );
+      if (response.success) {
+        const teamsSet = new Set<string>();
+        response.data?.forEach((match) => {
+          if (match.home_team) teamsSet.add(match.home_team);
+          if (match.away_team) teamsSet.add(match.away_team);
+        });
+
+        const teamsList = Array.from(teamsSet).sort();
+        setAllTeams(teamsList);
+        console.log(
+          `✅ ${teamsList.length} takım yüklendi:`,
+          teamsList.slice(0, 5)
+        );
+      }
     } catch (error) {
       console.error("❌ Takımlar yüklenirken hata:", error);
     }
   }, [selectedLeagues]);
 
-  // Auth kontrolü - giriş yapmamışsa login'e yönlendir
+  // Auth control effect
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login?redirect=/database-analysis");
-    }
-  }, [user, authLoading, router]);
+    if (!authLoading) {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
-  // Lig seçildiğinde takımları yükle
+      if (
+        !userData?.role ||
+        (userData.role !== "admin" && !userData.superAdmin)
+      ) {
+        router.push("/");
+        return;
+      }
+    }
+  }, [user, userData, authLoading, router]);
+
+  // Load teams when leagues change
   useEffect(() => {
     if (selectedLeagues.length > 0) {
       loadTeams();
@@ -288,7 +660,7 @@ export default function DatabaseAnalysisPage() {
     }
   }, [selectedLeagues, loadTeams]);
 
-  // Sayfa yüklendiginde otomatik ilk 1000 maçı yükle
+  // Initialize data
   useEffect(() => {
     if (authLoading || !user) return;
 
@@ -297,419 +669,262 @@ export default function DatabaseAnalysisPage() {
       setIsLoading(true);
 
       try {
-        // 1. Ligleri yükle (favori 20 lig)
         await loadLeagues();
 
-        // 2. Otomatik ilk 100 maçı yükle (filtre yok)
-        setLoadingProgress("📊 İlk maçlar yüklenyor...");
+        setLoadingProgress("📊 İlk maçlar yüklenliyor...");
+        const serviceFilters = convertFiltersToServiceFilters({}, 1, pageSize);
+
         const [matchesData, stats] = await Promise.all([
-          getMatches({}, 1, pageSize),
-          getMatchStatistics({}),
+          getMatches(serviceFilters),
+          getMatchStats({}),
         ]);
 
-        setMatches(matchesData.data);
-        setTotalPages(matchesData.totalPages);
-        setTotalMatches(stats?.totalMatches || matchesData.data.length);
-        setHasMore(matchesData.hasMore || false);
-        setStatistics(stats);
-        setAppliedFilters({});
+        if (matchesData.success) {
+          setMatches(matchesData.data.map(convertMatchData));
+          setTotalPages(Math.ceil(matchesData.total / pageSize));
+          setTotalMatches(matchesData.total);
+        }
 
-        console.log(
-          "✅ Sayfa hazır - ",
-          matchesData.data.length,
-          "maç yüklendi"
-        );
-        setLoadingProgress("");
+        if (stats.success) {
+          setStatistics(stats);
+        }
+
+        setLoadingProgress("✅ Yükleme tamamlandı!");
       } catch (error) {
-        console.error("❌ Sayfa yükleme hatası:", error);
-        setLoadingProgress("❌ Veriler yüklenemedi");
-        setTimeout(() => setLoadingProgress(""), 3000);
+        console.error("❌ Başlangıç verisi yüklenemedi:", error);
       } finally {
         setIsLoading(false);
+        setLoadingProgress("");
       }
     };
 
     initializeData();
-  }, [user, authLoading]);
+  }, [
+    authLoading,
+    user,
+    loadLeagues,
+    convertFiltersToServiceFilters,
+    pageSize,
+    convertMatchData,
+  ]);
 
-  // Auth yüklenirken veya kullanıcı yoksa loading göster
-  if (authLoading || !user) {
+  // Loading state while checking auth
+  if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Yükleniyor...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Yetki kontrolü yapılıyor...</p>
         </div>
       </div>
     );
   }
 
-  // Lig seçimi
-  const handleLeagueToggle = (league: string) => {
-    setSelectedLeagues((prev) =>
-      prev.includes(league)
-        ? prev.filter((l) => l !== league)
-        : [...prev, league]
+  // Show access denied if not admin
+  if (
+    !user ||
+    !userData?.role ||
+    (userData.role !== "admin" && !userData.superAdmin)
+  ) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6 bg-gray-900 rounded-lg border border-gray-800">
+          <div className="text-red-500 text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold text-white mb-4">
+            Erişim Reddedildi
+          </h1>
+          <p className="text-gray-400 mb-6">
+            Bu sayfaya erişim için Admin veya Süper Admin yetkisi gereklidir.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Ana Sayfaya Dön
+          </button>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const handleSelectAllLeagues = () => {
-    setSelectedLeagues([...leagues]);
-  };
-
-  const handleClearAllLeagues = () => {
-    setSelectedLeagues([]);
-  };
-
-  // Lig seçimini uygula (sadece lig filtresi ile)
-  const handleApplyLeagueSelection = async () => {
-    if (selectedLeagues.length === 0) {
-      alert("⚠️ Lütfen en az bir lig seçin!");
-      return;
-    }
-
-    setIsLoading(true);
-    setPage(1);
-    setMatches([]);
-    setLoadingProgress(
-      `${selectedLeagues.length} lig için maçlar yükleniyor...`
-    );
-
-    const finalFilters: MatchFilters = {
-      league: selectedLeagues,
-    };
-
-    setAppliedFilters(finalFilters);
-
-    try {
-      const [matchesData, stats] = await Promise.all([
-        getMatches(finalFilters, 1, pageSize),
-        getMatchStatistics(finalFilters),
-      ]);
-
-      setMatches(matchesData.data);
-      setTotalPages(matchesData.totalPages);
-      setTotalMatches(stats?.totalMatches || matchesData.data.length);
-      setHasMore(matchesData.hasMore || false);
-      setStatistics(stats);
-      console.log("✅ İlk yükleme:", {
-        dataLength: matchesData.data.length,
-        totalMatches: stats?.totalMatches,
-        hasMore: matchesData.hasMore,
-      });
-    } catch (error) {
-      console.error("❌ Veriler yüklenirken hata:", error);
-      alert(
-        `❌ Maçlar yüklenirken hata oluştu: ${
-          error instanceof Error ? error.message : "Bilinmeyen hata"
-        }`
-      );
-    } finally {
-      setIsLoading(false);
-      setLoadingProgress("");
-    }
-  };
-
-  // Filtreleri sıfırla
-  const handleResetFilters = async () => {
-    console.log("🔄 Filtreler sıfırlanıyor...");
-
-    // Filtreleri temizle
-    setFilters({});
-    setAppliedFilters({});
-    setPage(1);
-
-    // Eğer lig seçiliyse, sadece lig filtresiyle API çağrısı yap
-    if (selectedLeagues.length > 0) {
-      setIsLoading(true);
-      setLoadingProgress("Filtreler sıfırlanıyor...");
-
-      const finalFilters: MatchFilters = {
-        league: selectedLeagues,
-      };
-
-      setAppliedFilters(finalFilters);
-
-      try {
-        const [matchesData, stats] = await Promise.all([
-          getMatches(finalFilters, 1, pageSize),
-          getMatchStatistics(finalFilters),
-        ]);
-
-        setMatches(matchesData.data);
-        setTotalPages(matchesData.totalPages);
-        setTotalMatches(stats?.totalMatches || matchesData.data.length);
-        setHasMore(matchesData.hasMore || false);
-        setStatistics(stats);
-        console.log("✅ Filtreler sıfırlandı, sadece lig filtresi aktif:", {
-          dataLength: matchesData.data.length,
-          totalMatches: stats?.totalMatches,
-        });
-      } catch (error) {
-        console.error("❌ Filtre sıfırlama hatası:", error);
-      } finally {
-        setIsLoading(false);
-        setLoadingProgress("");
-      }
-    } else {
-      // Hiç lig seçili değilse tabloyu temizle
-      setMatches([]);
-      setStatistics(null);
-    }
-  };
-
-  // Sayfa değiştirme
+  // Handle pagination
   const handlePageChange = async (newPage: number) => {
-    setIsLoading(true);
-    setPage(newPage);
-
     try {
-      const matchesData = await getMatches(appliedFilters, newPage, 100);
-      setMatches(matchesData.data);
-      setHasMore(matchesData.page < matchesData.totalPages);
+      const serviceFilters = convertFiltersToServiceFilters(
+        appliedFilters,
+        newPage,
+        pageSize
+      );
+      const matchesData = await getMatches(serviceFilters);
 
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (matchesData.success) {
+        setMatches(matchesData.data.map(convertMatchData));
+        setPage(newPage);
+      }
     } catch (error) {
-      console.error("Sayfa yüklenirken hata:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Daha fazla yükle
-  const handleLoadMore = async () => {
-    if (!hasMore || isLoadingMore) return;
-
-    setIsLoadingMore(true);
-    const nextPage = page + 1;
-
-    try {
-      const matchesData = await getMatches(appliedFilters, nextPage, pageSize);
-      const newTotalDisplayed = matches.length + matchesData.data.length;
-      setMatches((prev) => [...prev, ...matchesData.data]);
-      // totalMatches filtre sonucu toplam maç sayısı - değişmemeli
-      setPage(nextPage);
-      setHasMore(matchesData.hasMore || false);
-      console.log("✅ Daha fazla yüklendi:", {
-        newDataLength: matchesData.data.length,
-        totalDisplayed: newTotalDisplayed,
-        totalMatches: totalMatches,
-        hasMore: matchesData.hasMore,
-      });
-    } catch (error) {
-      console.error("❌ Daha fazla maç yüklenirken hata:", error);
-    } finally {
-      setIsLoadingMore(false);
+      console.error("❌ Sayfa değiştirme hatası:", error);
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-900">
-      {/* Loading Progress Indicator */}
-      {loadingProgress && (
-        <div className="fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
-          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-          <span className="text-sm font-medium">{loadingProgress}</span>
-        </div>
-      )}
-
-      {/* Sol Panel - Lig Seçimi */}
-      <LeagueSidebar
-        leagues={leagues}
-        selectedLeagues={selectedLeagues}
-        onLeagueToggle={handleLeagueToggle}
-        onSelectAll={handleSelectAllLeagues}
-        onClearAll={handleClearAllLeagues}
-        onApplySelection={handleApplyLeagueSelection}
-        matchCounts={leagueMatchCounts}
-      />
-
-      {/* Ana İçerik */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Filtre Çubuğu */}
-        <FilterBar
-          key={filters.teamSearch || "no-team"} // Reset olunca component yeniden mount olur
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onResetFilters={handleResetFilters}
-          allTeams={allTeams}
-          selectedLeagues={selectedLeagues}
-        />
-
-        {/* İçerik Alanı */}
-        <div className="p-6 bg-gray-900">
-          {/* İstatistikler */}
-          {statistics && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatisticsCard
-                title="Toplam Maç"
-                value={statistics.totalMatches}
-                color="blue"
-              />
-              <StatisticsCard
-                title="Üst 1.5 Gol"
-                value={`%${statistics.over15.percentage}`}
-                subtitle={`${statistics.over15.count} maç`}
-                color="green"
-              />
-              <StatisticsCard
-                title="Üst 2.5 Gol"
-                value={`%${statistics.over25.percentage}`}
-                subtitle={`${statistics.over25.count} maç`}
-                color="purple"
-              />
-              <StatisticsCard
-                title="Karşılıklı Gol"
-                value={`%${statistics.btts.percentage}`}
-                subtitle={`${statistics.btts.count} maç`}
-                color="orange"
-              />
+    <div className="min-h-screen bg-gray-950">
+      <div className="container mx-auto px-4">
+        {/* Loading Progress */}
+        {isLoading && loadingProgress && (
+          <div className="mb-4 p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+              <span className="text-blue-400 font-medium">
+                {loadingProgress}
+              </span>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Bilgi Mesajı - Sadece hata durumunda */}
-          {matches.length === 0 && !isLoading && (
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
-              <h3 className="text-xl font-bold text-blue-400 mb-2">
-                📊 Veritabanı Analizi
-              </h3>
-              <p className="text-gray-300 mb-6">
-                730,000+ maç verisi üzerinden detaylı analiz yapın
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* League Sidebar */}
+          <div className="lg:col-span-3">
+            <LeagueSidebar
+              leagues={leagues}
+              selectedLeagues={selectedLeagues}
+              onLeagueToggle={(league) => {
+                const newSelection = selectedLeagues.includes(league)
+                  ? selectedLeagues.filter((l) => l !== league)
+                  : [...selectedLeagues, league];
+                setSelectedLeagues(newSelection);
+              }}
+              onSelectAll={() => setSelectedLeagues([...leagues])}
+              onClearAll={() => setSelectedLeagues([])}
+              onApplySelection={() => {
+                // Seçili liglerle maçları yükle
+                const newFilters = {
+                  ...appliedFilters,
+                  league: selectedLeagues,
+                };
+                setAppliedFilters(newFilters);
+                loadMatches(newFilters, 1);
+              }}
+            />
+          </div>
 
-              <div className="bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto border border-blue-500/30">
-                <h4 className="text-lg font-semibold text-blue-400 mb-4">
-                  🚀 Kullanım
-                </h4>
-                <ol className="text-left text-gray-300 space-y-3">
-                  <li className="flex items-start gap-3">
-                    <span className="text-2xl">1️⃣</span>
-                    <div>
-                      <span className="font-semibold text-blue-400">
-                        Sol panelden lig seçin
-                      </span>
-                      <p className="text-sm text-gray-400">
-                        Opsiyonel - İstediğiniz kadar lig seçebilirsiniz
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-2xl">2️⃣</span>
-                    <div>
-                      <span className="font-semibold text-blue-400">
-                        &quot;Filtrele&quot; butonu ile filtre uygula
-                      </span>
-                      <p className="text-sm text-gray-400">
-                        Seçili liglerin maçları listelenecek
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="text-2xl">3️⃣</span>
-                    <div>
-                      <span className="font-semibold text-blue-400">
-                        Tablodaki kolon filtrelerini kullan
-                      </span>
-                      <p className="text-sm text-gray-400">
-                        Odds bazlı hızlı filtreleme (&gt;2.5, &lt;1.8)
-                      </p>
-                    </div>
-                  </li>
-                </ol>
+          {/* Main Content */}
+          <div className="lg:col-span-9">
+            {/* Filter Bar */}
+            <FilterBar
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onResetFilters={handleResetFilters}
+              allTeams={allTeams}
+              selectedLeagues={selectedLeagues}
+            />
+
+            {/* Statistics Cards */}
+            {statistics && (
+              <div className="grid grid-cols-1 md:grid-cols-4 pt-6 gap-4 mb-6">
+                <StatisticsCard
+                  title="Toplam Maç"
+                  value={statistics.totalMatches || 0}
+                  subtitle="database"
+                  color="blue"
+                />
+                <StatisticsCard
+                  title="Over 1.5"
+                  value={`%${statistics.ftOver15?.percentage || "0"}`}
+                  subtitle={`${statistics.ftOver15?.count || 0} maç`}
+                  color="green"
+                />
+                <StatisticsCard
+                  title="Over 2.5"
+                  value={`%${statistics.ftOver25?.percentage || "0"}`}
+                  subtitle={`${statistics.ftOver25?.count || 0} maç`}
+                  color="orange"
+                />
+                <StatisticsCard
+                  title="BTTS"
+                  value={`%${statistics.btts?.percentage || "0"}`}
+                  subtitle={`${statistics.btts?.count || 0} maç`}
+                  color="purple"
+                />
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Maç Tablosu */}
-          <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
+            {/* Match Table */}
             <MatchTableNew
               matches={matches}
               onOddsFilterChange={handleOddsFilterChange}
             />
 
-            {/* Load More Butonu + Sayfalama */}
-            <div className="px-6 py-4 border-t border-gray-700 bg-gray-800">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-300">
-                  <span className="font-medium text-blue-400">
-                    {matches.length}
-                  </span>{" "}
-                  / {totalMatches} maç gösteriliyor
-                </div>
-                <div className="text-xs text-gray-400">
-                  Sayfa {page} / {totalPages}
-                </div>
-              </div>
-
-              {/* Load More Butonu */}
-              {hasMore && (
-                <button
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  {isLoadingMore ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Yükleniyor...
+            {/* Pagination Controls */}
+            {totalMatches > 0 && (
+              <div className="mt-6 flex items-center justify-between bg-linear-to-r from-gray-800/80 to-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="text-sm">
+                    <span className="text-gray-400">Toplam</span>
+                    <span className="ml-2 font-bold text-xl text-blue-400">
+                      {totalMatches.toLocaleString()}
                     </span>
-                  ) : (
-                    "Daha Fazla Yükle"
+                    <span className="ml-1 text-gray-400">maç</span>
+                  </div>
+                  {page && totalPages && (
+                    <>
+                      <div className="w-px h-6 bg-gray-700"></div>
+                      <div className="text-sm text-gray-400">
+                        Sayfa{" "}
+                        <span className="font-semibold text-white">{page}</span>
+                        <span className="mx-1">/</span>
+                        <span className="text-gray-500">{totalPages}</span>
+                      </div>
+                    </>
                   )}
-                </button>
-              )}
-
-              {/* Klasik Sayfalama - Kaldırıldı */}
-              {false && totalPages > 1 && (
-                <div className="flex gap-2 mt-4 justify-center">
+                </div>
+                <div className="flex gap-2">
                   <button
                     onClick={() => handlePageChange(page - 1)}
-                    disabled={page === 1}
-                    className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={page <= 1}
+                    className="group px-4 py-2 bg-gray-700/50 hover:bg-gray-600 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-gray-600/50 hover:border-blue-500/50"
                   >
-                    ← Önceki
+                    <span className="flex items-center gap-1.5">
+                      <svg
+                        className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                      Önceki
+                    </span>
                   </button>
                   <button
                     onClick={() => handlePageChange(page + 1)}
-                    disabled={page === totalPages}
-                    className="px-4 py-2 border border-gray-600 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={page >= totalPages}
+                    className="group px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-blue-500/50 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/25"
                   >
-                    Sonraki →
+                    <span className="flex items-center gap-1.5">
+                      Sonraki
+                      <svg
+                        className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </span>
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

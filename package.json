@@ -9,9 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.14.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@sentry/nextjs": "^10.26.0",
-    "@supabase/supabase-js": "^2.86.0",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.6",
     "child_process": "^1.0.2",
@@ -34,6 +34,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "baseline-browser-mapping": "^2.8.32",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
     "tailwindcss": "^4",

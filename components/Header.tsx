@@ -62,16 +62,20 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            {/* <Link
-              href="/database-analysis"
-              className={`${
-                isActive("/database-analysis")
-                  ? "text-green-400 font-semibold"
-                  : "text-gray-300 hover:text-green-400"
-              } transition-all duration-200 flex items-center gap-1`}
-            >
-              <span>📊</span> Analiz Et
-            </Link> */}
+            
+            {/* Database Analysis - Sadece admin ve super admin'e göster */}
+            {(userData?.role === "admin" || userData?.superAdmin) && (
+              <Link
+                href="/database-analysis"
+                className={`${
+                  isActive("/database-analysis")
+                    ? "text-green-400 font-semibold"
+                    : "text-gray-300 hover:text-green-400"
+                } transition-all duration-200 flex items-center gap-1`}
+              >
+                <span>📊</span> Analiz Et
+              </Link>
+            )}
             <Link
               href="/faq"
               className={`${
@@ -97,17 +101,17 @@ export default function Header() {
               </Link>
             )}
 
-            {/* Admin Paneli - Sadece admin'e göster */}
-            {userData?.role === "admin" && (
+            {/* Admin Paneli - Sadece admin ve super admin'e göster */}
+            {(userData?.role === "admin" || userData?.superAdmin) && (
               <Link
                 href="/admin"
                 className={`${
                   isActive("/admin")
                     ? "text-orange-400 font-bold"
                     : "text-orange-400 hover:text-orange-300"
-                } transition-all duration-200`}
+                } transition-all duration-200 flex items-center gap-1`}
               >
-                ⚡ Admin Panel
+                {userData?.superAdmin ? "🔑" : "⚡"} {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
               </Link>
             )}
           </div>
@@ -216,17 +220,21 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            {/* <Link
-              href="/database-analysis"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block py-2 ${
-                isActive("/database-analysis")
-                  ? "text-green-400 font-semibold"
-                  : "text-gray-300 hover:text-green-400"
-              } transition-colors flex items-center gap-1`}
-            >
-              <span>📊</span> Analiz Et
-            </Link> */}
+            
+            {/* Database Analysis Mobile - Sadece admin ve super admin'e göster */}
+            {(userData?.role === "admin" || userData?.superAdmin) && (
+              <Link
+                href="/database-analysis"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block py-2 ${
+                  isActive("/database-analysis")
+                    ? "text-green-400 font-semibold"
+                    : "text-gray-300 hover:text-green-400"
+                } transition-colors flex items-center gap-1`}
+              >
+                <span>📊</span> Analiz Et
+              </Link>
+            )}
             <Link
               href="/faq"
               onClick={() => setMobileMenuOpen(false)}
@@ -247,13 +255,13 @@ export default function Header() {
                 💎 Ücretler
               </Link>
             )}
-            {userData?.role === "admin" && (
+            {(userData?.role === "admin" || userData?.superAdmin) && (
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors"
+                className="py-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors flex items-center gap-1"
               >
-                ⚡ Admin Panel
+                {userData?.superAdmin ? "🔑" : "⚡"} {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
               </Link>
             )}
 

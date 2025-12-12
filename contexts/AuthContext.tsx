@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               `🚀 ${userType} kullanıcı - favori ligler yükleniyor...`
             );
             // Sadece favori ligleri yükle (çok hızlı - DB sorgusu yok)
-            getLeagues({ favoritesOnly: true }).catch((error) => {
+            getLeagues({ favorites: true }).catch((error) => {
               console.error("❌ Favori ligler yüklenemedi:", error);
             });
           });

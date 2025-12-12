@@ -30,9 +30,14 @@ export default function PricingPage() {
 
   const packages: Record<
     "1" | "3" | "6",
-    { months: number; price: number; pricePerMonth: number }
+    {
+      months: number;
+      price: number;
+      pricePerMonth: number;
+      originalPrice?: number;
+    }
   > = {
-    "1": { months: 1, price: 1000, pricePerMonth: 1000 },
+    "1": { months: 1, price: 400, pricePerMonth: 400, originalPrice: 1000 }, // Aralık kampanyası
     "3": { months: 3, price: 2750, pricePerMonth: 917 },
     "6": { months: 6, price: 5500, pricePerMonth: 917 },
   };
@@ -119,16 +124,26 @@ export default function PricingPage() {
             {/* 1 Aylık Paket */}
             <button
               onClick={() => setSelectedPackage("1")}
-              className={`p-6 rounded-xl border-2 transition-all ${
+              className={`p-6 rounded-xl border-2 transition-all relative ${
                 selectedPackage === "1"
                   ? "border-blue-500 bg-blue-900/30 shadow-xl shadow-blue-500/20"
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
             >
+              {/* Kampanya Etiketi */}
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-red-600 text-white text-xs py-1 px-1 rounded-full font-semibold animate-pulse">
+                  🎄 Aralık Kampanyası
+                </span>
+              </div>
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">1.000 TL</p>
-                <p className="text-sm text-gray-400">1.000 TL / Ay</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <p className="text-lg line-through text-gray-500">1.000 TL</p>
+                  <p className="text-3xl font-bold text-red-400">400 TL</p>
+                </div>
+                <p className="text-sm text-gray-400">400 TL / Ay</p>
+                <p className="text-xs text-red-400 mt-1">%60 İndirim!</p>
               </div>
             </button>
 

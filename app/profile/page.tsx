@@ -140,21 +140,11 @@ export default function ProfilePage() {
     setClearingCache(true);
     try {
       // 1. matchService cache'ini temizle
-      const { clearCache, preloadAnalysisCache } = await import(
-        "@/lib/matchService"
-      );
+      const { clearCache } = await import("@/lib/matchService");
       clearCache();
       console.log("🗑️ matchService cache temizlendi");
 
-      // 3. Verileri yeniden yükle
-      console.log("🚀 Veriler yeniden yükleniyor...");
-      await preloadAnalysisCache();
-
-      showToast(
-        "✅ Cache yenilendi! Veriler yeniden yüklendi.",
-        "success",
-        5000
-      );
+      showToast("✅ Cache yenilendi! Sayfa yenilenecek.", "success", 5000);
     } catch (error) {
       console.error("Cache temizleme hatası:", error);
       showToast(

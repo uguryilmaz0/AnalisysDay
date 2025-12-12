@@ -1,207 +1,189 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { MatchRepository } from '@/lib/database/clickhouse/repositories/MatchRepository';
+import { MatchFilters } from '@/lib/database/types/match.types_v2';
 
 /**
  * GET /api/matches/stats
- * Filtrelenmiş maç istatistiklerini döndürür
+ * Filtrelenmiş maç istatistiklerini döndürür (ClickHouse optimized)
  * Query params:
  * - leagues: string[] (comma separated)
  * - dateFrom: string (YYYY-MM-DD)
  * - dateTo: string (YYYY-MM-DD)
+ * - type: 'daily' | 'monthly' | 'team' | 'aggregated' (default: aggregated)
+ * Uses: mv_daily_stats, mv_monthly_league_stats, mv_team_stats materialized views
  */
-// Parse odds filter helper (same as matches route)
-function parseOddsFilter(filterValue: string): { operator: 'gt' | 'lt' | 'eq', value: number } | null {
-  if (!filterValue) return null;
-  if (filterValue.startsWith('>')) {
-    return { operator: 'gt', value: parseFloat(filterValue.substring(1)) };
-  } else if (filterValue.startsWith('<')) {
-    return { operator: 'lt', value: parseFloat(filterValue.substring(1)) };
-  } else {
-    return { operator: 'eq', value: parseFloat(filterValue) };
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     
     // Parse parameters
     const leaguesParam = searchParams.get('leagues');
-    const leagues = leaguesParam ? leaguesParam.split(',').map(l => l.trim()) : [];
+    const leagues = leaguesParam ? leaguesParam.split(',').map(l => l.trim()).filter(Boolean) : [];
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
-    const timeFrom = searchParams.get('timeFrom');
-    const timeTo = searchParams.get('timeTo');
-    const homeTeam = searchParams.get('homeTeam');
-    const awayTeam = searchParams.get('awayTeam');
     const teamSearch = searchParams.get('teamSearch');
+    const statsType = searchParams.get('type') || 'aggregated'; // daily, monthly, team, aggregated
     
-    // Odds filters - 25 columns
-    const oddsFilters: Record<string, string> = {};
-    const oddsColumns = [
-      'ft_home_odds_close', 'ft_draw_odds_close', 'ft_away_odds_close',
-      'ht_home_odds_close', 'ht_draw_odds_close', 'ht_away_odds_close',
-      'ft_dc_1x_odds_close', 'ft_dc_12_odds_close', 'ft_dc_x2_odds_close',
-      'ht_dc_1x_odds_close', 'ht_dc_12_odds_close', 'ht_dc_x2_odds_close',
-      'ah_minus_05_home_odds_close', 'ah_0_home_odds_close', 'ah_plus_05_home_odds_close',
-      'eh_minus_1_home_odds_close',
-      'ht_ft_11_odds_close', 'ht_ft_1x_odds_close', 'ht_ft_12_odds_close',
-      'ht_ft_x1_odds_close', 'ht_ft_xx_odds_close', 'ht_ft_x2_odds_close',
-      'ht_ft_21_odds_close', 'ht_ft_2x_odds_close', 'ht_ft_22_odds_close'
-    ];
-    oddsColumns.forEach(column => {
-      const value = searchParams.get(column.replace('_close', ''));
-      if (value) oddsFilters[column] = value;
-    });
-
-    // RPC function kullan (çok daha hızlı)
+    // Build ClickHouse filters
+    const filters: MatchFilters = {};
+    
     if (leagues.length > 0) {
-      const { data, error } = await supabase.rpc('get_match_stats_by_leagues', {
-        league_names: leagues
-      });
-
-      if (error) {
-        console.error('❌ RPC get_match_stats_by_leagues hatası:', error);
-        // Fallback'e düş
-      } else if (data && data.length > 0) {
-        const stats = data[0];
-        return NextResponse.json({
-          totalMatches: Number(stats.total_matches),
-          over15: {
-            count: Number(stats.over15_count),
-            percentage: stats.over15_percentage.toString()
-          },
-          over25: {
-            count: Number(stats.over25_count),
-            percentage: stats.over25_percentage.toString()
-          },
-          btts: {
-            count: Number(stats.btts_count),
-            percentage: stats.btts_percentage.toString()
-          },
-          source: 'rpc'
-        }, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' // 30 min
-          }
-        });
-      }
+      filters.leagues = leagues;
     }
-
-    // Fallback: Manuel hesaplama (RPC yoksa veya hata varsa)
-    let query = supabase
-      .from('matches')
-      .select('ft_over_15, ft_over_25, btts', { count: 'exact' });
-
-    // League filter
-    if (leagues.length > 0) {
-      if (leagues.length === 1) {
-        query = query.eq('league', leagues[0]);
-      } else {
-        query = query.in('league', leagues);
-      }
-    }
-
-    // Date filters
     if (dateFrom) {
-      query = query.gte('match_date', dateFrom);
+      filters.dateFrom = dateFrom;
     }
     if (dateTo) {
-      query = query.lte('match_date', dateTo);
+      filters.dateTo = dateTo;
+    }
+    if (teamSearch) {
+      filters.teamSearch = teamSearch;
     }
 
-    // Time filters
-    if (timeFrom) {
-      query = query.gte('time', timeFrom);
-    }
-    if (timeTo) {
-      query = query.lte('time', timeTo);
-    }
+    // Odds filters - same as matches endpoint
+    const oddsFilters = [
+      'ft_home_odds', 'ft_draw_odds', 'ft_away_odds',
+      'ht_home_odds', 'ht_draw_odds', 'ht_away_odds',
+      'ft_dc_1x_odds', 'ft_dc_12_odds', 'ft_dc_x2_odds',
+      'ht_dc_1x_odds', 'ht_dc_12_odds', 'ht_dc_x2_odds',
+      'ah_minus_05_odds', 'ah_0_odds', 'ah_plus_05_odds',
+      'eh_minus_1_odds',
+      'ht_ft_11_odds', 'ht_ft_1x_odds', 'ht_ft_12_odds',
+      'ht_ft_x1_odds', 'ht_ft_xx_odds', 'ht_ft_x2_odds',
+      'ht_ft_21_odds', 'ht_ft_2x_odds', 'ht_ft_22_odds'
+    ];
 
-    // Team filters
-    const teamConditions: string[] = [];
-    if (homeTeam && awayTeam) {
-      query = query.or(
-        `and(home_team.eq.${homeTeam},away_team.eq.${awayTeam}),and(home_team.eq.${awayTeam},away_team.eq.${homeTeam})`
-      );
-    } else {
-      if (homeTeam) {
-        teamConditions.push(`home_team.eq.${homeTeam}`);
-        teamConditions.push(`home_team.ilike.${homeTeam}%`);
-      }
-      if (awayTeam) {
-        teamConditions.push(`away_team.eq.${awayTeam}`);
-        teamConditions.push(`away_team.ilike.${awayTeam}%`);
-      }
-      if (teamSearch) {
-        teamConditions.push(`home_team.ilike.%${teamSearch}%`);
-        teamConditions.push(`away_team.ilike.%${teamSearch}%`);
-      }
-      
-      if (teamConditions.length > 0) {
-        query = query.or(teamConditions.join(','));
+    for (const oddsType of oddsFilters) {
+      const filterValue = searchParams.get(oddsType);
+      if (filterValue) {
+        filters[oddsType] = filterValue;
+        console.log(`🎲 Stats Odds Filter: ${oddsType} = "${filterValue}"`);
       }
     }
 
-    // Odds filters - Her kolon ayrı ayrı filtrele
-    for (const [column, filterValue] of Object.entries(oddsFilters)) {
-      if (!filterValue) continue;
-      
-      const parsed = parseOddsFilter(filterValue);
-      if (!parsed) continue;
-      
-      if (parsed.operator === 'gt') {
-        query = query.gt(column, parsed.value);
-      } else if (parsed.operator === 'lt') {
-        query = query.lt(column, parsed.value);
-      } else if (parsed.operator === 'eq') {
-        query = query.eq(column, parsed.value);
-      }
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('❌ Stats query hatası:', error);
-      throw error;
-    }
-
-    // Client-side hesaplama
-    const totalMatches = data?.length || 0;
-    let over15Count = 0;
-    let over25Count = 0;
-    let bttsCount = 0;
-
-    data?.forEach((match) => {
-      if (Number(match.ft_over_15) === 1) over15Count++;
-      if (Number(match.ft_over_25) === 1) over25Count++;
-      if (Number(match.btts) === 1) bttsCount++;
+    console.log(`🚀 ClickHouse Stats endpoint - Type: ${statsType}, Filters:`, {
+      leagues: leagues.length,
+      dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'all',
+      teams: teamSearch || 'all',
+      oddsFilters: Object.keys(filters).filter(k => k.includes('odds'))
     });
 
-    return NextResponse.json({
-      totalMatches,
-      over15: {
-        count: over15Count,
-        percentage: totalMatches > 0 ? ((over15Count / totalMatches) * 100).toFixed(2) : '0'
-      },
-      over25: {
-        count: over25Count,
-        percentage: totalMatches > 0 ? ((over25Count / totalMatches) * 100).toFixed(2) : '0'
-      },
-      btts: {
-        count: bttsCount,
-        percentage: totalMatches > 0 ? ((bttsCount / totalMatches) * 100).toFixed(2) : '0'
-      },
-      source: 'fallback'
-    }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600'
-      }
-    });
+    const matchRepo = new MatchRepository();
+    let result: any;
+    let source: string;
+
+    switch (statsType) {
+      case 'daily':
+        console.log('📊 Getting daily stats from mv_daily_stats...');
+        result = await matchRepo.getDailyStats(filters);
+        source = 'clickhouse_mv_daily_stats';
+        
+        return NextResponse.json({
+          type: 'daily',
+          data: result,
+          count: result.length,
+          source
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=1800' // 30 min cache
+          }
+        });
+
+      case 'monthly':
+        console.log('📊 Getting monthly stats from mv_monthly_league_stats...');
+        result = await matchRepo.getMonthlyLeagueStats(filters);
+        source = 'clickhouse_mv_monthly_league_stats';
+        
+        return NextResponse.json({
+          type: 'monthly',
+          data: result,
+          count: result.length,
+          source
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=3600' // 1 hour cache
+          }
+        });
+
+      case 'team':
+        console.log('📊 Getting team stats from mv_team_stats...');
+        result = await matchRepo.getTeamStats(filters);
+        source = 'clickhouse_mv_team_stats';
+        
+        return NextResponse.json({
+          type: 'team',
+          data: result,
+          count: result.length,
+          source
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=1800' // 30 min cache
+          }
+        });
+
+      case 'aggregated':
+      default:
+        console.log('📊 Getting aggregated stats from matches table...');
+        result = await matchRepo.getAggregatedStats(filters);
+        source = 'clickhouse_aggregated';
+        
+        // Calculate percentages
+        const totalMatches = Number(result.total_matches || 0);
+        const htOver05Count = Number(result.ht_over_05_count || 0);
+        const ftOver15Count = Number(result.ft_over_15_count || 0);
+        const ftOver25Count = Number(result.ft_over_25_count || 0);
+        const ftOver35Count = Number(result.ft_over_35_count || 0);
+        const bttsCount = Number(result.btts_count || 0);
+
+        const calculatePercentage = (count: number, total: number): string => {
+          return total > 0 ? ((count / total) * 100).toFixed(2) : '0.00';
+        };
+
+        return NextResponse.json({
+          type: 'aggregated',
+          totalMatches,
+          htOver05: {
+            count: htOver05Count,
+            percentage: calculatePercentage(htOver05Count, totalMatches)
+          },
+          ftOver15: {
+            count: ftOver15Count,
+            percentage: calculatePercentage(ftOver15Count, totalMatches)
+          },
+          ftOver25: {
+            count: ftOver25Count,
+            percentage: calculatePercentage(ftOver25Count, totalMatches)
+          },
+          ftOver35: {
+            count: ftOver35Count,
+            percentage: calculatePercentage(ftOver35Count, totalMatches)
+          },
+          btts: {
+            count: bttsCount,
+            percentage: calculatePercentage(bttsCount, totalMatches)
+          },
+          avgOdds: {
+            home: parseFloat(result.avg_home_odds || 0).toFixed(2),
+            draw: parseFloat(result.avg_draw_odds || 0).toFixed(2),
+            away: parseFloat(result.avg_away_odds || 0).toFixed(2)
+          },
+          uniqueLeagues: Number(result.unique_leagues || 0),
+          uniqueTeams: Number(result.unique_teams || 0),
+          source
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=1800' // 30 min cache
+          }
+        });
+    }
+
   } catch (error) {
-    console.error('❌ Stats endpoint hatası:', error);
+    console.error('❌ ClickHouse Stats endpoint hatası:', error);
     return NextResponse.json(
-      { error: 'İstatistikler yüklenemedi', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'İstatistikler yüklenemedi', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }

@@ -73,8 +73,8 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     // userData yüklenene kadar bekle
     if (!userData) return;
 
-    // Admin kontrolü
-    if (requireAdmin && userData.role !== "admin") {
+    // Admin kontrolü (admin veya super admin)
+    if (requireAdmin && userData.role !== "admin" && !userData.superAdmin) {
       router.push(unauthorizedRedirectTo);
       return;
     }
@@ -101,7 +101,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     userData,
     loading,
     isAuthenticated: !!user,
-    isAdmin: userData?.role === "admin",
+    isAdmin: userData?.role === "admin" || userData?.superAdmin,
     isEmailVerified: user?.emailVerified || userData?.role === "admin",
   };
 }

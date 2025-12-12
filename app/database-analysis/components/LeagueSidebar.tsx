@@ -54,11 +54,11 @@ export default function LeagueSidebar({
         // Tüm liglerden ara (search_leagues RPC ile hızlı)
         const { leagues: results } = await getLeagues({
           search: searchTerm,
-          favoritesOnly: false,
+          favorites: false,
         });
 
         if (!abortController.signal.aborted) {
-          setSearchResults(results);
+          setSearchResults(results.map((r) => r.league));
           setIsSearching(false);
         }
       } catch (error) {
@@ -255,7 +255,7 @@ export default function LeagueSidebar({
             {selectedLeagues.length > 0 && `(${selectedLeagues.length})`}
           </span>
           <ChevronDown
-            className={`h-5 w-5 transition-transform ${
+            className={`h-5 w-5 transition-transform text-white ${
               isMobileOpen ? "rotate-180" : ""
             }`}
           />
