@@ -67,7 +67,7 @@ export interface StatsServiceResponse {
 async function apiCall<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
   try {
     const url = new URL(endpoint, process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com' 
+      ? 'https://analizgunu.com' 
       : 'http://localhost:3000'
     );
     

@@ -2,21 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MatchRepository } from '@/lib/database/clickhouse/repositories/MatchRepository';
 import { MatchFilters } from '@/lib/database/types/match.types_v2';
 
-// Helper: Parse odds filter (">2.5", "<1.8", "1.75")
-function parseOddsFilter(filterValue: string): { operator: 'gt' | 'lt' | 'eq', value: number } | null {
-  if (!filterValue) return null;
-  
-  const trimmed = filterValue.trim();
-  if (trimmed.startsWith('>')) {
-    const val = parseFloat(trimmed.substring(1));
-    return !isNaN(val) ? { operator: 'gt', value: val } : null;
-  }
-  if (trimmed.startsWith('<')) {
-    const val = parseFloat(trimmed.substring(1));
-    return !isNaN(val) ? { operator: 'lt', value: val } : null;
-  }
-  const val = parseFloat(trimmed);
-  return !isNaN(val) ? { operator: 'eq', value: val } : null;
+// CORS Headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
 }
 
 /**
@@ -138,6 +133,7 @@ export async function GET(request: NextRequest) {
       hasMore: page < Math.ceil(result.total / limit)
     }, {
       headers: {
+        ...corsHeaders,
         'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' // 30 min cache
       }
     });
@@ -145,7 +141,7 @@ export async function GET(request: NextRequest) {
     console.error('❌ ClickHouse matches endpoint hatası:', error);
     return NextResponse.json(
       { error: 'Maçlar yüklenemedi', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

@@ -272,6 +272,30 @@ export default function DatabaseAnalysisPage() {
       page?: number,
       limit?: number
     ): MatchServiceFilters => {
+      // Odds filtrelerini işle - sadece geçerli değerleri al
+      const validOddsFilters = Object.keys(filters)
+        .filter((key) => key.includes("_odds"))
+        .reduce((obj, key) => {
+          const value = filters[key as keyof MatchFilters];
+
+          // Değer yoksa veya boşsa atla
+          if (!value || typeof value !== "string") return obj;
+
+          const trimmedValue = value.trim();
+
+          // Boş string ise atla
+          if (!trimmedValue) return obj;
+
+          // Numeric değeri kontrol et
+          const numericValue = parseFloat(trimmedValue.replace(/[><]/g, ""));
+
+          // 1'den küçük veya geçersiz sayı ise atla
+          if (isNaN(numericValue) || numericValue < 1) return obj;
+
+          // Geçerli değeri ekle
+          return { ...obj, [key]: trimmedValue };
+        }, {});
+
       return {
         leagues: filters.league,
         dateFrom: filters.dateFrom,
@@ -283,16 +307,7 @@ export default function DatabaseAnalysisPage() {
         teamSearch: filters.teamSearch,
         page: page,
         limit: limit,
-        // Pass through odds filters
-        ...Object.keys(filters)
-          .filter((key) => key.includes("_odds"))
-          .reduce(
-            (obj, key) => ({
-              ...obj,
-              [key]: filters[key as keyof MatchFilters],
-            }),
-            {}
-          ),
+        ...validOddsFilters,
       };
     },
     []
@@ -324,7 +339,8 @@ export default function DatabaseAnalysisPage() {
           setPage(pageNum);
         }
 
-        if (stats.success) {
+        // Stats API success field'ı olmadan direkt obje döndürüyor
+        if (stats && stats.totalMatches !== undefined) {
           setStatistics(stats);
         }
       } catch (error) {
@@ -356,28 +372,33 @@ export default function DatabaseAnalysisPage() {
 
         // Odds filtrelerini MatchFilters formatına dönüştür
         const oddsMatchFilters: Partial<MatchFilters> = {};
-        let hasValidFilter = false;
 
         // MS 1X2
         if (oddsFilters.msHome && oddsFilters.msHome.trim()) {
           const value = oddsFilters.msHome.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_home_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_home_odds = value;
+            }
           }
         }
         if (oddsFilters.msDraw && oddsFilters.msDraw.trim()) {
           const value = oddsFilters.msDraw.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_draw_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_draw_odds = value;
+            }
           }
         }
         if (oddsFilters.msAway && oddsFilters.msAway.trim()) {
           const value = oddsFilters.msAway.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_away_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_away_odds = value;
+            }
           }
         }
 
@@ -385,22 +406,28 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.htHome && oddsFilters.htHome.trim()) {
           const value = oddsFilters.htHome.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_home_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_home_odds = value;
+            }
           }
         }
         if (oddsFilters.htDraw && oddsFilters.htDraw.trim()) {
           const value = oddsFilters.htDraw.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_draw_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_draw_odds = value;
+            }
           }
         }
         if (oddsFilters.htAway && oddsFilters.htAway.trim()) {
           const value = oddsFilters.htAway.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_away_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_away_odds = value;
+            }
           }
         }
 
@@ -408,22 +435,28 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.dc1X && oddsFilters.dc1X.trim()) {
           const value = oddsFilters.dc1X.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_dc_1x_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_dc_1x_odds = value;
+            }
           }
         }
         if (oddsFilters.dc12 && oddsFilters.dc12.trim()) {
           const value = oddsFilters.dc12.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_dc_12_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_dc_12_odds = value;
+            }
           }
         }
         if (oddsFilters.dcX2 && oddsFilters.dcX2.trim()) {
           const value = oddsFilters.dcX2.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ft_dc_x2_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ft_dc_x2_odds = value;
+            }
           }
         }
 
@@ -431,22 +464,28 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.htdc1X && oddsFilters.htdc1X.trim()) {
           const value = oddsFilters.htdc1X.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_dc_1x_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_dc_1x_odds = value;
+            }
           }
         }
         if (oddsFilters.htdc12 && oddsFilters.htdc12.trim()) {
           const value = oddsFilters.htdc12.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_dc_12_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_dc_12_odds = value;
+            }
           }
         }
         if (oddsFilters.htdcX2 && oddsFilters.htdcX2.trim()) {
           const value = oddsFilters.htdcX2.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_dc_x2_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_dc_x2_odds = value;
+            }
           }
         }
 
@@ -454,22 +493,28 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.ahMinus && oddsFilters.ahMinus.trim()) {
           const value = oddsFilters.ahMinus.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ah_minus_05_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ah_minus_05_odds = value;
+            }
           }
         }
         if (oddsFilters.ahZero && oddsFilters.ahZero.trim()) {
           const value = oddsFilters.ahZero.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ah_0_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ah_0_odds = value;
+            }
           }
         }
         if (oddsFilters.ahPlus && oddsFilters.ahPlus.trim()) {
           const value = oddsFilters.ahPlus.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ah_plus_05_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ah_plus_05_odds = value;
+            }
           }
         }
 
@@ -477,8 +522,10 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.ehMinus1 && oddsFilters.ehMinus1.trim()) {
           const value = oddsFilters.ehMinus1.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.eh_minus_1_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.eh_minus_1_odds = value;
+            }
           }
         }
 
@@ -486,82 +533,105 @@ export default function DatabaseAnalysisPage() {
         if (oddsFilters.htMs1 && oddsFilters.htMs1.trim()) {
           const value = oddsFilters.htMs1.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_11_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_11_odds = value;
+            }
           }
         }
         if (oddsFilters.htMs1X && oddsFilters.htMs1X.trim()) {
           const value = oddsFilters.htMs1X.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_1x_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_1x_odds = value;
+            }
           }
         }
         if (oddsFilters.htMs12 && oddsFilters.htMs12.trim()) {
           const value = oddsFilters.htMs12.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_12_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_12_odds = value;
+            }
           }
         }
         if (oddsFilters.htMsX1 && oddsFilters.htMsX1.trim()) {
           const value = oddsFilters.htMsX1.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_x1_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_x1_odds = value;
+            }
           }
         }
         if (oddsFilters.htMsXX && oddsFilters.htMsXX.trim()) {
           const value = oddsFilters.htMsXX.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_xx_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_xx_odds = value;
+            }
           }
         }
         if (oddsFilters.htMsX2 && oddsFilters.htMsX2.trim()) {
           const value = oddsFilters.htMsX2.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_x2_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_x2_odds = value;
+            }
           }
         }
         if (oddsFilters.htMs21 && oddsFilters.htMs21.trim()) {
           const value = oddsFilters.htMs21.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_21_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_21_odds = value;
+            }
           }
         }
         if (oddsFilters.htMs2X && oddsFilters.htMs2X.trim()) {
           const value = oddsFilters.htMs2X.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_2x_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_2x_odds = value;
+            }
           }
         }
         if (oddsFilters.htMs22 && oddsFilters.htMs22.trim()) {
           const value = oddsFilters.htMs22.trim();
           if (/^[><]?\d+\.?\d*(-\d+\.?\d*)?$/.test(value)) {
-            oddsMatchFilters.ht_ft_22_odds = value;
-            hasValidFilter = true;
+            const numValue = parseFloat(value.replace(/[><]/g, ""));
+            if (!isNaN(numValue) && numValue >= 1) {
+              oddsMatchFilters.ht_ft_22_odds = value;
+            }
           }
-        }
-
-        // Sadece geçerli filtre varsa API çağrısı yap
-        if (!hasValidFilter) {
-          console.log(
-            "⚠️ Geçerli odds filtresi bulunamadı, API çağrısı yapılmayacak"
-          );
-          return;
         }
 
         console.log("✅ Geçerli odds filtreleri:", oddsMatchFilters);
 
-        // Mevcut filtrelerle birleştir ve API'ye gönder
+        // ÖNEMLİ: appliedFilters'dan TÜM eski odds filtrelerini temizle
+        const nonOddsFilters = Object.keys(appliedFilters)
+          .filter((key) => !key.includes("_odds"))
+          .reduce(
+            (obj, key) => ({
+              ...obj,
+              [key]: appliedFilters[key as keyof MatchFilters],
+            }),
+            {}
+          );
+
+        // Yeni filtreler: odds olmayan filtreler + sadece geçerli odds filtreleri
         const finalFilters = {
-          ...appliedFilters,
+          ...nonOddsFilters,
           ...oddsMatchFilters,
         };
+
+        console.log("🔄 Final filtreler (eski odds temizlendi):", finalFilters);
 
         setAppliedFilters(finalFilters);
         loadMatches(finalFilters, 1);
@@ -685,7 +755,8 @@ export default function DatabaseAnalysisPage() {
           setTotalMatches(matchesData.total);
         }
 
-        if (stats.success) {
+        // Stats API success field'ı olmadan direkt obje döndürüyor
+        if (stats && stats.totalMatches !== undefined) {
           setStatistics(stats);
         }
 
@@ -845,6 +916,17 @@ export default function DatabaseAnalysisPage() {
                   subtitle={`${statistics.btts?.count || 0} maç`}
                   color="purple"
                 />
+              </div>
+            )}
+
+            {/* Loading state for statistics */}
+            {!statistics && !isLoading && (
+              <div className="pt-6 mb-6">
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-center">
+                  <p className="text-blue-300 text-sm">
+                    📊 İstatistikler yükleniyor...
+                  </p>
+                </div>
               </div>
             )}
 

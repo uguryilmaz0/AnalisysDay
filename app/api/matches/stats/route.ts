@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MatchRepository } from '@/lib/database/clickhouse/repositories/MatchRepository';
 import { MatchFilters } from '@/lib/database/types/match.types_v2';
 
+// CORS Headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 /**
  * GET /api/matches/stats
  * Filtrelenmiş maç istatistiklerini döndürür (ClickHouse optimized)
@@ -172,6 +184,7 @@ export async function GET(request: NextRequest) {
           source
         }, {
           headers: {
+            ...corsHeaders,
             'Cache-Control': 'public, s-maxage=1800' // 30 min cache
           }
         });
@@ -184,7 +197,7 @@ export async function GET(request: NextRequest) {
         error: 'İstatistikler yüklenemedi', 
         details: error instanceof Error ? error.message : 'Unknown error' 
       },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

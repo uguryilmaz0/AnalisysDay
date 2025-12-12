@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { MatchRepository } from '@/lib/database/clickhouse/repositories/MatchRepository';
 
+// CORS Headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 /**
  * Favori lig sayısı - İlk yüklemede kaç lig gösterilecek
  */
@@ -39,6 +51,7 @@ export async function GET(request: Request) {
         source: 'clickhouse_mv_unique_leagues'
       }, {
         headers: {
+          ...corsHeaders,
           'Cache-Control': 'public, s-maxage=3600' // 1 saat cache
         }
       });
@@ -58,6 +71,7 @@ export async function GET(request: Request) {
         source: 'clickhouse_search'
       }, {
         headers: {
+          ...corsHeaders,
           'Cache-Control': 'public, s-maxage=300' // 5 dakika cache
         }
       });
@@ -76,6 +90,7 @@ export async function GET(request: Request) {
       source: 'clickhouse_all_leagues'
     }, {
       headers: {
+        ...corsHeaders,
         'Cache-Control': 'public, s-maxage=3600' // 1 saat cache
       }
     });
@@ -86,7 +101,7 @@ export async function GET(request: Request) {
         error: 'Ligler yüklenemedi', 
         details: error instanceof Error ? error.message : 'Unknown error' 
       },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
