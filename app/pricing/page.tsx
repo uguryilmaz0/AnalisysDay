@@ -130,7 +130,7 @@ export default function PricingPage() {
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
             >
-              {/* Kampanya Etiketi */}
+              {/* Kampanya Etiketi .*/}
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <span className="bg-red-600 text-white text-xs py-1 px-1 rounded-full font-semibold animate-pulse">
                   🎄 Aralık Kampanyası
