@@ -34,12 +34,11 @@ export default function PricingPage() {
       months: number;
       price: number;
       pricePerMonth: number;
-      originalPrice?: number;
     }
   > = {
-    "1": { months: 1, price: 400, pricePerMonth: 400, originalPrice: 1000 }, // Aralık kampanyası
+    "1": { months: 1, price: 1000, pricePerMonth: 1000 },
     "3": { months: 3, price: 2750, pricePerMonth: 917 },
-    "6": { months: 6, price: 5500, pricePerMonth: 917 },
+    "6": { months: 6, price: 5250, pricePerMonth: 875 },
   };
 
   const currentPackage = packages[selectedPackage];
@@ -163,18 +162,15 @@ export default function PricingPage() {
             >
               {/* Kampanya Etiketi .*/}
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-red-600 text-white text-xs py-1 px-1 rounded-full font-semibold animate-pulse">
-                  🎄 Aralık Kampanyası
+                <span className="bg-red-600 text-white text-xs py-1 px-3 rounded-full font-semibold animate-pulse">
+                  Aylık
                 </span>
               </div>
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <p className="text-lg line-through text-gray-500">1.000 TL</p>
-                  <p className="text-3xl font-bold text-red-400">400 TL</p>
+                  <p className="text-lg  text-white">1.000 TL</p>
                 </div>
-                <p className="text-sm text-gray-400">400 TL / Ay</p>
-                <p className="text-xs text-red-400 mt-1">%60 İndirim!</p>
               </div>
             </button>
 
@@ -341,24 +337,6 @@ export default function PricingPage() {
                     >
                       <Copy className="h-5 w-5" />
                     </button>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-white mb-2">
-                        Önemli Not:
-                      </p>
-                      <p className="text-sm text-gray-300 mb-2">
-                        Havale açıklama kısmına kayıt olduğunuz email adresini
-                        yazınız:
-                      </p>
-                      <p className="font-mono text-sm bg-gray-800 text-blue-400 px-3 py-2 rounded">
-                        {user?.email || "email@example.com"}
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
