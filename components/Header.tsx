@@ -15,7 +15,7 @@ export default function Header() {
 
   return (
     <header className="bg-gray-950 border-b border-gray-800 sticky top-0 z-50 shadow-xl backdrop-blur-lg bg-opacity-95">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="max-w-10xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link
@@ -29,7 +29,7 @@ export default function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
+          <div className="hidden lg:flex items-center space-x-8 flex-1 justify-center">
             {!user && (
               <Link
                 href="/"
