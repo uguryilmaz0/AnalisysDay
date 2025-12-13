@@ -169,7 +169,7 @@ export default function PricingPage() {
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <p className="text-lg  text-white">1.000 TL</p>
+                  <p className="text-3xl font-bold  text-white">1.000 TL</p>
                 </div>
               </div>
             </button>
