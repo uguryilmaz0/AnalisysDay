@@ -96,8 +96,10 @@ export default function LeagueSidebar({
     <>
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col w-72 bg-gray-800 border-r border-gray-700 h-screen sticky top-0">
-        <div className="p-4 border-b border-gray-700 bg-linear-to-r from-gray-800 to-gray-900">
-          <h2 className="text-lg font-bold text-blue-400 mb-3">🏆 Ligler</h2>
+        <div className=" border-b border-gray-700 bg-linear-to-r from-gray-800 to-gray-900">
+          <h2 className="text-lg font-bold text-blue-400 mt-3 ml-2 mb-3">
+            🏆 Ligler
+          </h2>
 
           {/* Arama */}
           <div className="relative mb-3">

@@ -473,6 +473,18 @@ export class MatchRepository {
         }
       }
 
+      // Date filters
+      if (filters.dateFrom) {
+        const yearFrom = filters.dateFrom.split('-')[0];
+        whereConditions.push('year >= {dateFrom:String}');
+        params.dateFrom = yearFrom;
+      }
+      if (filters.dateTo) {
+        const yearTo = filters.dateTo.split('-')[0];
+        whereConditions.push('year <= {dateTo:String}');
+        params.dateTo = yearTo;
+      }
+
       // Odds filters - reuse the same logic from findMatches
       this.addOddsFilters(filters, whereConditions, params);
 

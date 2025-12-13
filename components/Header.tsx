@@ -20,7 +20,7 @@ export default function Header() {
           {/* Logo */}
           <Link
             href={user ? "/analysis" : "/"}
-            className="flex items-center space-x-2 group"
+            className="flex items-start space-x-2 group"
           >
             <TrendingUp className="h-8 w-8 text-blue-500 group-hover:text-blue-400 transition" />
             <span className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-purple-400">
@@ -62,7 +62,7 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            
+
             {/* Database Analysis - Sadece admin ve super admin'e göster */}
             {(userData?.role === "admin" || userData?.superAdmin) && (
               <Link
@@ -111,7 +111,8 @@ export default function Header() {
                     : "text-orange-400 hover:text-orange-300"
                 } transition-all duration-200 flex items-center gap-1`}
               >
-                {userData?.superAdmin ? "🔑" : "⚡"} {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
+                {userData?.superAdmin ? "🔑" : "⚡"}{" "}
+                {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
               </Link>
             )}
           </div>
@@ -143,7 +144,7 @@ export default function Header() {
                 {/* Çıkış Butonu */}
                 <button
                   onClick={() => signOut()}
-                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-red-500/20"
+                  className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded-lg transition-all duration-200 shadow-lg hover:shadow-red-500/20"
                 >
                   <LogOut className="h-4 w-4" />
                   <span>Çıkış</span>
@@ -220,7 +221,7 @@ export default function Header() {
             >
               <span>✨</span> Yapay Zeka Analizi
             </Link>
-            
+
             {/* Database Analysis Mobile - Sadece admin ve super admin'e göster */}
             {(userData?.role === "admin" || userData?.superAdmin) && (
               <Link
@@ -261,7 +262,8 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors flex items-center gap-1"
               >
-                {userData?.superAdmin ? "🔑" : "⚡"} {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
+                {userData?.superAdmin ? "🔑" : "⚡"}{" "}
+                {userData?.superAdmin ? "Super Admin" : "Admin Panel"}
               </Link>
             )}
 

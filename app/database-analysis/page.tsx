@@ -38,7 +38,6 @@ export default function DatabaseAnalysisPage() {
   const pageSize = 100;
   const [allTeams, setAllTeams] = useState<string[]>([]);
 
-  const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const oddsFilterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to convert new MatchData to old MatchData format
@@ -333,15 +332,44 @@ export default function DatabaseAnalysisPage() {
         ]);
 
         if (matchesData.success) {
-          setMatches(matchesData.data.map(convertMatchData));
+          const convertedMatches = matchesData.data.map(convertMatchData);
+          console.log(
+            "✅ Setting matches state:",
+            convertedMatches.length,
+            "maç"
+          );
+          console.log(
+            "📋 First 3 matches:",
+            convertedMatches.slice(0, 3).map((m) => ({
+              date: m.match_date,
+              league: m.league,
+              home: m.home_team,
+            }))
+          );
+
+          // Force yeni array reference ile state update
+          setMatches([...convertedMatches]);
           setTotalPages(Math.ceil(matchesData.total / pageSize));
           setTotalMatches(matchesData.total);
           setPage(pageNum);
+          console.log(
+            "✅ State updated - total:",
+            matchesData.total,
+            "page:",
+            pageNum
+          );
         }
 
         // Stats API success field'ı olmadan direkt obje döndürüyor
         if (stats && stats.totalMatches !== undefined) {
+          console.log(
+            "📊 Setting statistics:",
+            stats.totalMatches,
+            "total matches"
+          );
           setStatistics(stats);
+        } else {
+          console.warn("⚠️ Stats data missing or invalid:", stats);
         }
       } catch (error) {
         console.error("❌ Maç yükleme hatası:", error);
@@ -661,19 +689,18 @@ export default function DatabaseAnalysisPage() {
 
   const handleFilterChange = useCallback(
     (newFilters: MatchFilters) => {
-      if (filterDebounceTimerRef.current) {
-        clearTimeout(filterDebounceTimerRef.current);
-      }
+      // Debounce'u kaldır - Uygula butonuyla zaten kontrollü
+      const finalFilters = {
+        ...newFilters,
+        league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+      };
 
-      filterDebounceTimerRef.current = setTimeout(() => {
-        const finalFilters = {
-          ...newFilters,
-          league: selectedLeagues.length > 0 ? selectedLeagues : undefined,
-        };
+      // Local filters state'ini güncelle
+      setFilters(newFilters);
 
-        setAppliedFilters(finalFilters);
-        loadMatches(finalFilters, 1);
-      }, 500);
+      // Applied filters'ı güncelle ve API'yi çağır
+      setAppliedFilters(finalFilters);
+      loadMatches(finalFilters, 1);
     },
     [selectedLeagues, loadMatches]
   );
@@ -712,17 +739,18 @@ export default function DatabaseAnalysisPage() {
       return;
     }
 
-    if (selectedLeagues.length === 0) {
-      setAllTeams([]);
-      return;
-    }
-
-    console.log(`🔍 ${selectedLeagues.length} lig için takımlar yükleniyor...`);
+    console.log(
+      `🔍 ${
+        selectedLeagues.length > 0
+          ? selectedLeagues.length + " lig için"
+          : "Tüm liglerden"
+      } takımlar yükleniyor...`
+    );
 
     try {
       const response = await getMatches({
-        leagues: selectedLeagues,
-        limit: 500,
+        leagues: selectedLeagues.length > 0 ? selectedLeagues : undefined,
+        limit: 1000, // Daha fazla maç çek ki tüm takımlar gelsin
       });
 
       if (response.success) {
@@ -744,7 +772,9 @@ export default function DatabaseAnalysisPage() {
     }
   }, [selectedLeagues, userData]);
 
-  // Auth control effect
+  // Auth control effect - with initialization flag to prevent re-runs
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
@@ -769,16 +799,27 @@ export default function DatabaseAnalysisPage() {
         return;
       }
 
-      // ✅ Sadece yetkili kullanıcılar için veri yükle
-      if (isAdmin || hasActiveSubscription) {
+      // ✅ Sadece yetkili kullanıcılar için veri yükle (tek sefer)
+      if ((isAdmin || hasActiveSubscription) && !hasInitializedRef.current) {
+        console.log("🚀 Initializing data (first time only)...");
         initializeData();
+        hasInitializedRef.current = true;
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userData, authLoading, router]);
 
   // Initialize data - function definition moved here
   const initializeData = async () => {
+    console.log(
+      "🚨 initializeData called - hasInitializedRef:",
+      hasInitializedRef.current
+    );
     if (authLoading || !user) return;
+    if (hasInitializedRef.current) {
+      console.log("⛔ initializeData blocked - already initialized");
+      return;
+    }
 
     setLoadingProgress("🚀 Veriler yüklenyor...");
     setIsLoading(true);
@@ -795,7 +836,11 @@ export default function DatabaseAnalysisPage() {
       ]);
 
       if (matchesData.success) {
-        setMatches(matchesData.data.map(convertMatchData));
+        console.log(
+          "🚀 initializeData setting matches:",
+          matchesData.data.length
+        );
+        setMatches([...matchesData.data.map(convertMatchData)]);
         setTotalPages(Math.ceil(matchesData.total / pageSize));
         setTotalMatches(matchesData.total);
       }
@@ -822,6 +867,11 @@ export default function DatabaseAnalysisPage() {
       setAllTeams([]);
     }
   }, [selectedLeagues, loadTeams]);
+
+  // Debug: Watch matches state changes
+  useEffect(() => {
+    console.log("🔄 Matches state updated:", matches.length, "maç");
+  }, [matches]);
 
   // Loading state while checking auth
   if (authLoading) {
@@ -883,7 +933,7 @@ export default function DatabaseAnalysisPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-2 sm:px-4 lg:px-4 xl:px-0 max-w-[1920px]">
         {/* Loading Progress */}
         {isLoading && loadingProgress && (
           <div className="mb-4 p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
@@ -896,9 +946,9 @@ export default function DatabaseAnalysisPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* League Sidebar */}
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 xl:grid-cols-15 gap-2 lg:gap-4">
+          {/* League Sidebar - Only visible on large desktop (1280px+) */}
+          <div className="hidden xl:block xl:col-span-3">
             <LeagueSidebar
               leagues={leagues}
               selectedLeagues={selectedLeagues}
@@ -922,8 +972,8 @@ export default function DatabaseAnalysisPage() {
             />
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-9">
+          {/* Main Content - Full width below 1280px, 12 cols above */}
+          <div className="xl:col-span-12">
             {/* Filter Bar */}
             <FilterBar
               filters={filters}
@@ -931,11 +981,29 @@ export default function DatabaseAnalysisPage() {
               onResetFilters={handleResetFilters}
               allTeams={allTeams}
               selectedLeagues={selectedLeagues}
+              leagues={leagues}
+              onLeagueToggle={(league) => {
+                const newSelection = selectedLeagues.includes(league)
+                  ? selectedLeagues.filter((l) => l !== league)
+                  : [...selectedLeagues, league];
+                setSelectedLeagues(newSelection);
+              }}
+              onLeagueSelectAll={() => setSelectedLeagues([...leagues])}
+              onLeagueClearAll={() => setSelectedLeagues([])}
+              onApplyLeagueSelection={() => {
+                // Seçili liglerle maçları yükle
+                const newFilters = {
+                  ...appliedFilters,
+                  league: selectedLeagues,
+                };
+                setAppliedFilters(newFilters);
+                loadMatches(newFilters, 1);
+              }}
             />
 
             {/* Statistics Cards */}
             {statistics && (
-              <div className="grid grid-cols-1 md:grid-cols-4 pt-6 gap-4 mb-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mt-4 mb-4">
                 <StatisticsCard
                   title="Toplam Maç"
                   value={statistics.totalMatches || 0}
@@ -976,43 +1044,46 @@ export default function DatabaseAnalysisPage() {
 
             {/* Match Table */}
             <MatchTableNew
+              key={`table-${totalMatches}-${page}-${JSON.stringify(
+                appliedFilters
+              )}`}
               matches={matches}
               onOddsFilterChange={handleOddsFilterChange}
               clearFilters={clearTableFilters}
             />
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Mobile Optimized */}
             {totalMatches > 0 && (
-              <div className="mt-6 flex items-center justify-between bg-linear-to-r from-gray-800/80 to-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <div className="text-sm">
+              <div className="mt-3 mb-3 flex flex-col sm:flex-row items-center justify-between bg-gray-800/80 backdrop-blur-sm rounded-lg p-2 sm:p-3 lg:p-4 border border-gray-700/50 gap-2 sm:gap-0">
+                <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                  <div>
                     <span className="text-gray-400">Toplam</span>
-                    <span className="ml-2 font-bold text-xl text-blue-400">
+                    <span className="ml-1 sm:ml-2 font-bold text-base sm:text-lg text-blue-400">
                       {totalMatches.toLocaleString()}
                     </span>
                     <span className="ml-1 text-gray-400">maç</span>
                   </div>
                   {page && totalPages && (
                     <>
-                      <div className="w-px h-6 bg-gray-700"></div>
-                      <div className="text-sm text-gray-400">
-                        Sayfa{" "}
+                      <div className="w-px h-4 sm:h-6 bg-gray-700"></div>
+                      <div className="text-gray-400">
+                        <span className="hidden sm:inline">Sayfa </span>
                         <span className="font-semibold text-white">{page}</span>
-                        <span className="mx-1">/</span>
+                        <span className="mx-0.5 sm:mx-1">/</span>
                         <span className="text-gray-500">{totalPages}</span>
                       </div>
                     </>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 sm:gap-2">
                   <button
                     onClick={() => handlePageChange(page - 1)}
                     disabled={page <= 1}
-                    className="group px-4 py-2 bg-gray-700/50 hover:bg-gray-600 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-gray-600/50 hover:border-blue-500/50"
+                    className="group px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 bg-gray-700/50 hover:bg-gray-600 text-white rounded-md sm:rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-gray-600/50 hover:border-blue-500/50 text-xs sm:text-sm"
                   >
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1">
                       <svg
-                        className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"
+                        className="w-3 h-3 sm:w-4 sm:h-4 group-hover:-translate-x-0.5 transition-transform"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1024,18 +1095,18 @@ export default function DatabaseAnalysisPage() {
                           d="M15 19l-7-7 7-7"
                         />
                       </svg>
-                      Önceki
+                      <span className="hidden sm:inline">Önceki</span>
                     </span>
                   </button>
                   <button
                     onClick={() => handlePageChange(page + 1)}
                     disabled={page >= totalPages}
-                    className="group px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-blue-500/50 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/25"
+                    className="group px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 bg-blue-600/80 hover:bg-blue-600 text-white rounded-md sm:rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 border border-blue-500/50 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/25 text-xs sm:text-sm"
                   >
-                    <span className="flex items-center gap-1.5">
-                      Sonraki
+                    <span className="flex items-center gap-1">
+                      <span className="hidden sm:inline">Sonraki</span>
                       <svg
-                        className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
+                        className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-0.5 transition-transform"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

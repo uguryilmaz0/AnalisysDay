@@ -34,6 +34,9 @@ export default function MatchTableNew({
   onOddsFilterChange,
   clearFilters,
 }: MatchTableProps) {
+  // Debug log to track when component receives new matches
+  console.log("🎯 MatchTableNew render - matches:", matches.length);
+
   // Filter states - ALL columns
   const [filters, setFilters] = useState({
     msHome: "",
@@ -114,23 +117,7 @@ export default function MatchTableNew({
   return (
     <div className="space-y-4">
       {/* Filter Help ve Temizle Butonu */}
-      <div className="flex items-center justify-between bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-3">
-        <div className="text-sm text-gray-300">
-          <span className="font-semibold text-blue-400">Filtre Kullanımı:</span>{" "}
-          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">1.70</code>{" "}
-          (tam 1.70 olanlar),{" "}
-          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">
-            &gt;1.70
-          </code>{" "}
-          (1.70'den büyük),{" "}
-          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">
-            &lt;2.5
-          </code>{" "}
-          (2.5'ten küçük)
-          <span className="text-xs ml-2 text-gray-400">
-            ({filteredMatches.length} / {matches.length} maç)
-          </span>
-        </div>
+      <div className="flex items-center justify-end bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-3">
         <button
           onClick={handleClearFilters}
           className="flex items-center gap-2 px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 border border-red-500/50 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/25 text-sm font-medium"

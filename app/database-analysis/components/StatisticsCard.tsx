@@ -21,10 +21,18 @@ export default function StatisticsCard({
   };
 
   return (
-    <div className={`rounded-lg border-2 p-4 ${colorClasses[color]}`}>
-      <h3 className="text-sm font-medium opacity-80 mb-1">{title}</h3>
-      <p className="text-3xl font-bold">{value}</p>
-      {subtitle && <p className="text-xs opacity-70 mt-1">{subtitle}</p>}
+    <div
+      className={`rounded-lg border-2 p-2 sm:p-3 lg:p-4 ${colorClasses[color]} transition-all hover:scale-[1.02]`}
+    >
+      <h3 className="text-[10px] sm:text-xs font-medium opacity-80 mb-0.5 sm:mb-1">
+        {title}
+      </h3>
+      <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{value}</p>
+      {subtitle && (
+        <p className="text-[9px] sm:text-xs opacity-70 mt-0.5 sm:mt-1">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }

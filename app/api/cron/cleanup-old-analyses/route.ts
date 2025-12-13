@@ -1,17 +1,19 @@
 /**
  * Cron Job: Old Analyses Cleanup (3 Days)
  * 
- * Her Cumartesi sabahı 05:00'da çalışır (Vercel Cron)
+ * Her gün akşam 23:00 TR saatinde çalışır (20:00 UTC = 23:00 TR)
  * 3 gün önceki tüm analizleri siler (günlük + yapay zeka)
  * Firebase dokümanları + Cloudinary görselleri temizlenir
  * 
  * Endpoint: GET /api/cron/cleanup-old-analyses
- * Auth: Vercel Cron Secret (CRON_SECRET env variable)
- * Schedule: Cumartesi 05:00 (0 5 * * 6)
+ * Auth: Vercel Cron Secret (CRON_SECRET env variable) - Production only
+ * Schedule: Her gün 20:00 UTC / 23:00 TR (0 20 * * *)
+ * 
+ * Local Test: http://localhost:3000/api/cron/cleanup-old-analyses
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteOldAnalyses } from '@/lib/db';
+import { deleteOldAnalyses } from '@/lib/dbServer';
 import { serverLogger as logger } from '@/lib/serverLogger';
 
 export async function GET(req: NextRequest) {
