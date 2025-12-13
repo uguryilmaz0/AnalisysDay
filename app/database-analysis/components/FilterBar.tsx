@@ -28,7 +28,6 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({
-  filters,
   onFilterChange,
   onResetFilters,
   allTeams = [],
@@ -40,7 +39,7 @@ export default function FilterBar({
   onApplyLeagueSelection,
 }: FilterBarProps) {
   // Local state - bu değişiklikler henüz uygulanmadı
-  const [localFilters, setLocalFilters] = useState<MatchFilters>(filters);
+  const [localFilters, setLocalFilters] = useState<MatchFilters>({});
 
   // Takım arama input'ları
   const [homeTeamSearchInput, setHomeTeamSearchInput] = useState("");
@@ -215,9 +214,6 @@ export default function FilterBar({
                 type="text"
                 placeholder="Lig ara..."
                 className="w-full bg-gray-700 text-white px-3 py-2 rounded text-sm"
-                onChange={(e) => {
-                  // Arama fonksiyonalitesi ileride eklenebilir
-                }}
               />
 
               {/* Butonlar */}

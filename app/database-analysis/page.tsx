@@ -1044,9 +1044,6 @@ export default function DatabaseAnalysisPage() {
 
             {/* Match Table */}
             <MatchTableNew
-              key={`table-${totalMatches}-${page}-${JSON.stringify(
-                appliedFilters
-              )}`}
               matches={matches}
               onOddsFilterChange={handleOddsFilterChange}
               clearFilters={clearTableFilters}
