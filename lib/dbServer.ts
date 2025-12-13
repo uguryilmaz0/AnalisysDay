@@ -17,21 +17,29 @@ export async function deleteOldAnalyses(): Promise<{
   imagesDeleted: number;
 }> {
   try {
-    // Firebase Admin SDK'yı import et
-    const { getFirestore, Timestamp } = await import('firebase-admin/firestore');
-    const adminDb = getFirestore();
+    console.log('🔍 deleteOldAnalyses başladı...');
+    
+    // Firebase Admin SDK'yı kullan (zaten initialize edilmiş)
+    const { adminDb } = await import('./firebaseAdmin');
+    const { Timestamp } = await import('firebase-admin/firestore');
     
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     const timestamp = Timestamp.fromDate(threeDaysAgo);
 
+    console.log(`📅 3 gün önce: ${threeDaysAgo.toISOString()}`);
+    console.log(`📅 Timestamp: ${timestamp.toDate().toISOString()}`);
+
     let totalImagesDeleted = 0;
 
     // Günlük analizleri sil
+    console.log('🔍 Günlük analizler sorgulanıyor...');
     const dailySnapshot = await adminDb
       .collection('daily_analysis')
       .where('createdAt', '<=', timestamp)
       .get();
+    
+    console.log(`📊 ${dailySnapshot.size} günlük analiz bulundu`);
     
     // Cloudinary'den görselleri sil
     for (const doc of dailySnapshot.docs) {
@@ -50,12 +58,16 @@ export async function deleteOldAnalyses(): Promise<{
       dailyDeleteBatch.delete(doc.ref);
     });
     await dailyDeleteBatch.commit();
+    console.log(`✅ ${dailySnapshot.size} günlük analiz Firebase'den silindi`);
 
     // Yapay zeka analizlerini sil
+    console.log('🔍 AI analizler sorgulanıyor...');
     const aiSnapshot = await adminDb
       .collection('ai_analysis')
       .where('createdAt', '<=', timestamp)
       .get();
+    
+    console.log(`📊 ${aiSnapshot.size} AI analiz bulundu`);
     
     // Cloudinary'den görselleri sil
     for (const doc of aiSnapshot.docs) {
@@ -74,6 +86,7 @@ export async function deleteOldAnalyses(): Promise<{
       aiDeleteBatch.delete(doc.ref);
     });
     await aiDeleteBatch.commit();
+    console.log(`✅ ${aiSnapshot.size} AI analiz Firebase'den silindi`);
 
     console.log(`✅ Cleanup tamamlandı: ${dailySnapshot.size} günlük + ${aiSnapshot.size} AI analiz, ${totalImagesDeleted} görsel silindi`);
 

@@ -49,19 +49,51 @@ function initializeFirebaseAdmin() {
     return app;
   } catch (error) {
     console.error('[Firebase Admin] Initialization failed:', error);
+    console.error('[Firebase Admin] Environment check:', {
+      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+      hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+    });
     throw new Error('Firebase Admin initialization failed');
   }
 }
 
-// Initialize
-initializeFirebaseAdmin();
+// Initialize (ve hata durumunda app'i null olarak bırak)
+try {
+  initializeFirebaseAdmin();
+} catch (error) {
+  console.error('[Firebase Admin] Failed to initialize on module load:', error);
+}
 
 /**
  * Firebase Admin Services
+ * Lazy initialization - sadece kullanıldığında initialize et
  */
-export const adminAuth = admin.auth();
-export const adminDb = admin.firestore();
-export const adminStorage = admin.storage();
+function getAdminAuth() {
+  if (admin.apps.length === 0) {
+    initializeFirebaseAdmin();
+  }
+  return admin.auth();
+}
+
+function getAdminDb() {
+  if (admin.apps.length === 0) {
+    initializeFirebaseAdmin();
+  }
+  return admin.firestore();
+}
+
+function getAdminStorage() {
+  if (admin.apps.length === 0) {
+    initializeFirebaseAdmin();
+  }
+  return admin.storage();
+}
+
+export const adminAuth = getAdminAuth();
+export const adminDb = getAdminDb();
+export const adminStorage = getAdminStorage();
 
 /**
  * Helper: ID Token'ı doğrula

@@ -22,6 +22,14 @@ export async function GET(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
+    logger.info('Cron: cleanup-old-analyses triggered', {
+      hasAuthHeader: !!authHeader,
+      hasCronSecret: !!cronSecret,
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+      turkeyTime: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
+    });
+
     // Production'da cron secret kontrolü
     if (process.env.NODE_ENV === 'production') {
       if (!cronSecret) {
@@ -43,6 +51,8 @@ export async function GET(req: NextRequest) {
         );
       }
     }
+
+    logger.info('Cron: Authentication successful, starting cleanup...');
 
     // 3 gün önceki analizleri sil (Cloudinary görselleri dahil)
     const result = await deleteOldAnalyses();
