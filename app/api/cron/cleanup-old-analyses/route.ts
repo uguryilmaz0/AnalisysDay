@@ -1,8 +1,9 @@
 /**
- * Cron Job: Weekly Old Analyses Cleanup
+ * Cron Job: Old Analyses Cleanup (3 Days)
  * 
  * Her Cumartesi sabahı 05:00'da çalışır (Vercel Cron)
- * 1 hafta önceki tüm analizleri siler (günlük + yapay zeka)
+ * 3 gün önceki tüm analizleri siler (günlük + yapay zeka)
+ * Firebase dokümanları + Cloudinary görselleri temizlenir
  * 
  * Endpoint: GET /api/cron/cleanup-old-analyses
  * Auth: Vercel Cron Secret (CRON_SECRET env variable)
@@ -41,12 +42,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 1 hafta önceki analizleri sil
+    // 3 gün önceki analizleri sil (Cloudinary görselleri dahil)
     const result = await deleteOldAnalyses();
 
-    logger.info('Cron: Weekly old analyses cleanup completed', {
+    logger.info('Cron: Old analyses cleanup completed', {
       dailyDeleted: result.dailyDeleted,
       aiDeleted: result.aiDeleted,
+      imagesDeleted: result.imagesDeleted,
       total: result.dailyDeleted + result.aiDeleted,
       timestamp: new Date().toISOString(),
     });
@@ -55,8 +57,9 @@ export async function GET(req: NextRequest) {
       success: true,
       dailyDeleted: result.dailyDeleted,
       aiDeleted: result.aiDeleted,
+      imagesDeleted: result.imagesDeleted,
       total: result.dailyDeleted + result.aiDeleted,
-      message: `${result.dailyDeleted} günlük + ${result.aiDeleted} AI analiz silindi`,
+      message: `${result.dailyDeleted} günlük + ${result.aiDeleted} AI analiz (${result.imagesDeleted} görsel) silindi`,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

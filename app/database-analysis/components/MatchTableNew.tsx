@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 interface MatchTableProps {
   matches: MatchData[];
   onOddsFilterChange?: (filters: Record<string, string>) => void;
+  clearFilters?: () => void;
 }
 
 // Helper function to get color class based on odds value
@@ -31,6 +32,7 @@ function getOddsColor(odds: number | null | undefined): string {
 export default function MatchTableNew({
   matches,
   onOddsFilterChange,
+  clearFilters,
 }: MatchTableProps) {
   // Filter states - ALL columns
   const [filters, setFilters] = useState({
@@ -71,25 +73,83 @@ export default function MatchTableNew({
     }
   };
 
+  // Filtreleri temizle
+  const handleClearFilters = () => {
+    setFilters({
+      msHome: "",
+      msDraw: "",
+      msAway: "",
+      htHome: "",
+      htDraw: "",
+      htAway: "",
+      dc1X: "",
+      dc12: "",
+      dcX2: "",
+      htdc1X: "",
+      htdc12: "",
+      htdcX2: "",
+      ahMinus: "",
+      ahZero: "",
+      ahPlus: "",
+      ehMinus1: "",
+      htMs1: "",
+      htMs1X: "",
+      htMs12: "",
+      htMsX1: "",
+      htMsXX: "",
+      htMsX2: "",
+      htMs21: "",
+      htMs2X: "",
+      htMs22: "",
+    });
+
+    if (clearFilters) {
+      clearFilters();
+    }
+  };
+
   // Server-side filtreleme kullanıyoruz - client-side filtreleme kaldırıldı
   const filteredMatches = matches;
 
   return (
     <div className="space-y-4">
-      {/* Filter Help */}
-      <div className="bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-300">
-        <span className="font-semibold text-blue-400">Filtre Kullanımı:</span>{" "}
-        <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">1.70</code>{" "}
-        (tam 1.70 olanlar),{" "}
-        <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">
-          &gt;1.70
-        </code>{" "}
-        (1.70'den büyük),{" "}
-        <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">&lt;2.5</code>{" "}
-        (2.5'ten küçük)
-        <span className="text-xs ml-2 text-gray-400">
-          ({filteredMatches.length} / {matches.length} maç)
-        </span>
+      {/* Filter Help ve Temizle Butonu */}
+      <div className="flex items-center justify-between bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-3">
+        <div className="text-sm text-gray-300">
+          <span className="font-semibold text-blue-400">Filtre Kullanımı:</span>{" "}
+          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">1.70</code>{" "}
+          (tam 1.70 olanlar),{" "}
+          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">
+            &gt;1.70
+          </code>{" "}
+          (1.70'den büyük),{" "}
+          <code className="bg-gray-700 px-2 py-0.5 rounded text-xs">
+            &lt;2.5
+          </code>{" "}
+          (2.5'ten küçük)
+          <span className="text-xs ml-2 text-gray-400">
+            ({filteredMatches.length} / {matches.length} maç)
+          </span>
+        </div>
+        <button
+          onClick={handleClearFilters}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 border border-red-500/50 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/25 text-sm font-medium"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Temizle
+        </button>
       </div>
 
       {/* Table Container */}

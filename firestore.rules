@@ -37,10 +37,12 @@ service cloud.firestore {
     // Daily Analysis koleksiyonu
     match /daily_analysis/{analysisId} {
       // Premium üyeler veya adminler okuyabilir
+      // 🎁 Trial üyelik veya ödeme ile aktif abonelik kontrolü
       allow read: if request.auth != null && 
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPaid == true ||
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subscriptionEndDate != null &&
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subscriptionEndDate > request.time)
                      );
 
       // Sadece adminler yazabilir, güncelleyebilir, silebilir

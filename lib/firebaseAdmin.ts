@@ -100,7 +100,8 @@ export async function getUserData(uid: string) {
 export async function isAdmin(uid: string): Promise<boolean> {
   try {
     const userData = await getUserData(uid);
-    return userData?.role === 'admin';
+    // Admin role'ü VEYA superAdmin flag'i varsa admin sayılır
+    return userData?.role === 'admin' || userData?.superAdmin === true;
   } catch {
     return false;
   }

@@ -97,6 +97,37 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-12 px-4">
       <div className="max-w-5xl mx-auto">
+        {/* Deneme Süresi Bilgilendirme Banner */}
+        {userData && userData.subscriptionEndDate && !userData.isPaid && (
+          <div className="mb-8 bg-linear-to-r from-green-900/50 via-green-800/50 to-green-900/50 border-2 border-green-500/50 rounded-2xl p-6 shadow-2xl shadow-green-500/20">
+            <div className="flex items-center gap-4">
+              <div className="bg-green-500 rounded-full p-3 shrink-0">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-2">
+                  🎁 1 Günlük Deneme Süreniz Aktif!
+                </h3>
+                <p className="text-green-200">
+                  Yeni üyemiz olduğunuz için sistemi keşfetmeniz için{" "}
+                  <span className="font-bold">1 günlük ücretsiz erişim</span>{" "}
+                  tanımladık. Bu süre içinde tüm premium özellikleri
+                  deneyebilirsiniz.
+                </p>
+                <p className="text-sm text-green-300 mt-2">
+                  Deneme süreniz:{" "}
+                  <span className="font-bold">
+                    {new Date(
+                      userData.subscriptionEndDate.toDate()
+                    ).toLocaleDateString("tr-TR")}{" "}
+                    tarihine kadar
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-500/50 rounded-full px-4 py-2 mb-6">

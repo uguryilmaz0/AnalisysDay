@@ -360,6 +360,25 @@ export default function DatabaseAnalysisPage() {
     loadMatches({}, 1);
   }, [loadMatches]);
 
+  // Tablo filtrelerini temizleme fonksiyonu
+  const clearTableFilters = useCallback(() => {
+    console.log("🧹 Tablo filtreleri temizleniyor...");
+
+    // appliedFilters'dan TÜM odds filtrelerini kaldır
+    const nonOddsFilters = Object.keys(appliedFilters)
+      .filter((key) => !key.includes("_odds"))
+      .reduce(
+        (obj, key) => ({
+          ...obj,
+          [key]: appliedFilters[key as keyof MatchFilters],
+        }),
+        {}
+      );
+
+    setAppliedFilters(nonOddsFilters);
+    loadMatches(nonOddsFilters, 1);
+  }, [appliedFilters, loadMatches]);
+
   // Tablo içi odds filtreleme handler'ı
   const handleOddsFilterChange = useCallback(
     (oddsFilters: Record<string, string>) => {
@@ -659,18 +678,40 @@ export default function DatabaseAnalysisPage() {
     [selectedLeagues, loadMatches]
   );
 
-  // Load leagues
+  // Load leagues (sadece yetkili kullanıcılar için)
   const loadLeagues = useCallback(async () => {
+    // Yetki kontrolü
+    const isAdmin = userData?.role === "admin" || userData?.superAdmin;
+    const hasActiveSubscription = userData?.subscriptionEndDate
+      ? userData.subscriptionEndDate.toDate() > new Date()
+      : false;
+
+    if (!isAdmin && !hasActiveSubscription) {
+      console.log("⛔ Free kullanıcı - lig yükleme atlandı");
+      return;
+    }
+
     try {
       const { leagues: leagueData } = await getLeagues({ favorites: true });
       setLeagues(leagueData.map((l) => l.league));
     } catch (error) {
       console.error("❌ Ligler yüklenirken hata:", error);
     }
-  }, []);
+  }, [userData]);
 
-  // Load teams from matches
+  // Load teams from matches (sadece yetkili kullanıcılar için)
   const loadTeams = useCallback(async () => {
+    // Yetki kontrolü
+    const isAdmin = userData?.role === "admin" || userData?.superAdmin;
+    const hasActiveSubscription = userData?.subscriptionEndDate
+      ? userData.subscriptionEndDate.toDate() > new Date()
+      : false;
+
+    if (!isAdmin && !hasActiveSubscription) {
+      console.log("⛔ Free kullanıcı - takım yükleme atlandı");
+      return;
+    }
+
     if (selectedLeagues.length === 0) {
       setAllTeams([]);
       return;
@@ -701,7 +742,7 @@ export default function DatabaseAnalysisPage() {
     } catch (error) {
       console.error("❌ Takımlar yüklenirken hata:", error);
     }
-  }, [selectedLeagues]);
+  }, [selectedLeagues, userData]);
 
   // Auth control effect
   useEffect(() => {
@@ -711,15 +752,67 @@ export default function DatabaseAnalysisPage() {
         return;
       }
 
-      if (
-        !userData?.role ||
-        (userData.role !== "admin" && !userData.superAdmin)
-      ) {
+      // Admin kontrolü veya aktif abonelik kontrolü
+      const isAdmin = userData?.role === "admin" || userData?.superAdmin;
+      const hasActiveSubscription = userData?.subscriptionEndDate
+        ? userData.subscriptionEndDate.toDate() > new Date()
+        : false;
+
+      if (!userData?.role) {
         router.push("/");
         return;
       }
+
+      // Admin değilse ve aktif aboneliği yoksa erişim engelle
+      if (!isAdmin && !hasActiveSubscription) {
+        router.push("/");
+        return;
+      }
+
+      // ✅ Sadece yetkili kullanıcılar için veri yükle
+      if (isAdmin || hasActiveSubscription) {
+        initializeData();
+      }
     }
   }, [user, userData, authLoading, router]);
+
+  // Initialize data - function definition moved here
+  const initializeData = async () => {
+    if (authLoading || !user) return;
+
+    setLoadingProgress("🚀 Veriler yüklenyor...");
+    setIsLoading(true);
+
+    try {
+      await loadLeagues();
+
+      setLoadingProgress("📊 İlk maçlar yüklenliyor...");
+      const serviceFilters = convertFiltersToServiceFilters({}, 1, pageSize);
+
+      const [matchesData, stats] = await Promise.all([
+        getMatches(serviceFilters),
+        getMatchStats({}),
+      ]);
+
+      if (matchesData.success) {
+        setMatches(matchesData.data.map(convertMatchData));
+        setTotalPages(Math.ceil(matchesData.total / pageSize));
+        setTotalMatches(matchesData.total);
+      }
+
+      // Stats API success field'ı olmadan direkt obje döndürüyor
+      if (stats && stats.totalMatches !== undefined) {
+        setStatistics(stats);
+      }
+
+      setLoadingProgress("✅ Yükleme tamamlandı!");
+    } catch (error) {
+      console.error("❌ Başlangıç verisi yüklenemedi:", error);
+    } finally {
+      setIsLoading(false);
+      setLoadingProgress("");
+    }
+  };
 
   // Load teams when leagues change
   useEffect(() => {
@@ -729,55 +822,6 @@ export default function DatabaseAnalysisPage() {
       setAllTeams([]);
     }
   }, [selectedLeagues, loadTeams]);
-
-  // Initialize data
-  useEffect(() => {
-    if (authLoading || !user) return;
-
-    const initializeData = async () => {
-      setLoadingProgress("🚀 Veriler yüklenyor...");
-      setIsLoading(true);
-
-      try {
-        await loadLeagues();
-
-        setLoadingProgress("📊 İlk maçlar yüklenliyor...");
-        const serviceFilters = convertFiltersToServiceFilters({}, 1, pageSize);
-
-        const [matchesData, stats] = await Promise.all([
-          getMatches(serviceFilters),
-          getMatchStats({}),
-        ]);
-
-        if (matchesData.success) {
-          setMatches(matchesData.data.map(convertMatchData));
-          setTotalPages(Math.ceil(matchesData.total / pageSize));
-          setTotalMatches(matchesData.total);
-        }
-
-        // Stats API success field'ı olmadan direkt obje döndürüyor
-        if (stats && stats.totalMatches !== undefined) {
-          setStatistics(stats);
-        }
-
-        setLoadingProgress("✅ Yükleme tamamlandı!");
-      } catch (error) {
-        console.error("❌ Başlangıç verisi yüklenemedi:", error);
-      } finally {
-        setIsLoading(false);
-        setLoadingProgress("");
-      }
-    };
-
-    initializeData();
-  }, [
-    authLoading,
-    user,
-    loadLeagues,
-    convertFiltersToServiceFilters,
-    pageSize,
-    convertMatchData,
-  ]);
 
   // Loading state while checking auth
   if (authLoading) {
@@ -934,6 +978,7 @@ export default function DatabaseAnalysisPage() {
             <MatchTableNew
               matches={matches}
               onOddsFilterChange={handleOddsFilterChange}
+              clearFilters={clearTableFilters}
             />
 
             {/* Pagination Controls */}

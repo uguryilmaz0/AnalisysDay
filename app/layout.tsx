@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
+import { CacheMonitor } from "@/components/CacheMonitor";
 import { ToastProvider } from "@/shared/hooks/useToast";
 import { ToastContainer, ErrorBoundary } from "@/shared/components/ui";
 import { validateEnv } from "@/lib/validateEnv";
@@ -69,6 +70,7 @@ export default function RootLayout({
               <Footer />
               <WhatsAppWidget />
               <ToastContainer />
+              <CacheMonitor />
             </AuthProvider>
           </ToastProvider>
         </ErrorBoundary>

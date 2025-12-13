@@ -356,6 +356,52 @@ export default function ProfilePage() {
                     </p>
                   </div>
 
+                  {/* Debug Bilgileri - Geliştirici Modu */}
+                  {process.env.NODE_ENV === "development" && (
+                    <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4 text-xs space-y-1">
+                      <p className="text-yellow-400 font-bold mb-2">
+                        🔍 Debug Bilgileri
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Subscription End:</strong>{" "}
+                        {userData.subscriptionEndDate
+                          ? userData.subscriptionEndDate
+                              .toDate()
+                              .toLocaleString("tr-TR")
+                          : "❌ YOK"}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Last Payment:</strong>{" "}
+                        {userData.lastPaymentDate
+                          ? userData.lastPaymentDate
+                              .toDate()
+                              .toLocaleString("tr-TR")
+                          : "❌ YOK"}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Email Verified:</strong>{" "}
+                        {user.emailVerified ? "✅" : "❌"}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Role:</strong> {userData.role}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Is Paid:</strong>{" "}
+                        {userData.isPaid ? "✅" : "❌"}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Has Premium:</strong>{" "}
+                        {hasPremiumAccess ? "✅" : "❌"}
+                      </p>
+                      <p className="text-gray-300">
+                        <strong>Created At:</strong>{" "}
+                        {userData.createdAt?.toDate
+                          ? userData.createdAt.toDate().toLocaleString("tr-TR")
+                          : "N/A"}
+                      </p>
+                    </div>
+                  )}
+
                   <Link href="/pricing" className="block w-full">
                     <Button variant="premium" size="lg" fullWidth>
                       💎 Premium Ol

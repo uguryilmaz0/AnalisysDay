@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   getAllAnalyses,
-  checkSubscriptionExpiry,
   getAnalysisStats,
+  getCompletedAnalyses,
   AnalysisStats,
 } from "@/lib/db";
 import { DailyAnalysis } from "@/types";
@@ -24,7 +23,6 @@ import { LoadingSpinner, EmptyState, Button } from "@/shared/components/ui";
 import { useRequireAuth, usePermissions, useModal } from "@/shared/hooks";
 
 type AnalysisTab = "analizler" | "sonuçlananlar";
-type TimeFilter = "1day" | "1week" | "1month" | "all";
 type StatusFilter = "all" | "won" | "lost";
 
 export default function AIAnalysisPage() {
@@ -32,8 +30,14 @@ export default function AIAnalysisPage() {
     requireEmailVerified: true,
   });
   const { hasPremiumAccess } = usePermissions();
-  const { refreshUserData } = useAuth();
   const [analyses, setAnalyses] = useState<DailyAnalysis[]>([]);
+
+  // Completed analyses (unified list)
+  const [completedAnalyses, setCompletedAnalyses] = useState<DailyAnalysis[]>(
+    []
+  );
+  const [completedTotal, setCompletedTotal] = useState(0);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
   const [analysisStats, setAnalysisStats] = useState<AnalysisStats>({
     dailyPending: 0,
     dailyWon: 0,
@@ -43,10 +47,13 @@ export default function AIAnalysisPage() {
     aiLost: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [subscriptionValid, setSubscriptionValid] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("analizler");
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  // Pagination for completed analyses (unified)
+  const [completedPage, setCompletedPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [selectedImage, setSelectedImage] = useState<{
     url: string;
     title: string;
@@ -76,56 +83,43 @@ export default function AIAnalysisPage() {
         );
       });
     } else {
-      // Sonuçlananlar tab: Tüm kazanan/kaybeden analizler
+      // Sonuçlananlar tab: Backend'den gelecek (filteredAnalyses burada kullanılmaz)
       result = result.filter((a) => a.status === "won" || a.status === "lost");
-
-      // Status filter (sadece completed tab'de)
-      if (statusFilter !== "all") {
-        result = result.filter((a) => a.status === statusFilter);
-      }
-
-      // Zaman filtrelemesi (Sadece sonuçlananlar için)
-      if (timeFilter !== "all") {
-        const now = new Date();
-        let cutoffDate: Date;
-
-        switch (timeFilter) {
-          case "1day":
-            cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            break;
-          case "1week":
-            cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            break;
-          case "1month":
-            cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            break;
-        }
-
-        result = result.filter((analysis) => {
-          const dateToCheck = analysis.resultConfirmedAt
-            ? analysis.resultConfirmedAt.toDate()
-            : analysis.date.toDate();
-          return dateToCheck >= cutoffDate!;
-        });
-      }
     }
 
     return result;
-  }, [analyses, activeTab, timeFilter, statusFilter]);
+  }, [analyses, activeTab]);
+
+  // Load completed analyses with pagination from backend
+  const loadCompletedAnalyses = useCallback(async () => {
+    setLoadingCompleted(true);
+    try {
+      if (activeTab === "sonuçlananlar") {
+        const data = await getCompletedAnalyses(
+          "ai",
+          statusFilter,
+          completedPage,
+          itemsPerPage
+        );
+        setCompletedAnalyses(data.analyses);
+        setCompletedTotal(data.total);
+      }
+    } catch (error) {
+      console.error("Error loading completed analyses:", error);
+    } finally {
+      setLoadingCompleted(false);
+    }
+  }, [activeTab, statusFilter, completedPage]);
+
+  // Total pages (from backend counts)
+  const completedTotalPages = Math.ceil(completedTotal / itemsPerPage);
 
   useEffect(() => {
     const loadData = async () => {
       if (authLoading) return;
 
-      // Abonelik kontrolü (admin değilse)
-      if (userData?.role !== "admin" && userData?.isPaid && userData.uid) {
-        const isValid = await checkSubscriptionExpiry(userData.uid);
-        setSubscriptionValid(isValid);
-
-        if (!isValid) {
-          await refreshUserData();
-        }
-      }
+      // ⚠️ Abonelik kontrolü KALDIRILDI - AuthContext zaten kontrol ediyor
+      // Gereksiz Firestore read'i önlenir
 
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
@@ -145,13 +139,14 @@ export default function AIAnalysisPage() {
     };
 
     loadData();
-  }, [
-    authLoading,
-    userData,
-    hasPremiumAccess,
-    refreshUserData,
-    subscriptionValid,
-  ]);
+  }, [authLoading, hasPremiumAccess]);
+
+  // Load completed analyses when tab or page changes
+  useEffect(() => {
+    if (activeTab === "sonuçlananlar") {
+      loadCompletedAnalyses();
+    }
+  }, [activeTab, completedPage, statusFilter, loadCompletedAnalyses]);
 
   // Loading state
   if (authLoading || loading) {
@@ -306,7 +301,6 @@ export default function AIAnalysisPage() {
           <button
             onClick={() => {
               setActiveTab("analizler");
-              setTimeFilter("all");
             }}
             className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
               activeTab === "analizler"
@@ -319,8 +313,8 @@ export default function AIAnalysisPage() {
           <button
             onClick={() => {
               setActiveTab("sonuçlananlar");
-              setTimeFilter("all");
               setStatusFilter("all");
+              setCompletedPage(1);
             }}
             className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
               activeTab === "sonuçlananlar"
@@ -335,91 +329,51 @@ export default function AIAnalysisPage() {
         {/* Filtreler - Sadece Sonuçlananlar sekmesinde göster */}
         {activeTab === "sonuçlananlar" && (
           <div className="bg-gray-900 rounded-lg p-4 mb-6 border border-purple-500/20">
-            {/* Zaman Filtreleri */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Filter className="h-4 w-4 text-purple-400" />
-                <p className="text-sm text-purple-400 font-medium">
-                  Zaman Aralığı:
-                </p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setTimeFilter("1day")}
-                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                    timeFilter === "1day"
-                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Son 1 Gün
-                </button>
-                <button
-                  onClick={() => setTimeFilter("1week")}
-                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                    timeFilter === "1week"
-                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Son 1 Hafta
-                </button>
-                <button
-                  onClick={() => setTimeFilter("1month")}
-                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                    timeFilter === "1month"
-                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Son 1 Ay
-                </button>
-                <button
-                  onClick={() => setTimeFilter("all")}
-                  className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
-                    timeFilter === "all"
-                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Tümü
-                </button>
-              </div>
-            </div>
-
             {/* Durum Filtreleri */}
             <div>
-              <p className="text-sm text-purple-400 font-medium mb-2">Durum:</p>
+              <div className="flex items-center gap-2 mb-2">
+                <Filter className="h-4 w-4 text-purple-400" />
+                <p className="text-sm text-purple-400 font-medium">Durum:</p>
+              </div>
               <div className="flex gap-2 flex-wrap">
                 <button
-                  onClick={() => setStatusFilter("all")}
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setCompletedPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "all"
                       ? "bg-purple-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:text-white"
                   }`}
                 >
-                  Tümü
+                  Tümü ({analysisStats.aiWon + analysisStats.aiLost})
                 </button>
                 <button
-                  onClick={() => setStatusFilter("won")}
+                  onClick={() => {
+                    setStatusFilter("won");
+                    setCompletedPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "won"
                       ? "bg-green-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:text-white"
                   }`}
                 >
-                  ✓ Kazananlar
+                  ✓ Kazananlar ({analysisStats.aiWon})
                 </button>
                 <button
-                  onClick={() => setStatusFilter("lost")}
+                  onClick={() => {
+                    setStatusFilter("lost");
+                    setCompletedPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "lost"
                       ? "bg-red-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:text-white"
                   }`}
                 >
-                  ✗ Kaybedenler
+                  ✗ Kaybedenler ({analysisStats.aiLost})
                 </button>
               </div>
             </div>
@@ -455,86 +409,64 @@ export default function AIAnalysisPage() {
         {/* Sonuçlananlar Sekmesi */}
         {activeTab === "sonuçlananlar" && (
           <div className="space-y-6">
-            {filteredAnalyses.length === 0 ? (
+            {loadingCompleted ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner size="lg" text="Sonuçlar yükleniyor..." />
+              </div>
+            ) : completedAnalyses.length === 0 ? (
               <EmptyState
                 icon={<Sparkles className="h-16 w-16" />}
                 title="Sonuçlanmış AI analizi yok"
                 description={
-                  timeFilter !== "all" || statusFilter !== "all"
-                    ? "Bu filtrelere uygun AI analizi bulunamadı."
+                  statusFilter !== "all"
+                    ? "Bu filtreye uygun AI analizi bulunamadı."
                     : "Henüz sonuçlanmış AI analizi bulunmuyor."
                 }
               />
             ) : (
               <>
-                {/* Kazananlar */}
-                {filteredAnalyses.filter((a) => a.status === "won").length >
-                  0 && (
-                  <div>
-                    <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
-                      <span className="text-2xl">✅</span> Kazananlar (
-                      {
-                        filteredAnalyses.filter((a) => a.status === "won")
-                          .length
-                      }
-                      )
-                    </h3>
-                    <div className="space-y-4">
-                      {filteredAnalyses
-                        .filter((a) => a.status === "won")
-                        .map((analysis, index) => (
-                          <AIAnalysisCard
-                            key={analysis.id}
-                            analysis={analysis}
-                            analysisIndex={index}
-                            totalCount={
-                              filteredAnalyses.filter((a) => a.status === "won")
-                                .length
-                            }
-                            onImageClick={(url, title) => {
-                              setSelectedImage({ url, title });
-                              modal.open();
-                            }}
-                            showStatusBadge
-                          />
-                        ))}
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-4">
+                  {completedAnalyses.map((analysis, index) => (
+                    <AIAnalysisCard
+                      key={analysis.id}
+                      analysis={analysis}
+                      analysisIndex={(completedPage - 1) * itemsPerPage + index}
+                      totalCount={completedTotal}
+                      onImageClick={(url, title) => {
+                        setSelectedImage({ url, title });
+                        modal.open();
+                      }}
+                      showStatusBadge
+                    />
+                  ))}
+                </div>
 
-                {/* Kaybedenler */}
-                {filteredAnalyses.filter((a) => a.status === "lost").length >
-                  0 && (
-                  <div>
-                    <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2 mt-8">
-                      <span className="text-2xl">❌</span> Kaybedenler (
-                      {
-                        filteredAnalyses.filter((a) => a.status === "lost")
-                          .length
+                {/* Pagination */}
+                {completedTotalPages > 1 && (
+                  <div className="flex justify-center gap-2 mt-6">
+                    <button
+                      onClick={() =>
+                        setCompletedPage((p) => Math.max(1, p - 1))
                       }
-                      )
-                    </h3>
-                    <div className="space-y-4">
-                      {filteredAnalyses
-                        .filter((a) => a.status === "lost")
-                        .map((analysis, index) => (
-                          <AIAnalysisCard
-                            key={analysis.id}
-                            analysis={analysis}
-                            analysisIndex={index}
-                            totalCount={
-                              filteredAnalyses.filter(
-                                (a) => a.status === "lost"
-                              ).length
-                            }
-                            onImageClick={(url, title) => {
-                              setSelectedImage({ url, title });
-                              modal.open();
-                            }}
-                            showStatusBadge
-                          />
-                        ))}
-                    </div>
+                      disabled={completedPage === 1}
+                      className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                    >
+                      ← Önceki
+                    </button>
+                    <span className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg">
+                      {completedPage} / {completedTotalPages}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCompletedPage((p) =>
+                          Math.min(completedTotalPages, p + 1)
+                        )
+                      }
+                      disabled={completedPage === completedTotalPages}
+                      className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                    >
+                      Sonraki →
+                    </button>
                   </div>
                 )}
               </>

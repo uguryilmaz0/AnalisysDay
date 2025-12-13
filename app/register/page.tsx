@@ -220,6 +220,27 @@ function RegisterForm() {
       description="Ücretsiz hesap oluşturun ve başlayın"
       icon={UserPlus}
     >
+      {/* Deneme Süresi Bilgilendirme */}
+      <div className="mb-6 bg-linear-to-r from-green-900/40 via-green-800/40 to-green-900/40 border-2 border-green-500/50 rounded-xl p-4 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="bg-green-500 rounded-full p-2 shrink-0">
+            <CheckCircle2 className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-white mb-1">
+              🎁 1 Günlük Ücretsiz Deneme!
+            </h3>
+            <p className="text-sm text-green-200">
+              Yeni üyelerimize hoş geldin hediyesi olarak{" "}
+              <span className="font-bold">
+                1 gün boyunca tüm premium özelliklere
+              </span>{" "}
+              ücretsiz erişim tanıyoruz. Sistemi keşfedin, analizleri inceleyin!
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Referral Bildirimi */}
       {referralCode && (
         <div className="mb-6 bg-purple-900/30 border border-purple-500/50 rounded-lg p-4">

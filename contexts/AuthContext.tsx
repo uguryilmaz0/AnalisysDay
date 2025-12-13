@@ -57,16 +57,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? data.subscriptionEndDate.toDate() > new Date()
           : false;
 
-        // Lig listesi herkes için yüklenir (sadece isim listesi - hafif)
-        if (typeof window !== "undefined") {
+        // Lig listesi sadece premium kullanıcılar ve adminler için yüklenir
+        const isAdmin = data.role === "admin" || data.superAdmin;
+        if (
+          typeof window !== "undefined" &&
+          (isAdmin || (isPremium && hasActiveSubscription))
+        ) {
           // Dynamic import to avoid SSR issues
           import("@/lib/matchService").then(({ getLeagues }) => {
-            const userType =
-              data.role === "admin"
-                ? "Admin"
-                : isPremium && hasActiveSubscription
-                ? "Premium"
-                : "Free";
+            const userType = data.role === "admin" ? "Admin" : "Premium";
             console.log(
               `🚀 ${userType} kullanıcı - favori ligler yükleniyor...`
             );
@@ -75,6 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error("❌ Favori ligler yüklenemedi:", error);
             });
           });
+        } else if (typeof window !== "undefined") {
+          console.log("⛔ Free kullanıcı - lig yükleme atlandı");
         }
       }
     } catch {
@@ -92,7 +93,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists() && !userDoc.data().emailVerified) {
-            await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+            const userData = userDoc.data();
+            const updateData: any = { emailVerified: true };
+
+            // 🎁 Email doğrulandığında 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
+            const currentSubscriptionEnd =
+              userData.subscriptionEndDate?.toDate();
+            const now = new Date();
+
+            if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
+              // Deneme süresi yoksa veya bitmişse, yeni 1 günlük süre ver
+              updateData.subscriptionEndDate = Timestamp.fromDate(
+                new Date(Date.now() + 24 * 60 * 60 * 1000)
+              );
+              console.log(
+                "🎁 Email doğrulaması ile 1 günlük deneme süresi verildi"
+              );
+            }
+
+            await setDoc(userDocRef, updateData, { merge: true });
           }
         }
 
@@ -144,7 +163,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
         if (userCredential.user.emailVerified && !userData.emailVerified) {
-          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+          const updateData: any = { emailVerified: true };
+
+          // 🎁 Email doğrulaması ile 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
+          const currentSubscriptionEnd = userData.subscriptionEndDate?.toDate();
+          const now = new Date();
+
+          if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
+            updateData.subscriptionEndDate = Timestamp.fromDate(
+              new Date(Date.now() + 24 * 60 * 60 * 1000)
+            );
+            console.log(
+              "🎁 Login sırasında email doğrulaması ile 1 günlük deneme süresi verildi"
+            );
+          }
+
+          await setDoc(userDocRef, updateData, { merge: true });
         }
 
         // Admin değilse VE hem Firebase Auth HEM Firestore'da email doğrulanmamışsa hata ver
@@ -278,7 +312,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: isSuperAdmin ? "admin" : "user",
       superAdmin: isSuperAdmin,
       isPaid: false, // Admin rolü zaten premium erişim sağlar
-      subscriptionEndDate: null,
+      // 🎁 YENİ KULLANICILARA 1 GÜNLÜK DENEME SÜRESİ
+      subscriptionEndDate: isSuperAdmin
+        ? null // Admin'lere deneme süresi gerekmez
+        : Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // +1 gün
       lastPaymentDate: null,
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
@@ -286,7 +323,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // referredBy linkReferredUser fonksiyonu tarafından set edilecek
     };
 
+    console.log("🎁 Yeni kullanıcı oluşturuluyor:", {
+      uid: newUser.uid,
+      email: newUser.email,
+      subscriptionEndDate: newUser.subscriptionEndDate,
+      isSuperAdmin,
+    });
+
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
+
+    console.log("✅ Kullanıcı Firestore'a kaydedildi - deneme süresi verildi");
 
     // Referral bağlantısını kur (davet eden varsa)
     if (referrerUserId) {
@@ -378,7 +424,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists() && !userDoc.data().emailVerified) {
-          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
+          const userData = userDoc.data();
+          const updateData: any = { emailVerified: true };
+
+          // 🎁 Email doğrulaması ile 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
+          const currentSubscriptionEnd = userData.subscriptionEndDate?.toDate();
+          const now = new Date();
+
+          if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
+            updateData.subscriptionEndDate = Timestamp.fromDate(
+              new Date(Date.now() + 24 * 60 * 60 * 1000)
+            );
+            console.log(
+              "🎁 refreshUserData - Email doğrulaması ile 1 günlük deneme süresi verildi"
+            );
+          }
+
+          await setDoc(userDocRef, updateData, { merge: true });
         }
       }
 

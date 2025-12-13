@@ -127,16 +127,53 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
   }
 }
 
-export async function getAllUsers(): Promise<User[]> {
+/**
+ * Kullanıcıları getir (OPTİMİZE EDİLMİŞ - PAGINATION + CACHE)
+ * @param limitCount - Kaç kullanıcı çekilecek (varsayılan: 100, tümü için: undefined)
+ * @param sortField - Sıralama alanı (varsayılan: 'createdAt')
+ */
+export async function getAllUsers(limitCount?: number, sortField: string = 'createdAt'): Promise<User[]> {
   try {
-    const usersSnapshot = await getDocs(collection(db, 'users'));
+    // Cache kontrolü (sadece full list için)
+    if (!limitCount) {
+      const { analysisCache } = await import('@/lib/analysisCache');
+      const cachedUsers = analysisCache.get<User[]>('users:all');
+      
+      if (cachedUsers) {
+        console.log('📦 Users loaded from cache (0 reads)');
+        return cachedUsers;
+      }
+    }
+
+    console.log(`🔥 Fetching users from Firestore (limit: ${limitCount || 'all'})...`);
+    
+    // Query builder
+    let q = query(collection(db, 'users'));
+    
+    // Limit ekle (eğer belirtilmişse)
+    if (limitCount) {
+      q = query(q, limit(limitCount));
+    }
+
+    const usersSnapshot = await getDocs(q);
     const users = usersSnapshot.docs.map(doc => doc.data() as User);
-    // Sort by createdAt client-side (handle missing createdAt)
-    return users.sort((a, b) => {
+    
+    // Client-side sorting (Firestore compound index gerektirmez)
+    users.sort((a, b) => {
       const aTime = a.createdAt?.toMillis() || 0;
       const bTime = b.createdAt?.toMillis() || 0;
       return bTime - aTime;
     });
+    
+    console.log(`✅ Fetched ${users.length} users from Firestore`);
+    
+    // Cache'e kaydet (sadece full list için, 15 dakika)
+    if (!limitCount) {
+      const { analysisCache } = await import('@/lib/analysisCache');
+      analysisCache.set('users:all', users, 15 * 60 * 1000);
+    }
+    
+    return users;
   } catch (error) {
     console.error('Kullanıcılar alınamadı:', error);
     return [];
@@ -304,7 +341,8 @@ export async function updateReferrerPremiumStats(userId: string): Promise<void> 
 }
 
 /**
- * Kullanıcının referral istatistiklerini getir
+ * Kullanıcının referral istatistiklerini getir (OPTİMİZE EDİLMİŞ)
+ * N+1 query problemi çözüldü - tek batch query ile tüm user'ları çekiyor
  */
 export async function getReferralStats(uid: string): Promise<{
   totalReferrals: number;
@@ -381,30 +419,50 @@ export async function getReferralStats(uid: string): Promise<{
 
     console.log('📊 Final referredUserIds:', referredUserIds);
 
-    // Davet edilen kullanıcıların detaylarını getir
-    const referredUsers: User[] = [];
-    for (const userId of referredUserIds) {
-      console.log('🔍 Fetching referred user:', userId);
-      const user = await getUserById(userId);
-      if (user) {
-        console.log('✅ User fetched:', user.username);
-        referredUsers.push(user);
-      } else {
-        console.warn('⚠️ User not found:', userId);
+    // ⚡ OPTİMİZASYON: Tüm user'ları tek query'de çek (N+1 yerine 1 query)
+    let allUsersMap: Map<string, User> | null = null;
+    
+    if (referredUserIds.length > 0) {
+      // Firestore'da "in" query max 10 item - chunking gerekli
+      const chunks: string[][] = [];
+      for (let i = 0; i < referredUserIds.length; i += 10) {
+        chunks.push(referredUserIds.slice(i, i + 10));
       }
+      
+      allUsersMap = new Map();
+      
+      // Her chunk için paralel query
+      await Promise.all(
+        chunks.map(async (chunk) => {
+          const q = query(
+            collection(db, 'users'),
+            where('uid', 'in', chunk)
+          );
+          const snapshot = await getDocs(q);
+          snapshot.docs.forEach((doc) => {
+            const user = doc.data() as User;
+            allUsersMap!.set(user.uid, user);
+          });
+        })
+      );
+      
+      console.log(`✅ Batch fetched ${allUsersMap.size} users in ${chunks.length} queries`);
     }
 
-    // Premium olan kullanıcıların detaylarını getir
+    // Map'ten user'ları al
+    const referredUsers: User[] = [];
     const premiumUsers: User[] = [];
-    for (const userId of premiumUserIds) {
-      console.log('🔍 Fetching premium user:', userId);
-      const user = await getUserById(userId);
-      if (user) {
-        console.log('⭐ Premium user fetched:', user.username);
-        premiumUsers.push(user);
-      } else {
-        console.warn('⚠️ Premium user not found:', userId);
-      }
+    
+    if (allUsersMap) {
+      referredUserIds.forEach((userId) => {
+        const user = allUsersMap!.get(userId);
+        if (user) {
+          referredUsers.push(user);
+          if (premiumUserIds.includes(userId)) {
+            premiumUsers.push(user);
+          }
+        }
+      });
     }
 
     const result = {
@@ -472,6 +530,12 @@ export async function createAnalysis(
     }
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);
+    
+    // Cache'i invalidate et
+    const { analysisCache } = await import('@/lib/analysisCache');
+    analysisCache.invalidateAnalysisCache();
+    console.log('🧹 Analysis cache invalidated after create');
+    
     return docRef.id;
   } catch (error) {
     console.error('Analiz oluşturulamadı:', error);
@@ -506,6 +570,11 @@ export async function updateAnalysisStatus(
       resultConfirmedBy: confirmedBy,
       resultConfirmedAt: Timestamp.now(),
     });
+    
+    // Cache'i invalidate et
+    const { analysisCache } = await import('@/lib/analysisCache');
+    analysisCache.invalidateAnalysisCache();
+    console.log('🧹 Analysis cache invalidated after status update');
   } catch (error) {
     console.error('Analiz durumu güncellenemedi:', error);
     throw error;
@@ -560,18 +629,96 @@ export async function getLatestAnalysis(): Promise<DailyAnalysis | null> {
   }
 }
 
-export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
+/**
+ * Sonuçlanan analizleri pagination ile çeker (won/lost)
+ * Cache kullanmaz - her zaman fresh data
+ */
+export async function getCompletedAnalyses(
+  analysisType: 'daily' | 'ai',
+  status: 'won' | 'lost' | 'all',
+  page: number = 1,
+  pageSize: number = 10
+): Promise<{ analyses: DailyAnalysis[]; total: number }> {
   try {
-    const q = query(
+    const offset = (page - 1) * pageSize;
+    
+    // Base query
+    let q = query(
       collection(db, 'daily_analysis'),
-      orderBy('date', 'desc')
+      where('type', '==', analysisType)
     );
 
+    // Status filter
+    if (status !== 'all') {
+      q = query(q, where('status', '==', status));
+    } else {
+      q = query(q, where('status', 'in', ['won', 'lost']));
+    }
+
+    // Order by result confirmed date (or creation date)
+    q = query(q, orderBy('resultConfirmedAt', 'desc'));
+
+    // Get total count first
+    const totalSnapshot = await getDocs(q);
+    const total = totalSnapshot.size;
+
+    // Add pagination
+    q = query(q, limit(pageSize));
+    
+    // Skip offset items (Firestore doesn't have offset, so we need to use startAfter)
+    if (offset > 0 && totalSnapshot.docs[offset]) {
+      const startAfterDoc = totalSnapshot.docs[offset - 1];
+      q = query(
+        collection(db, 'daily_analysis'),
+        where('type', '==', analysisType),
+        status !== 'all' 
+          ? where('status', '==', status)
+          : where('status', 'in', ['won', 'lost']),
+        orderBy('resultConfirmedAt', 'desc'),
+        limit(pageSize)
+      );
+    }
+
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const analyses = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as DailyAnalysis));
+
+    console.log(`✅ Fetched ${analyses.length}/${total} completed ${analysisType} analyses (${status})`);
+    
+    return { analyses, total };
+  } catch (error) {
+    console.error('Sonuçlanan analizler alınamadı:', error);
+    return { analyses: [], total: 0 };
+  }
+}
+
+export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
+  try {
+    // getOrFetch ile request deduplication + cache
+    const { analysisCache } = await import('@/lib/analysisCache');
+    
+    return await analysisCache.getOrFetch<DailyAnalysis[]>(
+      'analyses:all',
+      async () => {
+        console.log('🔥 Fetching analyses from Firestore...');
+        const q = query(
+          collection(db, 'daily_analysis'),
+          orderBy('date', 'desc')
+        );
+
+        const snapshot = await getDocs(q);
+        const analyses = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as DailyAnalysis));
+        
+        console.log(`✅ Fetched ${analyses.length} analyses from Firestore`);
+        return analyses;
+      },
+      5 * 60 * 1000 // 5 dakika TTL
+    );
   } catch (error) {
     console.error('Analizler alınamadı:', error);
     return [];
@@ -588,44 +735,52 @@ export interface AnalysisStats {
 }
 
 /**
- * Analiz istatistiklerini Firebase'den çeker
+ * Analiz istatistiklerini Firebase'den çeker (CACHE'Lİ)
  */
 export async function getAnalysisStats(): Promise<AnalysisStats> {
   try {
-    const snapshot = await getDocs(
-      query(collection(db, 'daily_analysis'))
+    const { analysisCache } = await import('@/lib/analysisCache');
+    
+    return await analysisCache.getOrFetch<AnalysisStats>(
+      'stats:analysis',
+      async () => {
+        console.log('🔥 Calculating stats from Firestore...');
+        
+        // getAllAnalyses kullan (bu da cache'li)
+        const analyses = await getAllAnalyses();
+
+        const stats: AnalysisStats = {
+          dailyPending: 0,
+          dailyWon: 0,
+          dailyLost: 0,
+          aiPending: 0,
+          aiWon: 0,
+          aiLost: 0,
+        };
+
+        analyses.forEach((data) => {
+          // Silinen analizleri sayma
+          if (data.isVisible === false) return;
+
+          const type = data.type || 'daily';
+          const status = data.status || 'pending';
+
+          if (type === 'daily') {
+            if (status === 'pending') stats.dailyPending++;
+            else if (status === 'won') stats.dailyWon++;
+            else if (status === 'lost') stats.dailyLost++;
+          } else if (type === 'ai') {
+            if (status === 'pending') stats.aiPending++;
+            else if (status === 'won') stats.aiWon++;
+            else if (status === 'lost') stats.aiLost++;
+          }
+        });
+
+        console.log('✅ Stats calculated:', stats);
+        return stats;
+      },
+      10 * 60 * 1000 // 10 dakika TTL
     );
-
-    const stats: AnalysisStats = {
-      dailyPending: 0,
-      dailyWon: 0,
-      dailyLost: 0,
-      aiPending: 0,
-      aiWon: 0,
-      aiLost: 0,
-    };
-
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data() as DailyAnalysis;
-      
-      // Silinen analizleri sayma
-      if (data.isVisible === false) return;
-
-      const type = data.type || 'daily';
-      const status = data.status || 'pending';
-
-      if (type === 'daily') {
-        if (status === 'pending') stats.dailyPending++;
-        else if (status === 'won') stats.dailyWon++;
-        else if (status === 'lost') stats.dailyLost++;
-      } else if (type === 'ai') {
-        if (status === 'pending') stats.aiPending++;
-        else if (status === 'won') stats.aiWon++;
-        else if (status === 'lost') stats.aiLost++;
-      }
-    });
-
-    return stats;
   } catch (error) {
     console.error('Analiz istatistikleri alınamadı:', error);
     return {
@@ -642,6 +797,11 @@ export async function getAnalysisStats(): Promise<AnalysisStats> {
 export async function deleteAnalysis(id: string): Promise<void> {
   try {
     await deleteDoc(doc(db, 'daily_analysis', id));
+    
+    // Cache'i invalidate et
+    const { analysisCache } = await import('@/lib/analysisCache');
+    analysisCache.invalidateAnalysisCache();
+    console.log('🧹 Analysis cache invalidated after delete');
   } catch (error) {
     console.error('Analiz silinemedi:', error);
     throw error;
@@ -671,17 +831,20 @@ export async function deleteExpiredAnalyses(): Promise<number> {
 }
 
 /**
- * 1 hafta önceki tüm analizleri siler (günlük + yapay zeka)
+ * 3 günden eski analizleri sil (Firebase + Cloudinary)
  * Cumartesi sabahı 05:00'da çalışır
  */
 export async function deleteOldAnalyses(): Promise<{ 
   dailyDeleted: number; 
-  aiDeleted: number 
+  aiDeleted: number;
+  imagesDeleted: number;
 }> {
   try {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const timestamp = Timestamp.fromDate(oneWeekAgo);
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const timestamp = Timestamp.fromDate(threeDaysAgo);
+
+    let totalImagesDeleted = 0;
 
     // Günlük analizleri sil
     const dailyQuery = query(
@@ -689,6 +852,19 @@ export async function deleteOldAnalyses(): Promise<{
       where('createdAt', '<=', timestamp)
     );
     const dailySnapshot = await getDocs(dailyQuery);
+    
+    // Cloudinary'den görselleri sil
+    for (const doc of dailySnapshot.docs) {
+      const data = doc.data() as DailyAnalysis;
+      if (data.imageUrls && data.imageUrls.length > 0) {
+        const { deleteMultipleCloudinaryImages } = await import('@/lib/cloudinary');
+        const deletedCount = await deleteMultipleCloudinaryImages(data.imageUrls);
+        totalImagesDeleted += deletedCount;
+        console.log(`🗑️  Analiz ${doc.id}: ${deletedCount}/${data.imageUrls.length} görsel silindi`);
+      }
+    }
+    
+    // Firebase'den analizleri sil
     const dailyDeletePromises = dailySnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(dailyDeletePromises);
 
@@ -698,15 +874,31 @@ export async function deleteOldAnalyses(): Promise<{
       where('createdAt', '<=', timestamp)
     );
     const aiSnapshot = await getDocs(aiQuery);
+    
+    // Cloudinary'den görselleri sil
+    for (const doc of aiSnapshot.docs) {
+      const data = doc.data() as DailyAnalysis;
+      if (data.imageUrls && data.imageUrls.length > 0) {
+        const { deleteMultipleCloudinaryImages } = await import('@/lib/cloudinary');
+        const deletedCount = await deleteMultipleCloudinaryImages(data.imageUrls);
+        totalImagesDeleted += deletedCount;
+        console.log(`🗑️  AI Analiz ${doc.id}: ${deletedCount}/${data.imageUrls.length} görsel silindi`);
+      }
+    }
+    
+    // Firebase'den analizleri sil
     const aiDeletePromises = aiSnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(aiDeletePromises);
 
+    console.log(`✅ Cleanup tamamlandı: ${dailySnapshot.size} günlük + ${aiSnapshot.size} AI analiz, ${totalImagesDeleted} görsel silindi`);
+
     return {
       dailyDeleted: dailySnapshot.size,
-      aiDeleted: aiSnapshot.size
+      aiDeleted: aiSnapshot.size,
+      imagesDeleted: totalImagesDeleted,
     };
   } catch (error) {
-    console.error('1 haftalık eski analizler silinemedi:', error);
+    console.error('❌ Eski analizler silinemedi:', error);
     throw error;
   }
 }
