@@ -63,6 +63,17 @@ export default function Header() {
               <span>✨</span> Yapay Zeka Analizi
             </Link>
 
+            <Link
+              href="/blog"
+              className={`${
+                isActive("/blog")
+                  ? "text-emerald-400 font-semibold"
+                  : "text-gray-300 hover:text-emerald-400"
+              } transition-all duration-200`}
+            >
+              Blog
+            </Link>
+
             {/* Database Analysis - Sadece admin ve super admin'e göster */}
             {(userData?.role === "admin" || userData?.superAdmin) && (
               <Link
@@ -220,6 +231,18 @@ export default function Header() {
               } transition-colors flex items-center gap-1`}
             >
               <span>✨</span> Yapay Zeka Analizi
+            </Link>
+
+            <Link
+              href="/blog"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block py-2 ${
+                isActive("/blog")
+                  ? "text-emerald-400 font-semibold"
+                  : "text-gray-300 hover:text-emerald-400"
+              } transition-colors`}
+            >
+              Blog
             </Link>
 
             {/* Database Analysis Mobile - Sadece admin ve super admin'e göster */}

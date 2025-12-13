@@ -9,6 +9,12 @@ import { CacheMonitor } from "@/components/CacheMonitor";
 import { ToastProvider } from "@/shared/hooks/useToast";
 import { ToastContainer, ErrorBoundary } from "@/shared/components/ui";
 import { validateEnv } from "@/lib/validateEnv";
+import {
+  siteConfig,
+  organizationSchema,
+  websiteSchema,
+  softwareApplicationSchema,
+} from "@/lib/seo.config";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,30 +32,58 @@ if (typeof window === "undefined") {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://analysisday.com"
-  ),
-  title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
-  description:
-    "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
-  keywords: ["maç analizi", "yapay zeka", "tahmin", "spor", "istatistik"],
-  authors: [{ name: "Analiz Günü" }],
+  metadataBase: new URL(siteConfig.url),
+  title: {
+    default: siteConfig.title,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  authors: [{ name: siteConfig.author }],
+  creator: siteConfig.author,
+  publisher: siteConfig.author,
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   openGraph: {
-    title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
-    description:
-      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
-    url: "https://analizgunu.com",
-    siteName: "Analiz Günü",
-    locale: "tr_TR",
     type: "website",
+    locale: siteConfig.locale,
+    url: siteConfig.url,
+    title: siteConfig.title,
+    description: siteConfig.description,
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: siteConfig.title,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Analiz Günü - Günlük Maç Analizleri ve Yapay Zeka",
-    description:
-      "Günlük maç analizleri, yapay zeka destekli tahminler ve profesyonel istatistiklerle deneyiminizi geliştirin.",
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: [siteConfig.ogImage],
   },
   manifest: "/manifest.json",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: siteConfig.url,
+  },
 };
 
 export default function RootLayout({
@@ -59,6 +93,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
+      <head>
+        {/* Schema.org JSON-LD */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(softwareApplicationSchema),
+          }}
+        />
+      </head>
       <body
         className={`${inter.className} antialiased bg-slate-900 flex flex-col min-h-screen`}
       >

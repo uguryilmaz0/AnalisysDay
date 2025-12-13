@@ -1,0 +1,22 @@
+# robots.txt for analysisday.com
+# Yapay Zeka Maç Analizi ve Spor İstatistik Platformu
+
+User-agent: *
+Allow: /
+Allow: /analysis
+Allow: /ai-analysis
+Allow: /pricing
+Allow: /faq
+Allow: /blog
+
+# Özel sayfalar
+Disallow: /api/
+Disallow: /admin/
+Disallow: /profile/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+
+# Sitemap konumu
+Sitemap: https://analysisday.com/sitemap.xml
+Sitemap: https://analysisday.com/sitemap-blog.xml
