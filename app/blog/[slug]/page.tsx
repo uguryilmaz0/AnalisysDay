@@ -25,7 +25,7 @@ import {
 } from "@/lib/blogArticles";
 
 // Makale içerik haritası
-const articleContentMap: Record<string, any> = {
+const articleContentMap: Record<string, typeof aiInSportsArticle> = {
   "yapay-zeka-spor-analizinde-nasil-kullanilir": aiInSportsArticle,
   "istatistiksel-analiz-yontemleri": statsGuideArticle,
   "futbol-istatistikleri-okuma-rehberi": footballStatsGuide,
@@ -41,7 +41,7 @@ export default function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug: rawSlug } = use(params);
-  
+
   // URL-encoded slug'u decode et (Türkçe karakterler için)
   const slug = decodeURIComponent(rawSlug);
 
