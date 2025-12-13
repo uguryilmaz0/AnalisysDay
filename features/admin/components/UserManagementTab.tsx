@@ -45,7 +45,7 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<UserFilter>("all");
-  const usersPerPage = 10;
+  const usersPerPage = 50;
 
   // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
   const loadUsersPaginated = useCallback(async () => {

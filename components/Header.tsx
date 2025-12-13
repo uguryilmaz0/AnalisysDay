@@ -75,18 +75,18 @@ export default function Header() {
             </Link>
 
             {/* Database Analysis - Sadece admin ve super admin'e göster */}
-            {(userData?.role === "admin" || userData?.superAdmin) && (
-              <Link
-                href="/database-analysis"
-                className={`${
-                  isActive("/database-analysis")
-                    ? "text-green-400 font-semibold"
-                    : "text-gray-300 hover:text-green-400"
-                } transition-all duration-200 flex items-center gap-1`}
-              >
-                <span>📊</span> Analiz Et
-              </Link>
-            )}
+
+            <Link
+              href="/database-analysis"
+              className={`${
+                isActive("/database-analysis")
+                  ? "text-green-400 font-semibold"
+                  : "text-gray-300 hover:text-green-400"
+              } transition-all duration-200 flex items-center gap-1`}
+            >
+              <span>📊</span> Analiz Et
+            </Link>
+
             <Link
               href="/faq"
               className={`${

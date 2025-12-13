@@ -192,7 +192,7 @@ export default function FilterBar({
   const activeFilterCount = Object.keys(localFilters).length;
 
   return (
-    <div className="bg-linear-to-r from-gray-800 to-gray-900 border-b border-gray-700 p-2 shadow-lg">
+    <div className="xl:hidden bg-linear-to-r from-gray-800 to-gray-900 border-b border-gray-700 p-2 shadow-lg">
       <div className="max-w-7xl mx-auto">
         {/* Mobil Lig Seçimi - Sadece sidebar gizliyken görünür */}
         <div className="xl:hidden pt-2 mb-5">
@@ -208,7 +208,7 @@ export default function FilterBar({
                 ▶
               </span>
             </summary>
-            <div className="mt-3 space-y-2">
+            <div className=" mt-3 space-y-2">
               {/* Arama */}
               <input
                 type="text"
@@ -258,9 +258,9 @@ export default function FilterBar({
             </div>
           </details>
         </div>
-        <hr className="xl:hidden w-full mx-auto border-gray-400 my-6" />
+        <hr className="hidden w-full mx-auto border-gray-400 my-6" />
         <div className="flex text-gray-900"></div>
-        <details className="group">
+        <details className="hidden group">
           <summary className="cursor-pointer text-sm font-semibold text-blue-400 hover:text-blue-300 pt-2 mb-2 flex items-center gap-2">
             <span>⚙️ İleri Seviye Filtreler (Opsiyonel)</span>
             {activeFilterCount > 0 && (
