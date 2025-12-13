@@ -11,7 +11,9 @@ import { Badge } from "@/shared/components/ui";
 import { useToast } from "@/shared/hooks";
 import { userService } from "@/features/admin/services";
 import { useAdminStore } from "@/features/admin/stores";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { getUsersPaginated } from "@/lib/db";
+import { User } from "@/types";
 
 interface UserManagementTabProps {
   currentUserId?: string;
@@ -27,9 +29,17 @@ type UserFilter =
 
 export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const { showToast } = useToast();
-  const users = useAdminStore((state) => state.users);
-  const loadUsers = useAdminStore((state) => state.loadUsers);
+
+  // ⚡ DİNAMİK PAGİNATİON: Zustand yerine local state
+  const [users, setUsers] = useState<User[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
   const removeUser = useAdminStore((state) => state.removeUser);
+  const stats = useAdminStore((state) => state.stats);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // Pagination & Filter state
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,7 +47,40 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const [filter, setFilter] = useState<UserFilter>("all");
   const usersPerPage = 10;
 
-  // Filtered users
+  // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
+  const loadUsersPaginated = useCallback(async () => {
+    setLoading(true);
+    try {
+      const currentCursor = cursorStack[currentPage - 1];
+
+      const data = await getUsersPaginated(
+        currentPage,
+        usersPerPage,
+        currentCursor
+      );
+
+      setUsers(data.users);
+      setHasMore(data.hasMore);
+      setTotalUsers(data.totalCount || stats.totalUsers);
+
+      // Yeni cursor'u stack'e ekle
+      if (data.lastDocId && currentPage === cursorStack.length) {
+        setCursorStack((prev) => [...prev, data.lastDocId]);
+      }
+    } catch (error) {
+      console.error("❌ Users yüklenemedi:", error);
+      showToast("Kullanıcılar yüklenemedi", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, cursorStack, showToast, stats.totalUsers]);
+
+  // İlk yükleme ve sayfa değişimi
+  useEffect(() => {
+    loadUsersPaginated();
+  }, [loadUsersPaginated]);
+
+  // Filtered users (artık sadece client-side filtering - search/filter için)
   const filteredUsers = useMemo(() => {
     let result = users.filter((u) => !u.superAdmin);
 
@@ -75,17 +118,31 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     return result;
   }, [users, searchQuery, filter]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (currentPage - 1) * usersPerPage;
-    return filteredUsers.slice(startIndex, startIndex + usersPerPage);
-  }, [filteredUsers, currentPage, usersPerPage]);
+  // ⚡ SERVER-SIDE PAGİNATİON: Backend'den gelen veriyi göster
+  // NOT: Search/filter aktifse client-side pagination, yoksa server-side
+  const hasSearchOrFilter = searchQuery.trim() || filter !== "all";
 
-  // Reset to page 1 when filters change
-  useMemo(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filter]);
+  const paginatedUsers = hasSearchOrFilter
+    ? filteredUsers.slice(0, usersPerPage) // Search/filter varsa ilk 10'u göster
+    : filteredUsers; // Search/filter yoksa backend'den gelen 10 veriyi göster
+
+  // Reset filters/search when changing pages
+  const handlePageChange = (newPage: number) => {
+    if (hasSearchOrFilter) {
+      // Search/filter aktifse sayfayı değiştiremez
+      showToast("Arama/filtre aktifken sayfa değiştirilemez", "warning");
+      return;
+    }
+    setCurrentPage(newPage);
+  };
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    if (!hasSearchOrFilter) {
+      setCurrentPage(1);
+      setCursorStack([undefined]);
+    }
+  }, [hasSearchOrFilter]);
 
   const handleMakePremium = async (uid: string) => {
     if (
@@ -98,7 +155,7 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     try {
       await userService.makePremium(uid, 30);
       showToast("Kullanıcı premium yapıldı! (30 gün)", "success");
-      await loadUsers();
+      await loadUsersPaginated();
     } catch {
       showToast("Premium yapılamadı!", "error");
     }
@@ -115,7 +172,7 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     try {
       await userService.cancelSubscription(uid);
       showToast("Abonelik başarıyla iptal edildi!", "success");
-      await loadUsers();
+      await loadUsersPaginated();
     } catch {
       showToast("Abonelik iptal edilemedi!", "error");
     }
@@ -159,7 +216,7 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
         "Email doğrulama durumu güncellendi! (Firebase Auth + Firestore)",
         "success"
       );
-      await loadUsers();
+      await loadUsersPaginated();
     } catch {
       showToast("Email doğrulama durumu güncellenemedi!", "error");
     }
@@ -184,11 +241,10 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">
-          Kullanıcılar ({filteredUsers.length} /{" "}
-          {users.filter((u) => !u.superAdmin).length})
+          Kullanıcılar ({filteredUsers.length} / {totalUsers})
         </h2>
         <button
-          onClick={loadUsers}
+          onClick={loadUsersPaginated}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2"
         >
           <svg
@@ -320,7 +376,12 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
         </div>
       </div>
 
-      {filteredUsers.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12 bg-gray-900 rounded-lg">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Kullanıcılar yükleniyor...</p>
+        </div>
+      ) : filteredUsers.length === 0 ? (
         <div className="text-center py-12 bg-gray-900 rounded-lg">
           <Users className="h-16 w-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 mb-2">
@@ -547,18 +608,18 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       )}
 
       {/* Pagination */}
-      {filteredUsers.length > 0 && totalPages > 1 && (
+      {!hasSearchOrFilter && (currentPage > 1 || hasMore) && (
         <div className="mt-6 flex items-center justify-between bg-gray-900 rounded-lg p-4">
           <div className="text-sm text-gray-400">
-            Sayfa {currentPage} / {totalPages}
+            Sayfa {currentPage}
             <span className="ml-2">
-              (Gösterilen: {paginatedUsers.length} / {filteredUsers.length})
+              (Gösterilen: {paginatedUsers.length} kullanıcı)
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className={`flex items-center gap-1 px-3 py-2 rounded-lg font-semibold transition ${
                 currentPage === 1
@@ -570,48 +631,15 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
               Önceki
             </button>
 
-            {/* Page Numbers */}
-            <div className="flex gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  // Show first, last, current, and adjacent pages
-                  return (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - currentPage) <= 1
-                  );
-                })
-                .map((page, index, array) => {
-                  // Add ellipsis between non-consecutive pages
-                  const showEllipsis = index > 0 && page - array[index - 1] > 1;
-
-                  return (
-                    <div key={page} className="flex items-center gap-1">
-                      {showEllipsis && (
-                        <span className="px-2 text-gray-500">...</span>
-                      )}
-                      <button
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-2 rounded-lg font-semibold transition ${
-                          currentPage === page
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    </div>
-                  );
-                })}
-            </div>
+            <span className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg">
+              Sayfa {currentPage}
+            </span>
 
             <button
-              onClick={() =>
-                setCurrentPage(Math.min(totalPages, currentPage + 1))
-              }
-              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!hasMore}
               className={`flex items-center gap-1 px-3 py-2 rounded-lg font-semibold transition ${
-                currentPage === totalPages
+                !hasMore
                   ? "bg-gray-800 text-gray-600 cursor-not-allowed"
                   : "bg-gray-800 text-white hover:bg-gray-700"
               }`}
@@ -620,6 +648,16 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Search/Filter aktifse bilgi mesajı */}
+      {hasSearchOrFilter && (
+        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+          <p className="text-sm text-yellow-400">
+            ℹ️ Arama veya filtre aktifken pagination devre dışıdır. Temizlemek
+            için arama kutusunu boşaltın ve Tümü filtresini seçin.
+          </p>
         </div>
       )}
     </div>

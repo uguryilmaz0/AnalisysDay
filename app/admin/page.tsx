@@ -39,6 +39,8 @@ export default function AdminPage() {
   const users = useAdminStore((state) => state.users);
   const loading = useAdminStore((state) => state.loading);
   const loadAllData = useAdminStore((state) => state.loadAllData);
+  const loadAnalyses = useAdminStore((state) => state.loadAnalyses);
+  const loadUsers = useAdminStore((state) => state.loadUsers);
 
   const [activeTab, setActiveTab] = useState<
     | "upload"
@@ -51,11 +53,37 @@ export default function AdminPage() {
     | "login-logs"
   >("upload");
 
+  // ⚡ İlk yükleme: Sadece stats (lazy loading)
   useEffect(() => {
     if (!authLoading && user) {
-      loadAllData();
+      loadAllData(); // Sadece stats yükler
     }
   }, [authLoading, user, loadAllData]);
+
+  // ⚡ Tab değişiminde lazy load
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    if (
+      (activeTab === "analyses" || activeTab === "ai-analyses") &&
+      analyses.length === 0
+    ) {
+      loadAnalyses();
+    } else if (
+      (activeTab === "users" || activeTab === "admins") &&
+      users.length === 0
+    ) {
+      loadUsers();
+    }
+  }, [
+    activeTab,
+    authLoading,
+    user,
+    analyses.length,
+    users.length,
+    loadAnalyses,
+    loadUsers,
+  ]);
 
   if (authLoading || loading) {
     return (

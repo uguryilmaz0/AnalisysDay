@@ -19,11 +19,11 @@ class UserService extends BaseService {
   }
 
   /**
-   * Tüm kullanıcıları getirir
+   * Tüm kullanıcıları getirir (admin için tüm kullanıcılar)
    */
   async getAll(): Promise<User[]> {
     return this.executeWithRetry(
-      () => getAllUsers(),
+      () => getAllUsers(), // Limit kaldırıldı - tüm kullanıcıları çek
       "getAll",
       { maxRetries: 2 }
     );

@@ -9,7 +9,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Image from "next/image";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button, EmptyState } from "@/shared/components/ui";
 import { useToast } from "@/shared/hooks";
 import { analysisService } from "@/features/admin/services";
@@ -17,6 +17,7 @@ import { useAdminStore } from "@/features/admin/stores";
 import { EditAnalysisModal } from "./EditAnalysisModal";
 import { DailyAnalysis } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { getCompletedAnalyses, getAllAnalyses } from "@/lib/db";
 
 type TimeFilter = "1day" | "1week" | "1month" | "all";
 type StatusFilter = "all" | "won" | "lost";
@@ -31,17 +32,21 @@ export function AnalysisListTab({
 }: AnalysisListTabProps) {
   const { showToast } = useToast();
   const { userData } = useAuth();
-  const analyses = useAdminStore((state) => state.analyses);
+
+  // ⚡ DİNAMİK PAGİNATİON: Local state ile backend'den sayfa sayfa çek
+  const [analyses, setAnalyses] = useState<DailyAnalysis[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+
   const analysisStats = useAdminStore((state) => state.analysisStats);
   const removeAnalysis = useAdminStore((state) => state.removeAnalysis);
-  const loadAnalyses = useAdminStore((state) => state.loadAnalyses);
   const [activeTab, setActiveTab] = useState<ViewTab>("pending");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("1day");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-
-  // Pagination states for completed analyses
-  const [wonPage, setWonPage] = useState(1);
-  const [lostPage, setLostPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   const [editModal, setEditModal] = useState<{
@@ -49,26 +54,77 @@ export function AnalysisListTab({
     analysis: DailyAnalysis | null;
   }>({ open: false, analysis: null });
 
-  // Filtrelenmiş analizler
+  // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
+  const loadAnalysesPaginated = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (activeTab === "pending") {
+        // Pending analizler için getAllAnalyses kullan (genellikle az veri)
+        const allAnalyses = await getAllAnalyses();
+        const filteredPending = allAnalyses
+          .filter((a) => (a.type || "daily") === analysisType)
+          .filter((a) => !a.status || a.status === "pending");
+
+        setAnalyses(filteredPending);
+        setHasMore(false); // Pending'de pagination yok, az veri
+      } else {
+        // Completed analizler için dinamik pagination
+        const currentCursor = cursorStack[currentPage - 1];
+        const data = await getCompletedAnalyses(
+          analysisType,
+          statusFilter,
+          currentPage,
+          itemsPerPage,
+          currentCursor
+        );
+
+        setAnalyses(data.analyses);
+        setHasMore(data.hasMore);
+
+        // Yeni cursor'u stack'e ekle
+        if (data.lastDocId && currentPage === cursorStack.length) {
+          setCursorStack((prev) => [...prev, data.lastDocId]);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Analizler yüklenemedi:", error);
+      showToast("Analizler yüklenemedi", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    activeTab,
+    analysisType,
+    statusFilter,
+    currentPage,
+    cursorStack,
+    showToast,
+  ]);
+
+  // Tab veya filtre değişiminde veriyi yenile
+  useEffect(() => {
+    setCurrentPage(1);
+    setCursorStack([undefined]);
+    loadAnalysesPaginated();
+  }, [activeTab, analysisType, statusFilter]);
+
+  // Sayfa değişiminde yükle
+  useEffect(() => {
+    if (activeTab === "completed") {
+      loadAnalysesPaginated();
+    }
+  }, [currentPage, loadAnalysesPaginated, activeTab]);
+
+  // Pagination handler
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  // Client-side filtering sadece zaman filtresi için (status filter backend'de yapılıyor)
   const filteredAnalyses = useMemo(() => {
     let result = analyses;
 
-    // Analiz tipine göre filtrele
-    result = result.filter((a) => (a.type || "daily") === analysisType);
-
-    // Tab filtrelemesi - pending veya completed
-    if (activeTab === "pending") {
-      result = result.filter((a) => !a.status || a.status === "pending");
-    } else {
-      result = result.filter((a) => a.status === "won" || a.status === "lost");
-    }
-
-    // Status filter (sadece completed tab'de aktif)
-    if (activeTab === "completed" && statusFilter !== "all") {
-      result = result.filter((a) => a.status === statusFilter);
-    }
-
-    // Zaman filtrelemesi
+    // Zaman filtrelemesi (client-side)
     if (timeFilter !== "all") {
       const now = new Date();
       let cutoffDate: Date;
@@ -96,39 +152,11 @@ export function AnalysisListTab({
     }
 
     return result;
-  }, [analyses, timeFilter, activeTab, statusFilter, analysisType]);
+  }, [analyses, timeFilter, activeTab]);
 
-  // Paginated won analyses
-  const paginatedWonAnalyses = useMemo(() => {
-    const won = filteredAnalyses.filter((a) => a.status === "won");
-    const startIndex = (wonPage - 1) * itemsPerPage;
-    return won.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAnalyses, wonPage]);
-
-  // Paginated lost analyses
-  const paginatedLostAnalyses = useMemo(() => {
-    const lost = filteredAnalyses.filter((a) => a.status === "lost");
-    const startIndex = (lostPage - 1) * itemsPerPage;
-    return lost.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAnalyses, lostPage]);
-
-  // Total pages
-  const wonTotalPages = Math.ceil(
-    filteredAnalyses.filter((a) => a.status === "won").length / itemsPerPage
-  );
-  const lostTotalPages = Math.ceil(
-    filteredAnalyses.filter((a) => a.status === "lost").length / itemsPerPage
-  );
-
-  // Paginated all analyses (for table view)
-  const [completedPage, setCompletedPage] = useState(1);
-  const paginatedCompletedAnalyses = useMemo(() => {
-    if (activeTab === "pending") return filteredAnalyses;
-    const startIndex = (completedPage - 1) * itemsPerPage;
-    return filteredAnalyses.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAnalyses, completedPage, activeTab]);
-
-  const completedTotalPages = Math.ceil(filteredAnalyses.length / itemsPerPage);
+  // Gösterilecek analizler (pending'de tümü, completed'da paginated)
+  const displayedAnalyses =
+    activeTab === "pending" ? filteredAnalyses : filteredAnalyses;
 
   const handleDownloadImage = (url: string, index: number) => {
     analysisService.downloadImage(url, index);
@@ -158,7 +186,7 @@ export function AnalysisListTab({
 
     try {
       await analysisService.update(editModal.analysis.id, title, description);
-      await loadAnalyses();
+      await loadAnalysesPaginated();
       showToast("Analiz başarıyla güncellendi!", "success");
     } catch {
       showToast("Analiz güncellenemedi!", "error");
@@ -186,7 +214,7 @@ export function AnalysisListTab({
 
     try {
       await analysisService.updateStatus(id, status, userData.uid);
-      await loadAnalyses();
+      await loadAnalysesPaginated();
       showToast(`Analiz "${statusText}" olarak güncellendi!`, "success");
     } catch {
       showToast("Durum güncellenemedi!", "error");
@@ -338,7 +366,12 @@ export function AnalysisListTab({
         </div>
       )}
 
-      {filteredAnalyses.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12 bg-gray-900 rounded-lg">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Analizler yükleniyor...</p>
+        </div>
+      ) : filteredAnalyses.length === 0 ? (
         <EmptyState
           icon={<TrendingUp className="h-16 w-16" />}
           title={`${
@@ -378,7 +411,7 @@ export function AnalysisListTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {paginatedCompletedAnalyses.map((analysis) => (
+              {displayedAnalyses.map((analysis) => (
                 <tr key={analysis.id} className="hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div>
@@ -553,24 +586,22 @@ export function AnalysisListTab({
             </tbody>
           </table>
 
-          {/* Pagination for Completed Tab */}
-          {activeTab === "completed" && completedTotalPages > 1 && (
+          {/* Pagination - Sadece completed tab'de ve hasMore varsa */}
+          {activeTab === "completed" && (currentPage > 1 || hasMore) && (
             <div className="flex justify-center gap-2 mt-6">
               <button
-                onClick={() => setCompletedPage((p) => Math.max(1, p - 1))}
-                disabled={completedPage === 1}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
                 className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
               >
                 ← Önceki
               </button>
               <span className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg">
-                {completedPage} / {completedTotalPages}
+                Sayfa {currentPage}
               </span>
               <button
-                onClick={() =>
-                  setCompletedPage((p) => Math.min(completedTotalPages, p + 1))
-                }
-                disabled={completedPage === completedTotalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={!hasMore}
                 className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
               >
                 Sonraki →

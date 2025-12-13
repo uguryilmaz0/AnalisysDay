@@ -11,12 +11,21 @@ interface AnalysisStats {
   aiLost: number;
 }
 
+interface AdminStats {
+  totalUsers: number;
+  totalAnalyses: number;
+  premiumUsers: number;
+  pendingAnalyses: number;
+  completedAnalyses: number;
+}
+
 interface AdminState {
   // Data
   analyses: DailyAnalysis[];
   users: User[];
   usersWithAuthData: Array<User & { emailVerified: boolean }>;
   analysisStats: AnalysisStats;
+  stats: AdminStats;
 
   // Loading states
   loading: boolean;
@@ -55,6 +64,13 @@ const initialState = {
     aiWon: 0,
     aiLost: 0,
   },
+  stats: {
+    totalUsers: 0,
+    totalAnalyses: 0,
+    premiumUsers: 0,
+    pendingAnalyses: 0,
+    completedAnalyses: 0,
+  },
   loading: false,
   analysesLoading: false,
   usersLoading: false,
@@ -69,29 +85,54 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   ...initialState,
 
   /**
-   * Tüm verileri paralel olarak yükler
+   * ⚡ OPTİMİZE: İlk açılışta sadece stats yükle (lazy loading)
    */
   loadAllData: async () => {
     set({ loading: true, error: null });
 
     try {
-      const [analyses, users, usersWithAuth, stats] = await Promise.all([
-        analysisService.getAll(),
-        userService.getAll(),
-        userService.getAllWithAuthData(),
-        analysisService.getStats(),
-      ]);
+      // Sadece analysis stats yükle, diğerleri tab'e basıldığında yüklenecek
+      const analysisStats = await analysisService.getStats();
+      
+      // Kullanıcı sayıları için basit fallback stats
+      const stats = {
+        totalUsers: 0, // UserManagementTab'da getUsersPaginated'dan gelecek
+        totalAnalyses: analysisStats.dailyPending + analysisStats.dailyWon + analysisStats.dailyLost + analysisStats.aiPending + analysisStats.aiWon + analysisStats.aiLost,
+        premiumUsers: 0,
+        pendingAnalyses: analysisStats.dailyPending + analysisStats.aiPending,
+        completedAnalyses: analysisStats.dailyWon + analysisStats.dailyLost + analysisStats.aiWon + analysisStats.aiLost,
+      };
 
       set({
-        analyses,
-        users,
-        usersWithAuthData: usersWithAuth,
-        analysisStats: stats,
+        analysisStats,
+        stats,
         loading: false,
       });
+      
+      console.log('⚡ Admin: Sadece stats yüklendi (lazy loading aktif)');
     } catch (error) {
       set({
         error: error instanceof Error ? error : new Error("Veri yüklenemedi"),
+        loading: false,
+      });
+    }
+  },
+
+  /**
+   * ⚡ Sadece kullanıcıları yükler (lazy)
+   */
+  loadUsers: async () => {
+    set({ loading: true });
+    try {
+      const [users, usersWithAuth] = await Promise.all([
+        userService.getAll(),
+        userService.getAllWithAuthData(),
+      ]);
+      set({ users, usersWithAuthData: usersWithAuth, loading: false });
+      console.log('✅ Admin: Kullanıcılar yüklendi (50 read)');
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error : new Error("Kullanıcılar yüklenemedi"),
         loading: false,
       });
     }
@@ -113,31 +154,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({
         error: error instanceof Error ? error : new Error("Analizler yüklenemedi"),
         analysesLoading: false,
-      });
-    }
-  },
-
-  /**
-   * Sadece kullanıcıları yükler
-   */
-  loadUsers: async () => {
-    set({ usersLoading: true });
-
-    try {
-      const [users, usersWithAuth] = await Promise.all([
-        userService.getAll(),
-        userService.getAllWithAuthData(),
-      ]);
-
-      set({
-        users,
-        usersWithAuthData: usersWithAuth,
-        usersLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error : new Error("Kullanıcılar yüklenemedi"),
-        usersLoading: false,
       });
     }
   },

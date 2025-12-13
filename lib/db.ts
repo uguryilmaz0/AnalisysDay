@@ -10,7 +10,8 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
-  limit
+  limit,
+  startAfter
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, DailyAnalysis } from '@/types';
@@ -130,9 +131,8 @@ export async function checkSubscriptionExpiry(uid: string): Promise<boolean> {
 /**
  * Kullanıcıları getir (OPTİMİZE EDİLMİŞ - PAGINATION + CACHE)
  * @param limitCount - Kaç kullanıcı çekilecek (varsayılan: 100, tümü için: undefined)
- * @param sortField - Sıralama alanı (varsayılan: 'createdAt')
  */
-export async function getAllUsers(limitCount?: number, sortField: string = 'createdAt'): Promise<User[]> {
+export async function getAllUsers(limitCount?: number): Promise<User[]> {
   try {
     // Cache kontrolü (sadece full list için)
     if (!limitCount) {
@@ -148,7 +148,7 @@ export async function getAllUsers(limitCount?: number, sortField: string = 'crea
     console.log(`🔥 Fetching users from Firestore (limit: ${limitCount || 'all'})...`);
     
     // Query builder
-    let q = query(collection(db, 'users'));
+    let q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
     
     // Limit ekle (eğer belirtilmişse)
     if (limitCount) {
@@ -177,6 +177,74 @@ export async function getAllUsers(limitCount?: number, sortField: string = 'crea
   } catch (error) {
     console.error('Kullanıcılar alınamadı:', error);
     return [];
+  }
+}
+
+/**
+ * ⚡ DİNAMİK USERS PAGİNATİON: Sadece istenen 10+1 kullanıcı çekilir
+ */
+export async function getUsersPaginated(
+  page: number = 1,
+  pageSize: number = 10,
+  lastDocId?: string // Son doküman ID'si (cursor)
+): Promise<{ users: User[]; hasMore: boolean; lastDocId?: string; totalCount: number }> {
+  try {
+    let q = query(
+      collection(db, 'users'),
+      orderBy('createdAt', 'desc')
+    );
+
+    // Cache key with cursor
+    const { analysisCache } = await import('@/lib/analysisCache');
+    const cacheKey = `users:page${page}:cursor${lastDocId || 'start'}`;
+    
+    return await analysisCache.getOrFetch(
+      cacheKey,
+      async () => {
+        // Toplam kullanıcı sayısı (sadece ilk sayfada çek)
+        let totalCount = 0;
+        if (page === 1 && !lastDocId) {
+          const countSnapshot = await getDocs(collection(db, 'users'));
+          totalCount = countSnapshot.size;
+        }
+        
+        // Cursor varsa startAfter kullan
+        if (page > 1 && lastDocId) {
+          const lastDocRef = doc(db, 'users', lastDocId);
+          const lastDocSnap = await getDoc(lastDocRef);
+          
+          if (lastDocSnap.exists()) {
+            q = query(q, startAfter(lastDocSnap));
+          }
+        }
+        
+        // Sadece pageSize + 1 çek (hasMore için)
+        q = query(q, limit(pageSize + 1));
+        const snapshot = await getDocs(q);
+        
+        const allUsers = snapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data()
+        } as User));
+
+        // İlk pageSize kadar göster
+        const paginatedUsers = allUsers.slice(0, pageSize);
+        const hasMore = allUsers.length > pageSize;
+        
+        // Son kullanıcının ID'si
+        const newLastDocId = paginatedUsers.length > 0 
+          ? paginatedUsers[paginatedUsers.length - 1].uid 
+          : undefined;
+
+        console.log(`✅ Users Page ${page}: Fetched ONLY ${snapshot.docs.length} users (cursor-based) - hasMore: ${hasMore}`);
+        
+        return { users: paginatedUsers, hasMore, lastDocId: newLastDocId, totalCount };
+      },
+      5 * 60 * 1000 // 5 dakika cache
+    );
+  } catch (error) {
+    console.error('Kullanıcılar sayfalama hatası:', error);
+    return { users: [], hasMore: false, totalCount: 0 };
   }
 }
 
@@ -630,18 +698,17 @@ export async function getLatestAnalysis(): Promise<DailyAnalysis | null> {
 }
 
 /**
- * Sonuçlanan analizleri pagination ile çeker (won/lost)
- * Cache kullanmaz - her zaman fresh data
+ * ⚡ GERÇEK DİNAMİK PAGİNATİON: Cursor-based - sadece istenen 10+1 doküman çekilir
+ * lastDocSnapshot: Önceki sayfanın son dokümanı (startAfter için)
  */
 export async function getCompletedAnalyses(
   analysisType: 'daily' | 'ai',
   status: 'won' | 'lost' | 'all',
   page: number = 1,
-  pageSize: number = 10
-): Promise<{ analyses: DailyAnalysis[]; total: number }> {
+  pageSize: number = 10,
+  lastDocId?: string // Son doküman ID'si (cursor)
+): Promise<{ analyses: DailyAnalysis[]; hasMore: boolean; lastDocId?: string }> {
   try {
-    const offset = (page - 1) * pageSize;
-    
     // Base query
     let q = query(
       collection(db, 'daily_analysis'),
@@ -655,42 +722,97 @@ export async function getCompletedAnalyses(
       q = query(q, where('status', 'in', ['won', 'lost']));
     }
 
-    // Order by result confirmed date (or creation date)
     q = query(q, orderBy('resultConfirmedAt', 'desc'));
 
-    // Get total count first
-    const totalSnapshot = await getDocs(q);
-    const total = totalSnapshot.size;
-
-    // Add pagination
-    q = query(q, limit(pageSize));
+    // ⚡ OPTİMİZE: Cache ile tekrar istek engellensin
+    const { analysisCache } = await import('@/lib/analysisCache');
+    const cacheKey = `completed:${analysisType}:${status}:page${page}:cursor${lastDocId || 'start'}`;
     
-    // Skip offset items (Firestore doesn't have offset, so we need to use startAfter)
-    if (offset > 0 && totalSnapshot.docs[offset]) {
-      const startAfterDoc = totalSnapshot.docs[offset - 1];
-      q = query(
-        collection(db, 'daily_analysis'),
-        where('type', '==', analysisType),
-        status !== 'all' 
-          ? where('status', '==', status)
-          : where('status', 'in', ['won', 'lost']),
-        orderBy('resultConfirmedAt', 'desc'),
-        limit(pageSize)
-      );
-    }
+    return await analysisCache.getOrFetch(
+      cacheKey,
+      async () => {
+        // Sayfa 1'den sonra ve cursor varsa, cursor'dan devam et
+        if (page > 1 && lastDocId) {
+          const lastDocRef = doc(db, 'daily_analysis', lastDocId);
+          const lastDocSnap = await getDoc(lastDocRef);
+          
+          if (lastDocSnap.exists()) {
+            q = query(q, startAfter(lastDocSnap));
+          }
+        }
+        
+        // ⚡ SADECE pageSize + 1 çek (hasMore kontrolü için)
+        q = query(q, limit(pageSize + 1));
+        const snapshot = await getDocs(q);
+        
+        const allDocs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as DailyAnalysis));
 
-    const snapshot = await getDocs(q);
-    const analyses = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as DailyAnalysis));
+        // İlk pageSize kadar göster
+        const paginatedDocs = allDocs.slice(0, pageSize);
+        
+        // Bir sonraki sayfa var mı?
+        const hasMore = allDocs.length > pageSize;
+        
+        // Son dokümanın ID'sini döndür (sonraki sayfa için cursor)
+        const newLastDocId = paginatedDocs.length > 0 
+          ? paginatedDocs[paginatedDocs.length - 1].id 
+          : undefined;
 
-    console.log(`✅ Fetched ${analyses.length}/${total} completed ${analysisType} analyses (${status})`);
-    
-    return { analyses, total };
+        console.log(`✅ Page ${page}: Fetched ONLY ${snapshot.docs.length} docs (cursor-based) - hasMore: ${hasMore}`);
+        
+        return { analyses: paginatedDocs, hasMore, lastDocId: newLastDocId };
+      },
+      5 * 60 * 1000 // 5 dakika cache
+    );
   } catch (error) {
     console.error('Sonuçlanan analizler alınamadı:', error);
-    return { analyses: [], total: 0 };
+    return { analyses: [], hasMore: false };
+  }
+}
+
+/**
+ * ⚡ OPTİMİZE EDİLMİŞ: Sadece son 3 günün pending analizlerini çeker
+ * Cron job her gün 3 günden eski analizleri siliyor zaten
+ */
+export async function getPendingAnalyses(
+  type: 'daily' | 'ai',
+  days: number = 3,
+  maxLimit: number = 50
+): Promise<DailyAnalysis[]> {
+  try {
+    const { analysisCache } = await import('@/lib/analysisCache');
+    
+    return await analysisCache.getOrFetch<DailyAnalysis[]>(
+      `pending:${type}:${days}days`,
+      async () => {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        
+        const q = query(
+          collection(db, 'daily_analysis'),
+          where('type', '==', type),
+          where('status', '==', 'pending'),
+          where('isVisible', '==', true),
+          where('date', '>=', Timestamp.fromDate(startDate)),
+          orderBy('date', 'desc'),
+          limit(maxLimit)
+        );
+        
+        const snapshot = await getDocs(q);
+        console.log(`✅ Fetched ${snapshot.size} pending ${type} analyses (last ${days} days)`);
+        return snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as DailyAnalysis));
+      },
+      2 * 60 * 1000 // 2 dakika TTL (pending analizler sık değişebilir)
+    );
+  } catch (error) {
+    console.error('Pending analizler alınamadı:', error);
+    return [];
   }
 }
 
@@ -735,7 +857,9 @@ export interface AnalysisStats {
 }
 
 /**
- * Analiz istatistiklerini Firebase'den çeker (CACHE'Lİ)
+ * ⚡ OPTİMİZE EDİLMİŞ: Client-side stats hesaplama
+ * getAllAnalyses cache'inden stats hesaplar (0 ek read!)
+ * Alternatif: Aggregation API kullanılabilir ama index gerektirir
  */
 export async function getAnalysisStats(): Promise<AnalysisStats> {
   try {
@@ -744,11 +868,16 @@ export async function getAnalysisStats(): Promise<AnalysisStats> {
     return await analysisCache.getOrFetch<AnalysisStats>(
       'stats:analysis',
       async () => {
-        console.log('🔥 Calculating stats from Firestore...');
+        console.log('🔥 Calculating stats...');
         
-        // getAllAnalyses kullan (bu da cache'li)
-        const analyses = await getAllAnalyses();
-
+        // ⚡ OPTİMİZASYON: getAllAnalyses zaten cache'li
+        // İki seçenek var:
+        // 1. Client-side: getAllAnalyses cache'inden hesapla (0 ek read)
+        // 2. Aggregation: getCountFromServer kullan (6 read ama index gerekebilir)
+        
+        // Şimdilik client-side kullan (aggregation test edilmeli)
+        const allAnalyses = await getAllAnalyses(); // Cache'den gelir
+        
         const stats: AnalysisStats = {
           dailyPending: 0,
           dailyWon: 0,
@@ -758,8 +887,7 @@ export async function getAnalysisStats(): Promise<AnalysisStats> {
           aiLost: 0,
         };
 
-        analyses.forEach((data) => {
-          // Silinen analizleri sayma
+        allAnalyses.forEach((data) => {
           if (data.isVisible === false) return;
 
           const type = data.type || 'daily';
@@ -776,10 +904,10 @@ export async function getAnalysisStats(): Promise<AnalysisStats> {
           }
         });
 
-        console.log('✅ Stats calculated:', stats);
+        console.log('✅ Stats calculated (client-side):', stats);
         return stats;
       },
-      10 * 60 * 1000 // 10 dakika TTL
+      5 * 60 * 1000 // 5 dakika TTL
     );
   } catch (error) {
     console.error('Analiz istatistikleri alınamadı:', error);
@@ -798,10 +926,11 @@ export async function deleteAnalysis(id: string): Promise<void> {
   try {
     await deleteDoc(doc(db, 'daily_analysis', id));
     
-    // Cache'i invalidate et
+    // Cache'i tamamen invalidate et (tüm completed pages)
     const { analysisCache } = await import('@/lib/analysisCache');
     analysisCache.invalidateAnalysisCache();
-    console.log('🧹 Analysis cache invalidated after delete');
+    
+    console.log('🧹 Analysis cache invalidated after delete (including all completed pages)');
   } catch (error) {
     console.error('Analiz silinemedi:', error);
     throw error;

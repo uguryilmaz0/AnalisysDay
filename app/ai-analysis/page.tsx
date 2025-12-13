@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  getAllAnalyses,
+  getPendingAnalyses,
   getAnalysisStats,
   getCompletedAnalyses,
   AnalysisStats,
@@ -36,8 +36,13 @@ export default function AIAnalysisPage() {
   const [completedAnalyses, setCompletedAnalyses] = useState<DailyAnalysis[]>(
     []
   );
-  const [completedTotal, setCompletedTotal] = useState(0);
+  const [completedHasMore, setCompletedHasMore] = useState(false);
   const [loadingCompleted, setLoadingCompleted] = useState(false);
+
+  // Cursor stack for pagination
+  const [cursorStack, setCursorStack] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
   const [analysisStats, setAnalysisStats] = useState<AnalysisStats>({
     dailyPending: 0,
     dailyWon: 0,
@@ -95,24 +100,29 @@ export default function AIAnalysisPage() {
     setLoadingCompleted(true);
     try {
       if (activeTab === "sonuçlananlar") {
+        const currentCursor = cursorStack[completedPage - 1];
+
         const data = await getCompletedAnalyses(
           "ai",
           statusFilter,
           completedPage,
-          itemsPerPage
+          itemsPerPage,
+          currentCursor
         );
         setCompletedAnalyses(data.analyses);
-        setCompletedTotal(data.total);
+        setCompletedHasMore(data.hasMore);
+
+        // Yeni cursor'u stack'e ekle
+        if (data.lastDocId && completedPage === cursorStack.length) {
+          setCursorStack((prev) => [...prev, data.lastDocId]);
+        }
       }
     } catch (error) {
       console.error("Error loading completed analyses:", error);
     } finally {
       setLoadingCompleted(false);
     }
-  }, [activeTab, statusFilter, completedPage]);
-
-  // Total pages (from backend counts)
-  const completedTotalPages = Math.ceil(completedTotal / itemsPerPage);
+  }, [activeTab, statusFilter, completedPage, cursorStack]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -124,11 +134,12 @@ export default function AIAnalysisPage() {
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
         try {
-          const [allAnalyses, stats] = await Promise.all([
-            getAllAnalyses(),
+          // ⚡ OPTİMİZE: Sadece son 3 günün pending AI analizlerini çek (10-30 read)
+          const [pendingAnalyses, stats] = await Promise.all([
+            getPendingAnalyses("ai", 3), // Son 3 gün (cron 3 gün sonra siliyor)
             getAnalysisStats(),
           ]);
-          setAnalyses(allAnalyses);
+          setAnalyses(pendingAnalyses);
           setAnalysisStats(stats);
         } catch {
           // Analiz yüklenemedi - kullanıcı kilit ekranını görüyor
@@ -315,6 +326,7 @@ export default function AIAnalysisPage() {
               setActiveTab("sonuçlananlar");
               setStatusFilter("all");
               setCompletedPage(1);
+              setCursorStack([undefined]);
             }}
             className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
               activeTab === "sonuçlananlar"
@@ -340,6 +352,7 @@ export default function AIAnalysisPage() {
                   onClick={() => {
                     setStatusFilter("all");
                     setCompletedPage(1);
+                    setCursorStack([undefined]);
                   }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "all"
@@ -353,6 +366,7 @@ export default function AIAnalysisPage() {
                   onClick={() => {
                     setStatusFilter("won");
                     setCompletedPage(1);
+                    setCursorStack([undefined]);
                   }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "won"
@@ -366,6 +380,7 @@ export default function AIAnalysisPage() {
                   onClick={() => {
                     setStatusFilter("lost");
                     setCompletedPage(1);
+                    setCursorStack([undefined]);
                   }}
                   className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
                     statusFilter === "lost"
@@ -431,7 +446,6 @@ export default function AIAnalysisPage() {
                       key={analysis.id}
                       analysis={analysis}
                       analysisIndex={(completedPage - 1) * itemsPerPage + index}
-                      totalCount={completedTotal}
                       onImageClick={(url, title) => {
                         setSelectedImage({ url, title });
                         modal.open();
@@ -442,31 +456,38 @@ export default function AIAnalysisPage() {
                 </div>
 
                 {/* Pagination */}
-                {completedTotalPages > 1 && (
-                  <div className="flex justify-center gap-2 mt-6">
-                    <button
-                      onClick={() =>
-                        setCompletedPage((p) => Math.max(1, p - 1))
-                      }
-                      disabled={completedPage === 1}
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
-                    >
-                      ← Önceki
-                    </button>
-                    <span className="px-4 py-2 bg-gray-900 text-gray-300 rounded-lg">
-                      {completedPage} / {completedTotalPages}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setCompletedPage((p) =>
-                          Math.min(completedTotalPages, p + 1)
-                        )
-                      }
-                      disabled={completedPage === completedTotalPages}
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
-                    >
-                      Sonraki →
-                    </button>
+                {(completedPage > 1 || completedHasMore) && (
+                  <div className="flex flex-col items-center gap-2 mt-6">
+                    <div className="text-sm text-purple-400">
+                      Toplam:{" "}
+                      {statusFilter === "all"
+                        ? analysisStats.aiWon + analysisStats.aiLost
+                        : statusFilter === "won"
+                        ? analysisStats.aiWon
+                        : analysisStats.aiLost}{" "}
+                      sonuç
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setCompletedPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={completedPage === 1}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                      >
+                        ← Önceki
+                      </button>
+                      <span className="px-4 py-2 bg-gray-900 text-purple-300 rounded-lg">
+                        Sayfa {completedPage}
+                      </span>
+                      <button
+                        onClick={() => setCompletedPage((p) => p + 1)}
+                        disabled={!completedHasMore}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                      >
+                        Sonraki →
+                      </button>
+                    </div>
                   </div>
                 )}
               </>
@@ -495,7 +516,7 @@ export default function AIAnalysisPage() {
 interface AIAnalysisCardProps {
   analysis: DailyAnalysis;
   analysisIndex: number;
-  totalCount: number;
+  totalCount?: number;
   onImageClick: (url: string, title: string) => void;
   showStatusBadge?: boolean;
 }
@@ -532,7 +553,7 @@ function AIAnalysisCard({
             </span>
           </span>
 
-          {totalCount > 1 && (
+          {totalCount && totalCount > 1 && (
             <span className="ml-auto bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full text-xs font-semibold">
               {analysisIndex + 1}/{totalCount}
             </span>
