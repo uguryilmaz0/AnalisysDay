@@ -74,8 +74,6 @@ export default function Header() {
               Blog
             </Link>
 
-            {/* Database Analysis - Sadece admin ve super admin'e göster */}
-
             <Link
               href="/database-analysis"
               className={`${
@@ -245,8 +243,12 @@ export default function Header() {
               Blog
             </Link>
 
-            {/* Database Analysis Mobile - Sadece admin ve super admin'e göster */}
-            {(userData?.role === "admin" || userData?.superAdmin) && (
+            {/* Database Analysis Mobile - Premium, deneme, admin ve super admin'e göster */}
+            {(userData?.isPaid ||
+              (userData?.subscriptionEndDate &&
+                userData.subscriptionEndDate.toDate() > new Date()) ||
+              userData?.role === "admin" ||
+              userData?.superAdmin) && (
               <Link
                 href="/database-analysis"
                 onClick={() => setMobileMenuOpen(false)}

@@ -885,12 +885,24 @@ export default function DatabaseAnalysisPage() {
     );
   }
 
-  // Show access denied if not admin
-  if (
-    !user ||
-    !userData?.role ||
-    (userData.role !== "admin" && !userData.superAdmin)
-  ) {
+  // Show access denied if not authorized
+  const isAdmin = userData?.role === "admin" || userData?.superAdmin;
+  const hasActiveSubscription = userData?.subscriptionEndDate
+    ? userData.subscriptionEndDate.toDate() > new Date()
+    : false;
+
+  console.log("🔍 Database access check:", {
+    user: !!user,
+    userData: !!userData,
+    role: userData?.role,
+    isAdmin,
+    isPaid: userData?.isPaid,
+    subscriptionEndDate: userData?.subscriptionEndDate?.toDate(),
+    hasActiveSubscription,
+    superAdmin: userData?.superAdmin,
+  });
+
+  if (!user || !userData?.role || (!isAdmin && !hasActiveSubscription)) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6 bg-gray-900 rounded-lg border border-gray-800">
@@ -899,7 +911,7 @@ export default function DatabaseAnalysisPage() {
             Erişim Reddedildi
           </h1>
           <p className="text-gray-400 mb-6">
-            Bu sayfaya erişim için Admin veya Süper Admin yetkisi gereklidir.
+            Bu sayfayı görebilmek için premium abonelik gereklidir.
           </p>
           <button
             onClick={() => router.push("/")}
