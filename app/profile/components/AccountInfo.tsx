@@ -24,7 +24,7 @@ export function AccountInfo({ userData }: AccountInfoProps) {
       : 0;
 
     return { hasActiveSubscription, daysRemaining };
-  }, [userData.subscriptionEndDate, userData.isPaid]);
+  }, [userData.subscriptionEndDate]);
 
   const { hasActiveSubscription, daysRemaining } = subscriptionInfo;
 

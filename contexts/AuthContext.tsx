@@ -113,7 +113,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { getUserByUsername } = await import("@/lib/db");
 
     let email = emailOrUsername;
-    let loginSuccess = false;
     let userId: string | null = null;
     let failReason: string | null = null;
 
@@ -172,17 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: userData.role,
           action: "login_success",
         });
-
-        loginSuccess = true;
-
-        // 🔇 Silent cache preload (SADECE PREMIUM kullanıcılar için)
-        const isPremium = userData.isPaid || userData.role === "admin";
-        const hasActiveSubscription = userData.subscriptionEndDate
-          ? userData.subscriptionEndDate.toDate() > new Date()
-          : false;
-
-        // Not: Cache kaldırıldı - direkt API çağrıları kullanılıyor
-        // Lig listesi ilk çağrıda yüklenir
       }
 
       // Login activity'yi IP bilgisiyle kaydet
@@ -387,23 +375,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists() && !userDoc.data().emailVerified) {
-          const userData = userDoc.data();
-          const updateData: any = { emailVerified: true };
-
-          // 🎁 Email doğrulaması ile 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
-          const currentSubscriptionEnd = userData.subscriptionEndDate?.toDate();
-          const now = new Date();
-
-          if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
-            updateData.subscriptionEndDate = Timestamp.fromDate(
-              new Date(Date.now() + 24 * 60 * 60 * 1000)
-            );
-            console.log(
-              "🎁 refreshUserData - Email doğrulaması ile 1 günlük deneme süresi verildi"
-            );
-          }
-
-          await setDoc(userDocRef, updateData, { merge: true });
+          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
         }
       }
 
