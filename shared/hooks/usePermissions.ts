@@ -69,12 +69,12 @@ export function usePermissions(): UserPermissions {
     const isSuperAdmin = userData?.superAdmin === true;
     const isPremium = userData?.isPaid === true;
 
-    // 🎁 Trial veya Ödeme ile Premium Kontrolü
+    // Aktif abonelik kontrolü
     const hasActiveSubscription =
       userData?.subscriptionEndDate &&
       userData.subscriptionEndDate.toDate() > new Date();
 
-    // Premium erişim: Admin VEYA aktif abonelik (trial dahil)
+    // Premium erişim: Admin VEYA aktif abonelik
     const hasPremiumAccess = Boolean(isAdmin || hasActiveSubscription);
 
     return {

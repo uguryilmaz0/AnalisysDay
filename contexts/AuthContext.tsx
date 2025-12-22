@@ -88,30 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        // Email doğrulama durumunu Firestore'a senkronize et (önce)
+        // Email doğrulama durumunu Firestore'a senkronize et
         if (user.emailVerified) {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists() && !userDoc.data().emailVerified) {
-            const userData = userDoc.data();
-            const updateData: any = { emailVerified: true };
-
-            // 🎁 Email doğrulandığında 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
-            const currentSubscriptionEnd =
-              userData.subscriptionEndDate?.toDate();
-            const now = new Date();
-
-            if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
-              // Deneme süresi yoksa veya bitmişse, yeni 1 günlük süre ver
-              updateData.subscriptionEndDate = Timestamp.fromDate(
-                new Date(Date.now() + 24 * 60 * 60 * 1000)
-              );
-              console.log(
-                "🎁 Email doğrulaması ile 1 günlük deneme süresi verildi"
-              );
-            }
-
-            await setDoc(userDocRef, updateData, { merge: true });
+            await setDoc(userDocRef, { emailVerified: true }, { merge: true });
           }
         }
 
@@ -163,22 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Firebase Auth'da email doğrulanmışsa Firestore'u güncelle
         if (userCredential.user.emailVerified && !userData.emailVerified) {
-          const updateData: any = { emailVerified: true };
-
-          // 🎁 Email doğrulaması ile 1 günlük deneme süresi ver (eğer yoksa veya geçmişse)
-          const currentSubscriptionEnd = userData.subscriptionEndDate?.toDate();
-          const now = new Date();
-
-          if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
-            updateData.subscriptionEndDate = Timestamp.fromDate(
-              new Date(Date.now() + 24 * 60 * 60 * 1000)
-            );
-            console.log(
-              "🎁 Login sırasında email doğrulaması ile 1 günlük deneme süresi verildi"
-            );
-          }
-
-          await setDoc(userDocRef, updateData, { merge: true });
+          await setDoc(userDocRef, { emailVerified: true }, { merge: true });
         }
 
         // Admin değilse VE hem Firebase Auth HEM Firestore'da email doğrulanmamışsa hata ver
@@ -311,11 +278,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastName: lastName,
       role: isSuperAdmin ? "admin" : "user",
       superAdmin: isSuperAdmin,
-      isPaid: false, // Admin rolü zaten premium erişim sağlar
-      // 🎁 YENİ KULLANICILARA 1 GÜNLÜK DENEME SÜRESİ
-      subscriptionEndDate: isSuperAdmin
-        ? null // Admin'lere deneme süresi gerekmez
-        : Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)), // +1 gün
+      isPaid: false,
+      subscriptionEndDate: null,
       lastPaymentDate: null,
       emailNotifications,
       emailVerified: isSuperAdmin, // Admin kullanıcılar için otomatik true
@@ -323,16 +287,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // referredBy linkReferredUser fonksiyonu tarafından set edilecek
     };
 
-    console.log("🎁 Yeni kullanıcı oluşturuluyor:", {
+    console.log("✅ Yeni kullanıcı oluşturuluyor:", {
       uid: newUser.uid,
       email: newUser.email,
-      subscriptionEndDate: newUser.subscriptionEndDate,
       isSuperAdmin,
     });
 
     await setDoc(doc(db, "users", userCredential.user.uid), newUser);
 
-    console.log("✅ Kullanıcı Firestore'a kaydedildi - deneme süresi verildi");
+    console.log("✅ Kullanıcı Firestore'a kaydedildi");
 
     // Referral bağlantısını kur (davet eden varsa)
     if (referrerUserId) {

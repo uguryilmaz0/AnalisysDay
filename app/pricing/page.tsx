@@ -26,19 +26,21 @@ export default function PricingPage() {
   const { copy } = useCopyToClipboard();
   const router = useRouter();
 
-  const [selectedPackage, setSelectedPackage] = useState<"1" | "3" | "6">("3");
+  const [selectedPackage, setSelectedPackage] = useState<"7" | "15" | "30">(
+    "15"
+  );
 
   const packages: Record<
-    "1" | "3" | "6",
+    "7" | "15" | "30",
     {
-      months: number;
+      days: number;
       price: number;
-      pricePerMonth: number;
+      pricePerDay: number;
     }
   > = {
-    "1": { months: 1, price: 1000, pricePerMonth: 1000 },
-    "3": { months: 3, price: 2750, pricePerMonth: 917 },
-    "6": { months: 6, price: 5250, pricePerMonth: 875 },
+    "7": { days: 7, price: 250, pricePerDay: Math.round(250 / 7) },
+    "15": { days: 15, price: 500, pricePerDay: Math.round(500 / 15) },
+    "30": { days: 30, price: 1000, pricePerDay: Math.round(1000 / 30) },
   };
 
   const currentPackage = packages[selectedPackage];
@@ -96,37 +98,6 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-12 px-4">
       <div className="max-w-5xl mx-auto">
-        {/* Deneme Süresi Bilgilendirme Banner */}
-        {userData && userData.subscriptionEndDate && !userData.isPaid && (
-          <div className="mb-8 bg-linear-to-r from-green-900/50 via-green-800/50 to-green-900/50 border-2 border-green-500/50 rounded-2xl p-6 shadow-2xl shadow-green-500/20">
-            <div className="flex items-center gap-4">
-              <div className="bg-green-500 rounded-full p-3 shrink-0">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-white mb-2">
-                  🎁 1 Günlük Deneme Süreniz Aktif!
-                </h3>
-                <p className="text-green-200">
-                  Yeni üyemiz olduğunuz için sistemi keşfetmeniz için{" "}
-                  <span className="font-bold">1 günlük ücretsiz erişim</span>{" "}
-                  tanımladık. Bu süre içinde tüm premium özellikleri
-                  deneyebilirsiniz.
-                </p>
-                <p className="text-sm text-green-300 mt-2">
-                  Deneme süreniz:{" "}
-                  <span className="font-bold">
-                    {new Date(
-                      userData.subscriptionEndDate.toDate()
-                    ).toLocaleDateString("tr-TR")}{" "}
-                    tarihine kadar
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-500/50 rounded-full px-4 py-2 mb-6">
@@ -151,34 +122,34 @@ export default function PricingPage() {
         {/* Paket Seçimi */}
         <div className="max-w-4xl mx-auto mb-12">
           <div className="grid md:grid-cols-3 gap-4">
-            {/* 1 Aylık Paket */}
+            {/* 1 Haftalık Paket */}
             <button
-              onClick={() => setSelectedPackage("1")}
+              onClick={() => setSelectedPackage("7")}
               className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "1"
+                selectedPackage === "7"
                   ? "border-blue-500 bg-blue-900/30 shadow-xl shadow-blue-500/20"
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
             >
-              {/* Kampanya Etiketi .*/}
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-red-600 text-white text-xs py-1 px-3 rounded-full font-semibold animate-pulse">
-                  Aylık
+                <span className="bg-blue-600 text-white text-xs py-1 px-3 rounded-full font-semibold">
+                  Haftalık
                 </span>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">1 Aylık</p>
+                <p className="text-gray-400 text-sm mb-1">1 Hafta</p>
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <p className="text-3xl font-bold  text-white">1.000 TL</p>
+                  <p className="text-3xl font-bold text-white">250 TL</p>
                 </div>
+                <p className="text-sm text-gray-400">7 gün erişim</p>
               </div>
             </button>
 
-            {/* 3 Aylık Paket */}
+            {/* 15 Günlük Paket */}
             <button
-              onClick={() => setSelectedPackage("3")}
+              onClick={() => setSelectedPackage("15")}
               className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "3"
+                selectedPackage === "15"
                   ? "border-purple-500 bg-purple-900/30 shadow-xl shadow-purple-500/20"
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
@@ -189,17 +160,17 @@ export default function PricingPage() {
                 </span>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">3 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">2.750 TL</p>
-                <p className="text-sm text-green-400">917 TL / Ay</p>
+                <p className="text-gray-400 text-sm mb-1">15 Gün</p>
+                <p className="text-3xl font-bold text-white mb-1">500 TL</p>
+                <p className="text-sm text-gray-400">15 gün erişim</p>
               </div>
             </button>
 
-            {/* 6 Aylık Paket */}
+            {/* 1 Aylık Paket */}
             <button
-              onClick={() => setSelectedPackage("6")}
+              onClick={() => setSelectedPackage("30")}
               className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "6"
+                selectedPackage === "30"
                   ? "border-green-500 bg-green-900/30 shadow-xl shadow-green-500/20"
                   : "border-gray-700 bg-gray-800 hover:border-gray-600"
               }`}
@@ -210,9 +181,9 @@ export default function PricingPage() {
                 </span>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">6 Aylık</p>
-                <p className="text-3xl font-bold text-white mb-1">5.500 TL</p>
-                <p className="text-sm text-green-400">917 TL / Ay</p>
+                <p className="text-gray-400 text-sm mb-1">1 Ay</p>
+                <p className="text-3xl font-bold text-white mb-1">1.000 TL</p>
+                <p className="text-sm text-gray-400">30 gün erişim</p>
               </div>
             </button>
           </div>
@@ -223,7 +194,7 @@ export default function PricingPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 hover:border-gray-700 transition-all">
             <div className="bg-linear-to-r from-blue-600 via-purple-600 to-blue-600 text-white rounded-xl p-6 mb-6 shadow-xl">
               <h2 className="text-2xl font-bold mb-2">
-                {currentPackage.months} Aylık Abonelik
+                {currentPackage.days} Günlük Abonelik
               </h2>
               <div className="flex items-baseline gap-2">
                 <span className="text-5xl font-bold">
@@ -232,7 +203,7 @@ export default function PricingPage() {
                 <span className="text-2xl">TL</span>
               </div>
               <p className="text-blue-100 mt-2">
-                Aylık {currentPackage.pricePerMonth} TL
+                Günlük {currentPackage.pricePerDay} TL
               </p>
             </div>
 
@@ -253,8 +224,7 @@ export default function PricingPage() {
                 <div>
                   <p className="font-semibold text-white">Sınırsız Erişim</p>
                   <p className="text-sm text-gray-400">
-                    {currentPackage.months * 30} gün boyunca tüm analizlere
-                    erişim
+                    {currentPackage.days} gün boyunca tüm analizlere erişim
                   </p>
                 </div>
               </div>
@@ -362,8 +332,8 @@ export default function PricingPage() {
                       "Merhaba, Analiz Günü için ödeme yaptım.\n\nKayıtlı Email: " +
                         (user?.email || "") +
                         "\nPaket: " +
-                        currentPackage.months +
-                        " Ay" +
+                        currentPackage.days +
+                        " Gün" +
                         "\nÖdeme Tutarı: " +
                         currentPackage.price +
                         " TL"

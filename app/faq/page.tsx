@@ -43,9 +43,8 @@ export default function FAQPage() {
       questions: [
         {
           question: "Premium üyelik ücreti nedir?",
-          answer: `Premium üyelik aylık ${
-            process.env.NEXT_PUBLIC_SUBSCRIPTION_PRICE || "500"
-          } TL'dir. Bu ücret karşılığında 30 gün boyunca tüm günlük analizlere sınırsız erişim sağlarsınız.`,
+          answer:
+            "Premium üyelik paketlerimiz: 1 Haftalık (7 gün) 250 TL, 15 Günlük 500 TL, 1 Aylık (30 gün) 1000 TL'dir. İhtiyacınıza göre paket seçebilir ve seçtiğiniz süre boyunca tüm günlük analizlere sınırsız erişim sağlarsınız.",
         },
         {
           question: "Nasıl ödeme yapabilirim?",

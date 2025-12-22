@@ -15,7 +15,6 @@ export function AccountInfo({ userData }: AccountInfoProps) {
       ? userData.subscriptionEndDate.toDate() > new Date()
       : false;
 
-    const isTrialUser = !userData.isPaid && hasActiveSubscription;
     const daysRemaining = userData.subscriptionEndDate
       ? Math.ceil(
           (userData.subscriptionEndDate.toDate().getTime() -
@@ -24,11 +23,10 @@ export function AccountInfo({ userData }: AccountInfoProps) {
         )
       : 0;
 
-    return { hasActiveSubscription, isTrialUser, daysRemaining };
+    return { hasActiveSubscription, daysRemaining };
   }, [userData.subscriptionEndDate, userData.isPaid]);
 
-  const { hasActiveSubscription, isTrialUser, daysRemaining } =
-    subscriptionInfo;
+  const { hasActiveSubscription, daysRemaining } = subscriptionInfo;
 
   return (
     <div className="space-y-4">
@@ -72,13 +70,7 @@ export function AccountInfo({ userData }: AccountInfoProps) {
             {hasActiveSubscription ? (
               <div>
                 <p className="text-white font-medium">
-                  {isTrialUser ? (
-                    <span className="text-green-400">
-                      🎁 Deneme Süresi Aktif
-                    </span>
-                  ) : (
-                    <span className="text-blue-400">✓ Premium Aktif</span>
-                  )}
+                  <span className="text-blue-400">✓ Premium Aktif</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {daysRemaining > 0 ? (
