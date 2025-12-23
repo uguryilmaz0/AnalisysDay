@@ -14,6 +14,7 @@ import { useAdminStore } from "@/features/admin/stores";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { getUsersPaginated } from "@/lib/db";
 import { User } from "@/types";
+import { PremiumDurationModal } from "./PremiumDurationModal";
 
 interface UserManagementTabProps {
   currentUserId?: string;
@@ -46,6 +47,13 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<UserFilter>("all");
   const usersPerPage = 50;
+
+  // Premium Duration Modal state
+  const [premiumModalOpen, setPremiumModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{
+    uid: string;
+    email: string;
+  } | null>(null);
 
   // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
   const loadUsersPaginated = useCallback(async () => {
@@ -144,21 +152,22 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     }
   }, [hasSearchOrFilter]);
 
-  const handleMakePremium = async (uid: string) => {
-    if (
-      !confirm(
-        "Bu kullanıcıyı premium yapmak istediğinizden emin misiniz? (30 gün)"
-      )
-    )
-      return;
+  const handleMakePremium = async (days: number) => {
+    if (!selectedUser) return;
 
     try {
-      await userService.makePremium(uid, 30);
-      showToast("Kullanıcı premium yapıldı! (30 gün)", "success");
+      await userService.makePremium(selectedUser.uid, days);
+      showToast(`Kullanıcı premium yapıldı! (${days} gün)`, "success");
       await loadUsersPaginated();
+      setSelectedUser(null);
     } catch {
       showToast("Premium yapılamadı!", "error");
     }
+  };
+
+  const openPremiumModal = (uid: string, email: string) => {
+    setSelectedUser({ uid, email });
+    setPremiumModalOpen(true);
   };
 
   const handleCancelSubscription = async (uid: string) => {
@@ -572,9 +581,9 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                       <div className="flex gap-2 flex-wrap">
                         {!u.isPaid && (
                           <button
-                            onClick={() => handleMakePremium(u.uid)}
+                            onClick={() => openPremiumModal(u.uid, u.email)}
                             className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold transition"
-                            title="Premium yap (30 gün)"
+                            title="Premium yap"
                           >
                             Premium Yap
                           </button>
@@ -660,6 +669,17 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
           </p>
         </div>
       )}
+
+      {/* Premium Duration Modal */}
+      <PremiumDurationModal
+        isOpen={premiumModalOpen}
+        onClose={() => {
+          setPremiumModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onConfirm={handleMakePremium}
+        userEmail={selectedUser?.email || ""}
+      />
     </div>
   );
 }

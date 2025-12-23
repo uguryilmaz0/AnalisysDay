@@ -37,30 +37,13 @@ export async function PATCH(
     });
 
     // 2. Firestore'da da güncelle
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    const userData = userDoc.data();
-    
-    const updateData: any = {
+    const updateData: {
+      emailVerified: boolean;
+      updatedAt: string;
+    } = {
       emailVerified: emailVerified,
       updatedAt: new Date().toISOString(),
     };
-    
-    // 🎁 Email doğrulaması yapılıyorsa ve deneme süresi yoksa/geçmişse, 1 günlük süre ver
-    if (emailVerified && userData) {
-      const currentSubscriptionEnd = userData.subscriptionEndDate?.toDate();
-      const now = new Date();
-      
-      if (!currentSubscriptionEnd || currentSubscriptionEnd <= now) {
-        const oneDay = new Date();
-        oneDay.setDate(oneDay.getDate() + 1);
-        updateData.subscriptionEndDate = oneDay;
-        
-        serverLogger.info('Trial subscription granted on email verification', {
-          userId,
-          newSubscriptionEnd: oneDay.toISOString(),
-        });
-      }
-    }
     
     await adminDb.collection('users').doc(userId).update(updateData);
 
