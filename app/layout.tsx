@@ -9,6 +9,7 @@ import { CacheMonitor } from "@/components/CacheMonitor";
 import { ToastProvider } from "@/shared/hooks/useToast";
 import { ToastContainer, ErrorBoundary } from "@/shared/components/ui";
 import { validateEnv } from "@/lib/validateEnv";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import {
   siteConfig,
   organizationSchema,
@@ -129,6 +130,7 @@ export default function RootLayout({
             </AuthProvider>
           </ToastProvider>
         </ErrorBoundary>
+        <SpeedInsights />
       </body>
     </html>
   );
