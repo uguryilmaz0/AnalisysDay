@@ -1,9 +1,9 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
   getDoc,
   doc,
   addDoc,
@@ -55,11 +55,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', email), limit(1));
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
-    
+
     return querySnapshot.docs[0].data() as User;
   } catch (error) {
     console.error('Email lookup failed:', error);
@@ -78,8 +78,8 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 }
 
 export async function updateUserPaidStatus(
-  uid: string, 
-  isPaid: boolean, 
+  uid: string,
+  isPaid: boolean,
   durationDays: number = 30
 ): Promise<void> {
   try {
@@ -138,7 +138,7 @@ export async function getAllUsers(limitCount?: number): Promise<User[]> {
     if (!limitCount) {
       const { analysisCache } = await import('@/lib/analysisCache');
       const cachedUsers = analysisCache.get<User[]>('users:all');
-      
+
       if (cachedUsers) {
         console.log('📦 Users loaded from cache (0 reads)');
         return cachedUsers;
@@ -146,10 +146,10 @@ export async function getAllUsers(limitCount?: number): Promise<User[]> {
     }
 
     console.log(`🔥 Fetching users from Firestore (limit: ${limitCount || 'all'})...`);
-    
+
     // Query builder
     let q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-    
+
     // Limit ekle (eğer belirtilmişse)
     if (limitCount) {
       q = query(q, limit(limitCount));
@@ -157,22 +157,22 @@ export async function getAllUsers(limitCount?: number): Promise<User[]> {
 
     const usersSnapshot = await getDocs(q);
     const users = usersSnapshot.docs.map(doc => doc.data() as User);
-    
+
     // Client-side sorting (Firestore compound index gerektirmez)
     users.sort((a, b) => {
       const aTime = a.createdAt?.toMillis() || 0;
       const bTime = b.createdAt?.toMillis() || 0;
       return bTime - aTime;
     });
-    
+
     console.log(`✅ Fetched ${users.length} users from Firestore`);
-    
+
     // Cache'e kaydet (sadece full list için, 15 dakika)
     if (!limitCount) {
       const { analysisCache } = await import('@/lib/analysisCache');
       analysisCache.set('users:all', users, 15 * 60 * 1000);
     }
-    
+
     return users;
   } catch (error) {
     console.error('Kullanıcılar alınamadı:', error);
@@ -197,7 +197,7 @@ export async function getUsersPaginated(
     // Cache key with cursor
     const { analysisCache } = await import('@/lib/analysisCache');
     const cacheKey = `users:page${page}:cursor${lastDocId || 'start'}`;
-    
+
     return await analysisCache.getOrFetch(
       cacheKey,
       async () => {
@@ -207,21 +207,21 @@ export async function getUsersPaginated(
           const countSnapshot = await getDocs(collection(db, 'users'));
           totalCount = countSnapshot.size;
         }
-        
+
         // Cursor varsa startAfter kullan
         if (page > 1 && lastDocId) {
           const lastDocRef = doc(db, 'users', lastDocId);
           const lastDocSnap = await getDoc(lastDocRef);
-          
+
           if (lastDocSnap.exists()) {
             q = query(q, startAfter(lastDocSnap));
           }
         }
-        
+
         // Sadece pageSize + 1 çek (hasMore için)
         q = query(q, limit(pageSize + 1));
         const snapshot = await getDocs(q);
-        
+
         const allUsers = snapshot.docs.map(doc => ({
           uid: doc.id,
           ...doc.data()
@@ -230,14 +230,14 @@ export async function getUsersPaginated(
         // İlk pageSize kadar göster
         const paginatedUsers = allUsers.slice(0, pageSize);
         const hasMore = allUsers.length > pageSize;
-        
+
         // Son kullanıcının ID'si
-        const newLastDocId = paginatedUsers.length > 0 
-          ? paginatedUsers[paginatedUsers.length - 1].uid 
+        const newLastDocId = paginatedUsers.length > 0
+          ? paginatedUsers[paginatedUsers.length - 1].uid
           : undefined;
 
         console.log(`✅ Users Page ${page}: Fetched ONLY ${snapshot.docs.length} users (cursor-based) - hasMore: ${hasMore}`);
-        
+
         return { users: paginatedUsers, hasMore, lastDocId: newLastDocId, totalCount };
       },
       5 * 60 * 1000 // 5 dakika cache
@@ -335,7 +335,7 @@ export async function setUserReferralCode(uid: string, referralCode: string): Pr
 export async function linkReferredUser(newUserId: string, referrerUserId: string): Promise<void> {
   try {
     console.log('🔗 linkReferredUser CALLED:', { newUserId, referrerUserId });
-    
+
     // Davet edenin mevcut referral listesini al
     const referrerDoc = await getDoc(doc(db, 'users', referrerUserId));
     if (!referrerDoc.exists()) {
@@ -346,7 +346,7 @@ export async function linkReferredUser(newUserId: string, referrerUserId: string
     const referrerData = referrerDoc.data() as User;
     const currentReferredUsers = referrerData.referredUsers || [];
     console.log('📋 Current referredUsers array:', currentReferredUsers);
-    
+
     // Duplicate kontrolü
     if (currentReferredUsers.includes(newUserId)) {
       console.warn('⚠️ User already in referral list', { newUserId, referrerUserId });
@@ -367,9 +367,9 @@ export async function linkReferredUser(newUserId: string, referrerUserId: string
       referredUsers: updatedReferredUsers,
     });
     console.log('✅ referredUsers array updated successfully');
-    
-    console.log('🎉 Referral link created successfully', { 
-      newUserId, 
+
+    console.log('🎉 Referral link created successfully', {
+      newUserId,
       referrerUserId,
       totalReferrals: updatedReferredUsers.length
     });
@@ -395,7 +395,7 @@ export async function updateReferrerPremiumStats(userId: string): Promise<void> 
     if (referrerDoc.exists()) {
       const referrerData = referrerDoc.data() as User;
       const currentPremiumReferrals = referrerData.premiumReferrals || [];
-      
+
       if (!currentPremiumReferrals.includes(userId)) {
         await updateDoc(doc(db, 'users', userData.referredBy), {
           premiumReferrals: [...currentPremiumReferrals, userId],
@@ -420,7 +420,7 @@ export async function getReferralStats(uid: string): Promise<{
 }> {
   try {
     console.log('📊 getReferralStats CALLED for uid:', uid);
-    
+
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (!userDoc.exists()) {
       console.warn('❌ User document not found:', uid);
@@ -430,7 +430,7 @@ export async function getReferralStats(uid: string): Promise<{
     const userData = userDoc.data() as User;
     let referredUserIds = userData.referredUsers || [];
     let premiumUserIds = userData.premiumReferrals || [];
-    
+
     console.log('📋 User data from Firestore:', {
       uid,
       username: userData.username,
@@ -449,10 +449,10 @@ export async function getReferralStats(uid: string): Promise<{
           where('referredBy', '==', uid)
         );
         const querySnapshot = await getDocs(q);
-        
+
         const foundUserIds: string[] = [];
         const foundPremiumIds: string[] = [];
-        
+
         querySnapshot.forEach((doc) => {
           const user = doc.data() as User;
           foundUserIds.push(user.uid);
@@ -460,17 +460,17 @@ export async function getReferralStats(uid: string): Promise<{
             foundPremiumIds.push(user.uid);
           }
         });
-        
+
         console.log('✅ Found users via query:', {
           totalFound: foundUserIds.length,
           premiumFound: foundPremiumIds.length,
           userIds: foundUserIds,
         });
-        
+
         // Bulunanları array'lere ekle
         referredUserIds = foundUserIds;
         premiumUserIds = foundPremiumIds;
-        
+
         // Firestore'u güncelle (sonraki defalar için)
         if (foundUserIds.length > 0) {
           console.log('🔧 Updating Firestore with found users...');
@@ -489,16 +489,16 @@ export async function getReferralStats(uid: string): Promise<{
 
     // ⚡ OPTİMİZASYON: Tüm user'ları tek query'de çek (N+1 yerine 1 query)
     let allUsersMap: Map<string, User> | null = null;
-    
+
     if (referredUserIds.length > 0) {
       // Firestore'da "in" query max 10 item - chunking gerekli
       const chunks: string[][] = [];
       for (let i = 0; i < referredUserIds.length; i += 10) {
         chunks.push(referredUserIds.slice(i, i + 10));
       }
-      
+
       allUsersMap = new Map();
-      
+
       // Her chunk için paralel query
       await Promise.all(
         chunks.map(async (chunk) => {
@@ -513,14 +513,14 @@ export async function getReferralStats(uid: string): Promise<{
           });
         })
       );
-      
+
       console.log(`✅ Batch fetched ${allUsersMap.size} users in ${chunks.length} queries`);
     }
 
     // Map'ten user'ları al
     const referredUsers: User[] = [];
     const premiumUsers: User[] = [];
-    
+
     if (allUsersMap) {
       referredUserIds.forEach((userId) => {
         const user = allUsersMap!.get(userId);
@@ -539,7 +539,7 @@ export async function getReferralStats(uid: string): Promise<{
       referredUsers,
       premiumUsers,
     };
-    
+
     console.log('🎉 getReferralStats RESULT:', result);
     return result;
   } catch (error) {
@@ -555,7 +555,7 @@ export async function createAnalysis(
   imageUrls: string[],
   description: string,
   createdBy: string,
-  type: 'daily' | 'ai' = 'daily',
+  type: 'daily' | 'ai' | 'coupon' = 'daily',
   ideal?: string,
   alternative?: string,
   possibleScore?: string,
@@ -568,13 +568,22 @@ export async function createAnalysis(
 
     const now = new Date();
     const createdAt = Timestamp.now();
-    
-    // Ertesi günün saat 08:00'ünü hesapla (local timezone)
-    const expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    expiresDate.setDate(expiresDate.getDate() + 1);
-    expiresDate.setHours(8, 0, 0, 0); // 04:00 → 08:00
+
+    // Silinme zamanını hesapla
+    let expiresDate: Date;
+
+    if (type === 'coupon') {
+      // Kupon: Eklenen andan tam 24 saat sonra silinir
+      expiresDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else {
+      // Günlük analiz: Ertesi günün saat 08:00'ünde silinir
+      expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      expiresDate.setDate(expiresDate.getDate() + 1);
+      expiresDate.setHours(8, 0, 0, 0);
+    }
+
     const expiresAt = Timestamp.fromDate(expiresDate);
-    
+
     const analysisData: Partial<DailyAnalysis> = {
       type,
       title,
@@ -598,12 +607,12 @@ export async function createAnalysis(
     }
 
     const docRef = await addDoc(collection(db, 'daily_analysis'), analysisData);
-    
+
     // Cache'i invalidate et
     const { analysisCache } = await import('@/lib/analysisCache');
     analysisCache.invalidateAnalysisCache();
     console.log('🧹 Analysis cache invalidated after create');
-    
+
     return docRef.id;
   } catch (error) {
     console.error('Analiz oluşturulamadı:', error);
@@ -638,7 +647,7 @@ export async function updateAnalysisStatus(
       resultConfirmedBy: confirmedBy,
       resultConfirmedAt: Timestamp.now(),
     });
-    
+
     // Cache'i invalidate et
     const { analysisCache } = await import('@/lib/analysisCache');
     analysisCache.invalidateAnalysisCache();
@@ -657,7 +666,7 @@ export async function getTodayAnalyses(): Promise<DailyAnalysis[]> {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    
+
     const q = query(
       collection(db, 'daily_analysis'),
       where('isVisible', '==', true),
@@ -702,7 +711,7 @@ export async function getLatestAnalysis(): Promise<DailyAnalysis | null> {
  * lastDocSnapshot: Önceki sayfanın son dokümanı (startAfter için)
  */
 export async function getCompletedAnalyses(
-  analysisType: 'daily' | 'ai',
+  analysisType: 'daily' | 'ai' | 'coupon',
   status: 'won' | 'lost' | 'all',
   page: number = 1,
   pageSize: number = 10,
@@ -727,7 +736,7 @@ export async function getCompletedAnalyses(
     // ⚡ OPTİMİZE: Cache ile tekrar istek engellensin
     const { analysisCache } = await import('@/lib/analysisCache');
     const cacheKey = `completed:${analysisType}:${status}:page${page}:cursor${lastDocId || 'start'}`;
-    
+
     return await analysisCache.getOrFetch(
       cacheKey,
       async () => {
@@ -735,16 +744,16 @@ export async function getCompletedAnalyses(
         if (page > 1 && lastDocId) {
           const lastDocRef = doc(db, 'daily_analysis', lastDocId);
           const lastDocSnap = await getDoc(lastDocRef);
-          
+
           if (lastDocSnap.exists()) {
             q = query(q, startAfter(lastDocSnap));
           }
         }
-        
+
         // ⚡ SADECE pageSize + 1 çek (hasMore kontrolü için)
         q = query(q, limit(pageSize + 1));
         const snapshot = await getDocs(q);
-        
+
         const allDocs = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -752,17 +761,17 @@ export async function getCompletedAnalyses(
 
         // İlk pageSize kadar göster
         const paginatedDocs = allDocs.slice(0, pageSize);
-        
+
         // Bir sonraki sayfa var mı?
         const hasMore = allDocs.length > pageSize;
-        
+
         // Son dokümanın ID'sini döndür (sonraki sayfa için cursor)
-        const newLastDocId = paginatedDocs.length > 0 
-          ? paginatedDocs[paginatedDocs.length - 1].id 
+        const newLastDocId = paginatedDocs.length > 0
+          ? paginatedDocs[paginatedDocs.length - 1].id
           : undefined;
 
         console.log(`✅ Page ${page}: Fetched ONLY ${snapshot.docs.length} docs (cursor-based) - hasMore: ${hasMore}`);
-        
+
         return { analyses: paginatedDocs, hasMore, lastDocId: newLastDocId };
       },
       5 * 60 * 1000 // 5 dakika cache
@@ -784,13 +793,13 @@ export async function getPendingAnalyses(
 ): Promise<DailyAnalysis[]> {
   try {
     const { analysisCache } = await import('@/lib/analysisCache');
-    
+
     return await analysisCache.getOrFetch<DailyAnalysis[]>(
       `pending:${type}:${days}days`,
       async () => {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
-        
+
         const q = query(
           collection(db, 'daily_analysis'),
           where('type', '==', type),
@@ -800,7 +809,7 @@ export async function getPendingAnalyses(
           orderBy('date', 'desc'),
           limit(maxLimit)
         );
-        
+
         const snapshot = await getDocs(q);
         console.log(`✅ Fetched ${snapshot.size} pending ${type} analyses (last ${days} days)`);
         return snapshot.docs.map(doc => ({
@@ -816,11 +825,47 @@ export async function getPendingAnalyses(
   }
 }
 
+/**
+ * ⚡ Aktif kuponları getir (henüz süresi dolmamış)
+ */
+export async function getPendingCoupons(): Promise<DailyAnalysis[]> {
+  try {
+    const { analysisCache } = await import('@/lib/analysisCache');
+
+    return await analysisCache.getOrFetch<DailyAnalysis[]>(
+      'coupons:pending',
+      async () => {
+        const now = Timestamp.now();
+
+        const q = query(
+          collection(db, 'daily_analysis'),
+          where('type', '==', 'coupon'),
+          where('isVisible', '==', true),
+          where('expiresAt', '>', now),
+          orderBy('expiresAt', 'asc'),
+          orderBy('date', 'desc')
+        );
+
+        const snapshot = await getDocs(q);
+        console.log(`✅ Fetched ${snapshot.size} active coupons`);
+        return snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as DailyAnalysis));
+      },
+      2 * 60 * 1000 // 2 dakika TTL
+    );
+  } catch (error) {
+    console.error('Kuponlar alınamadı:', error);
+    return [];
+  }
+}
+
 export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
   try {
     // getOrFetch ile request deduplication + cache
     const { analysisCache } = await import('@/lib/analysisCache');
-    
+
     return await analysisCache.getOrFetch<DailyAnalysis[]>(
       'analyses:all',
       async () => {
@@ -835,7 +880,7 @@ export async function getAllAnalyses(): Promise<DailyAnalysis[]> {
           id: doc.id,
           ...doc.data()
         } as DailyAnalysis));
-        
+
         console.log(`✅ Fetched ${analyses.length} analyses from Firestore`);
         return analyses;
       },
@@ -864,20 +909,20 @@ export interface AnalysisStats {
 export async function getAnalysisStats(): Promise<AnalysisStats> {
   try {
     const { analysisCache } = await import('@/lib/analysisCache');
-    
+
     return await analysisCache.getOrFetch<AnalysisStats>(
       'stats:analysis',
       async () => {
         console.log('🔥 Calculating stats...');
-        
+
         // ⚡ OPTİMİZASYON: getAllAnalyses zaten cache'li
         // İki seçenek var:
         // 1. Client-side: getAllAnalyses cache'inden hesapla (0 ek read)
         // 2. Aggregation: getCountFromServer kullan (6 read ama index gerekebilir)
-        
+
         // Şimdilik client-side kullan (aggregation test edilmeli)
         const allAnalyses = await getAllAnalyses(); // Cache'den gelir
-        
+
         const stats: AnalysisStats = {
           dailyPending: 0,
           dailyWon: 0,
@@ -925,11 +970,11 @@ export async function getAnalysisStats(): Promise<AnalysisStats> {
 export async function deleteAnalysis(id: string): Promise<void> {
   try {
     await deleteDoc(doc(db, 'daily_analysis', id));
-    
+
     // Cache'i tamamen invalidate et (tüm completed pages)
     const { analysisCache } = await import('@/lib/analysisCache');
     analysisCache.invalidateAnalysisCache();
-    
+
     console.log('🧹 Analysis cache invalidated after delete (including all completed pages)');
   } catch (error) {
     console.error('Analiz silinemedi:', error);
@@ -951,7 +996,7 @@ export async function deleteExpiredAnalyses(): Promise<number> {
     const snapshot = await getDocs(q);
     const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
-    
+
     return snapshot.size; // Silinen analiz sayısı
   } catch (error) {
     console.error('Expired analizler silinemedi:', error);

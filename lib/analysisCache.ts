@@ -288,6 +288,15 @@ class AnalysisCacheManager {
     this.clearByPattern('analyses:*');
     this.clearByPattern('stats:*');
   }
+
+  /**
+   * Kullanıcı verisi değiştiğinde cache'i temizle
+   * Premium yapma, abonelik iptal, kullanıcı silme işlemlerinde çağrılmalı
+   */
+  invalidateUserCache(): void {
+    this.clearByPattern('users:*');
+    console.log('🧹 User cache invalidated');
+  }
 }
 
 // Singleton instance

@@ -9,7 +9,7 @@ interface AnalysisUploadTabProps {
   userId: string;
 }
 
-type AnalysisType = "daily" | "ai";
+type AnalysisType = "daily" | "ai" | "coupon";
 
 export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
   const { showToast } = useToast();
@@ -106,11 +106,11 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
           <label className="block text-sm font-semibold text-gray-300 mb-3">
             Analiz Tipi *
           </label>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <button
               type="button"
               onClick={() => setAnalysisType("daily")}
-              className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+              className={`flex-1 min-w-[140px] py-3 px-6 rounded-lg font-semibold transition ${
                 analysisType === "daily"
                   ? "bg-blue-600 text-white shadow-lg"
                   : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
@@ -120,8 +120,19 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
             </button>
             <button
               type="button"
+              onClick={() => setAnalysisType("coupon")}
+              className={`flex-1 min-w-[140px] py-3 px-6 rounded-lg font-semibold transition ${
+                analysisType === "coupon"
+                  ? "bg-linear-to-r from-yellow-600 to-orange-600 text-white shadow-lg"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+              }`}
+            >
+              🎫 Günün Kuponu
+            </button>
+            <button
+              type="button"
               onClick={() => setAnalysisType("ai")}
-              className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
+              className={`flex-1 min-w-[140px] py-3 px-6 rounded-lg font-semibold transition ${
                 analysisType === "ai"
                   ? "bg-linear-to-r from-purple-600 to-pink-600 text-white shadow-lg"
                   : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
@@ -130,6 +141,11 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
               🤖 Yapay Zeka Analizi
             </button>
           </div>
+          {analysisType === "coupon" && (
+            <p className="text-xs text-yellow-400 mt-2">
+              ⏰ Kuponlar eklenme zamanından 24 saat sonra otomatik silinir.
+            </p>
+          )}
         </div>
 
         <Input
@@ -140,6 +156,8 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
           placeholder={
             analysisType === "daily"
               ? "Örn: 19 Kasım 2025 BIST Analizi"
+              : analysisType === "coupon"
+              ? "Örn: Fenerbahçe - Galatasaray Maçı"
               : "Örn: Chelsea - Arsenal Maç Analizi"
           }
           required

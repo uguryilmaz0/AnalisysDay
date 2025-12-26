@@ -10,6 +10,7 @@ import {
   FileText,
   Sparkles,
   LogIn,
+  Ticket,
 } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
@@ -46,6 +47,7 @@ export default function AdminPage() {
     | "upload"
     | "analyses"
     | "ai-analyses"
+    | "coupons"
     | "users"
     | "admins"
     | "ratelimits"
@@ -212,6 +214,18 @@ export default function AdminPage() {
               <span className="hidden sm:inline">Yapay Zeka Analizleri</span>
               <span className="sm:hidden">AI</span>
             </button>
+            <button
+              onClick={() => setActiveTab("coupons")}
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
+                activeTab === "coupons"
+                  ? "bg-linear-to-r from-yellow-600 to-orange-600 text-white"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <Ticket className="h-4 w-4 md:h-5 md:w-5" />
+              <span className="hidden sm:inline">Kuponlar</span>
+              <span className="sm:hidden">🎫</span>
+            </button>
 
             {/* Super Admin Only Tabs */}
             {isSuperAdmin && (
@@ -297,6 +311,10 @@ export default function AdminPage() {
 
             {activeTab === "ai-analyses" && (
               <AnalysisListTab analysisType="ai" />
+            )}
+
+            {activeTab === "coupons" && (
+              <AnalysisListTab analysisType="coupon" />
             )}
 
             {activeTab === "users" && isSuperAdmin && (

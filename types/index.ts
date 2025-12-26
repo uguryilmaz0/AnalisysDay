@@ -23,7 +23,7 @@ export interface User {
 
 export interface DailyAnalysis {
   id: string;
-  type: 'daily' | 'ai'; // Analiz tipi
+  type: 'daily' | 'ai' | 'coupon'; // Analiz tipi - coupon: Günün Kuponu
   imageUrls: string[]; // Birden fazla görsel
   title: string;
   description?: string;

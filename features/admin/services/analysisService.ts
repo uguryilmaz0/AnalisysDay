@@ -39,7 +39,7 @@ class AnalysisService extends BaseService {
     imageFiles: File[],
     description: string,
     userId: string,
-    type: 'daily' | 'ai' = 'daily',
+    type: 'daily' | 'ai' | 'coupon' = 'daily',
     ideal?: string,
     alternative?: string,
     possibleScore?: string,

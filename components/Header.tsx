@@ -53,6 +53,16 @@ export default function Header() {
               Günün Analizi
             </Link>
             <Link
+              href="/coupon"
+              className={`${
+                isActive("/coupon")
+                  ? "text-yellow-400 font-semibold"
+                  : "text-gray-300 hover:text-yellow-400"
+              } transition-all duration-200 flex items-center gap-1`}
+            >
+              <span>🎫</span> Günün Kuponu
+            </Link>
+            <Link
               href="/ai-analysis"
               className={`${
                 isActive("/ai-analysis")
@@ -218,6 +228,17 @@ export default function Header() {
               } transition-colors`}
             >
               Günün Analizi
+            </Link>
+            <Link
+              href="/coupon"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block py-2 ${
+                isActive("/coupon")
+                  ? "text-yellow-400 font-semibold"
+                  : "text-gray-300 hover:text-yellow-400"
+              } transition-colors flex items-center gap-1`}
+            >
+              <span>🎫</span> Günün Kuponu
             </Link>
             <Link
               href="/ai-analysis"

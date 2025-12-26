@@ -8,11 +8,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/shared/components/ui";
-import { useToast } from "@/shared/hooks";
+import { useToast, useDebounce } from "@/shared/hooks";
 import { userService } from "@/features/admin/services";
 import { useAdminStore } from "@/features/admin/stores";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { getUsersPaginated } from "@/lib/db";
+import { getUsersPaginated, getAllUsers } from "@/lib/db";
+import { analysisCache } from "@/lib/analysisCache";
 import { User } from "@/types";
 import { PremiumDurationModal } from "./PremiumDurationModal";
 
@@ -47,6 +48,11 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<UserFilter>("all");
   const usersPerPage = 50;
+
+  // 🔍 DEBOUNCED SEARCH: Arama için tüm kullanıcılar
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+  const [allUsersForSearch, setAllUsersForSearch] = useState<User[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Premium Duration Modal state
   const [premiumModalOpen, setPremiumModalOpen] = useState(false);
@@ -88,13 +94,39 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     loadUsersPaginated();
   }, [loadUsersPaginated]);
 
-  // Filtered users (artık sadece client-side filtering - search/filter için)
+  // 🔍 DEBOUNCED SEARCH: Arama yapıldığında tüm kullanıcıları yükle
+  useEffect(() => {
+    const loadAllUsersForSearch = async () => {
+      if (debouncedSearchQuery.trim().length >= 2) {
+        setSearchLoading(true);
+        try {
+          const allUsers = await getAllUsers();
+          setAllUsersForSearch(allUsers);
+        } catch (error) {
+          console.error("❌ Tüm kullanıcılar yüklenemedi:", error);
+        } finally {
+          setSearchLoading(false);
+        }
+      } else {
+        setAllUsersForSearch([]);
+      }
+    };
+
+    loadAllUsersForSearch();
+  }, [debouncedSearchQuery]);
+
+  // Filtered users - Arama varsa tüm kullanıcılarda ara, yoksa mevcut sayfada
   const filteredUsers = useMemo(() => {
-    let result = users.filter((u) => !u.superAdmin);
+    // Eğer arama yapılıyorsa ve 2+ karakter girilmişse, tüm kullanıcılar içinde ara
+    const sourceUsers = debouncedSearchQuery.trim().length >= 2 && allUsersForSearch.length > 0
+      ? allUsersForSearch
+      : users;
+
+    let result = sourceUsers.filter((u) => !u.superAdmin);
 
     // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
       result = result.filter(
         (u) =>
           u.username?.toLowerCase().includes(query) ||
@@ -124,7 +156,7 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     }
 
     return result;
-  }, [users, searchQuery, filter]);
+  }, [users, allUsersForSearch, debouncedSearchQuery, filter]);
 
   // ⚡ SERVER-SIDE PAGİNATİON: Backend'den gelen veriyi göster
   // NOT: Search/filter aktifse client-side pagination, yoksa server-side
@@ -156,9 +188,22 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     if (!selectedUser) return;
 
     try {
+      // API çağrısı
       await userService.makePremium(selectedUser.uid, days);
       showToast(`Kullanıcı premium yapıldı! (${days} gün)`, "success");
-      await loadUsersPaginated();
+      
+      // 🔄 OPTIMISTIC UPDATE: Local state'i anında güncelle
+      setUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.uid === selectedUser.uid 
+            ? { ...u, isPaid: true } 
+            : u
+        )
+      );
+      
+      // Cache'i temizle (sonraki yüklemelerde güncel veri gelsin)
+      analysisCache.invalidateUserCache();
+      
       setSelectedUser(null);
     } catch {
       showToast("Premium yapılamadı!", "error");
@@ -181,7 +226,18 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     try {
       await userService.cancelSubscription(uid);
       showToast("Abonelik başarıyla iptal edildi!", "success");
-      await loadUsersPaginated();
+      
+      // 🔄 OPTIMISTIC UPDATE: Local state'i anında güncelle
+      setUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.uid === uid 
+            ? { ...u, isPaid: false, subscriptionEndDate: null } 
+            : u
+        )
+      );
+      
+      // Cache'i temizle
+      analysisCache.invalidateUserCache();
     } catch {
       showToast("Abonelik iptal edilemedi!", "error");
     }
@@ -196,9 +252,17 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       return;
 
     try {
+      // 🔄 OPTIMISTIC UPDATE: Önce local state'den kaldır
+      setUsers(prevUsers => prevUsers.filter(u => u.uid !== uid));
+      
       await removeUser(uid);
       showToast("Kullanıcı başarıyla silindi!", "success");
+      
+      // Cache'i temizle
+      analysisCache.invalidateUserCache();
     } catch {
+      // Hata durumunda yeniden yükle
+      await loadUsersPaginated();
       showToast(
         "Kullanıcı silinemedi! Firebase Auth'dan manuel silmeniz gerekebilir.",
         "error"
@@ -221,11 +285,23 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
 
     try {
       await userService.toggleEmailVerified(uid, !currentStatus);
+      
+      // 🔄 OPTIMISTIC UPDATE: Local state'i güncelle
+      setUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.uid === uid 
+            ? { ...u, emailVerified: !currentStatus } 
+            : u
+        )
+      );
+      
       showToast(
         "Email doğrulama durumu güncellendi! (Firebase Auth + Firestore)",
         "success"
       );
-      await loadUsersPaginated();
+      
+      // Cache'i temizle
+      analysisCache.invalidateUserCache();
     } catch {
       showToast("Email doğrulama durumu güncellenemedi!", "error");
     }
@@ -280,11 +356,21 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Kullanıcı adı, email, isim ile ara..."
+            placeholder="Kullanıcı adı, email, isim ile ara... (min 2 karakter)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-12 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          {searchLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+            </div>
+          )}
+          {debouncedSearchQuery.trim().length >= 2 && !searchLoading && allUsersForSearch.length > 0 && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-400">
+              ✓ Tüm kullanıcılarda aranıyor
+            </span>
+          )}
         </div>
 
         {/* Filter Buttons */}
@@ -662,10 +748,12 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
 
       {/* Search/Filter aktifse bilgi mesajı */}
       {hasSearchOrFilter && (
-        <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-          <p className="text-sm text-yellow-400">
-            ℹ️ Arama veya filtre aktifken pagination devre dışıdır. Temizlemek
-            için arama kutusunu boşaltın ve Tümü filtresini seçin.
+        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+          <p className="text-sm text-blue-400">
+            🔍 {debouncedSearchQuery.trim().length >= 2 
+              ? `Tüm ${allUsersForSearch.length} kullanıcı içinde aranıyor. ${filteredUsers.length} sonuç bulundu.`
+              : "Arama sonuçları gösteriliyor. Sayfa değiştirmek için aramayı/filtreyi temizleyin."
+            }
           </p>
         </div>
       )}
