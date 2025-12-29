@@ -16,11 +16,6 @@ type DurationOption = {
 
 const DURATION_OPTIONS: DurationOption[] = [
   {
-    label: "1 Hafta",
-    days: 7,
-    description: "7 gün premium erişim",
-  },
-  {
     label: "15 Gün",
     days: 15,
     description: "15 gün premium erişim",

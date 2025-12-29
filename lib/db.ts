@@ -575,6 +575,11 @@ export async function createAnalysis(
     if (type === 'coupon') {
       // Kupon: Eklenen andan tam 24 saat sonra silinir
       expiresDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else if (type === 'ai') {
+      // Yapay Zeka Analizi: 15 gün sonra silinir
+      expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      expiresDate.setDate(expiresDate.getDate() + 15);
+      expiresDate.setHours(8, 0, 0, 0);
     } else {
       // Günlük analiz: Ertesi günün saat 08:00'ünde silinir
       expiresDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
