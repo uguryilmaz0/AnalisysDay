@@ -122,29 +122,6 @@ export default function PricingPage() {
         {/* Paket Seçimi */}
         <div className="max-w-4xl mx-auto mb-12">
           <div className="grid md:grid-cols-3 gap-4">
-            {/* 1 Haftalık Paket */}
-            <button
-              onClick={() => setSelectedPackage("7")}
-              className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "7"
-                  ? "border-blue-500 bg-blue-900/30 shadow-xl shadow-blue-500/20"
-                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
-              }`}
-            >
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-blue-600 text-white text-xs py-1 px-3 rounded-full font-semibold">
-                  Haftalık
-                </span>
-              </div>
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">1 Hafta</p>
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <p className="text-3xl font-bold text-white">250 TL</p>
-                </div>
-                <p className="text-sm text-gray-400">7 gün erişim</p>
-              </div>
-            </button>
-
             {/* 15 Günlük Paket */}
             <button
               onClick={() => setSelectedPackage("15")}
