@@ -7,7 +7,9 @@
 import type { DailyAnalysis } from "@/types";
 
 /**
- * 3 günden eski analizleri sil (Firebase + Cloudinary)
+ * Eski analizleri sil (Firebase + Cloudinary)
+ * - Günlük analizler: 3 günden eski olanlar silinir
+ * - AI analizleri: 15 günden eski olanlar silinir
  * Her gün akşam 23:00 TR saatinde çalışır (20:00 UTC)
  * NOT: Bu fonksiyon Firebase Admin SDK kullanır (server-side only)
  */
@@ -23,20 +25,26 @@ export async function deleteOldAnalyses(): Promise<{
     const { adminDb } = await import('./firebaseAdmin');
     const { Timestamp } = await import('firebase-admin/firestore');
     
+    // Günlük analizler için 3 gün
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const timestamp = Timestamp.fromDate(threeDaysAgo);
+    const dailyTimestamp = Timestamp.fromDate(threeDaysAgo);
 
-    console.log(`📅 3 gün önce: ${threeDaysAgo.toISOString()}`);
-    console.log(`📅 Timestamp: ${timestamp.toDate().toISOString()}`);
+    // AI analizleri için 15 gün
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const aiTimestamp = Timestamp.fromDate(fifteenDaysAgo);
+
+    console.log(`📅 Günlük: 3 gün önce: ${threeDaysAgo.toISOString()}`);
+    console.log(`📅 AI: 15 gün önce: ${fifteenDaysAgo.toISOString()}`);
 
     let totalImagesDeleted = 0;
 
-    // Günlük analizleri sil
+    // Günlük analizleri sil (3 gün)
     console.log('🔍 Günlük analizler sorgulanıyor...');
     const dailySnapshot = await adminDb
       .collection('daily_analysis')
-      .where('createdAt', '<=', timestamp)
+      .where('createdAt', '<=', dailyTimestamp)
       .get();
     
     console.log(`📊 ${dailySnapshot.size} günlük analiz bulundu`);
@@ -60,11 +68,11 @@ export async function deleteOldAnalyses(): Promise<{
     await dailyDeleteBatch.commit();
     console.log(`✅ ${dailySnapshot.size} günlük analiz Firebase'den silindi`);
 
-    // Yapay zeka analizlerini sil
+    // Yapay zeka analizlerini sil (15 gün)
     console.log('🔍 AI analizler sorgulanıyor...');
     const aiSnapshot = await adminDb
       .collection('ai_analysis')
-      .where('createdAt', '<=', timestamp)
+      .where('createdAt', '<=', aiTimestamp)
       .get();
     
     console.log(`📊 ${aiSnapshot.size} AI analiz bulundu`);

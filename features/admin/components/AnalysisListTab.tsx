@@ -167,8 +167,8 @@ export function AnalysisListTab({
 
     try {
       // 🔄 OPTIMISTIC UPDATE: Önce local state'den kaldır
-      setAnalyses(prev => prev.filter(a => a.id !== id));
-      
+      setAnalyses((prev) => prev.filter((a) => a.id !== id));
+
       // Sonra backend'i güncelle
       await removeAnalysis(id);
       showToast("Analiz başarıyla silindi!", "success");
@@ -192,16 +192,14 @@ export function AnalysisListTab({
 
     try {
       await analysisService.update(editModal.analysis.id, title, description);
-      
+
       // 🔄 OPTIMISTIC UPDATE: Local state'i güncelle
-      setAnalyses(prev => 
-        prev.map(a => 
-          a.id === editModal.analysis!.id 
-            ? { ...a, title, description } 
-            : a
+      setAnalyses((prev) =>
+        prev.map((a) =>
+          a.id === editModal.analysis!.id ? { ...a, title, description } : a
         )
       );
-      
+
       showToast("Analiz başarıyla güncellendi!", "success");
     } catch {
       showToast("Analiz güncellenemedi!", "error");
@@ -229,16 +227,12 @@ export function AnalysisListTab({
 
     try {
       await analysisService.updateStatus(id, status, userData.uid);
-      
+
       // 🔄 OPTIMISTIC UPDATE: Local state'i güncelle
-      setAnalyses(prev => 
-        prev.map(a => 
-          a.id === id 
-            ? { ...a, status } 
-            : a
-        )
+      setAnalyses((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status } : a))
       );
-      
+
       showToast(`Analiz "${statusText}" olarak güncellendi!`, "success");
     } catch {
       showToast("Durum güncellenemedi!", "error");
@@ -298,10 +292,12 @@ export function AnalysisListTab({
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-bold text-white">
-          {analysisType === "coupon" 
-            ? "🎫 Kuponlar" 
-            : `${activeTab === "pending" ? "Bekleyen" : "Sonuçlanan"} ${analysisType === "ai" ? "Yapay Zeka" : "Günlük"} Analizler`
-          } ({filteredAnalyses.length})
+          {analysisType === "coupon"
+            ? "🎫 Kuponlar"
+            : `${activeTab === "pending" ? "Bekleyen" : "Sonuçlanan"} ${
+                analysisType === "ai" ? "Yapay Zeka" : "Günlük"
+              } Analizler`}{" "}
+          ({filteredAnalyses.length})
         </h2>
 
         {/* Filtre Butonları */}
@@ -541,8 +537,8 @@ export function AnalysisListTab({
                         <Edit2 className="h-4 w-4" />
                       </Button>
 
-                      {/* Status Butonları - Sadece pending tab'de ve kupon değilse göster */}
-                      {activeTab === "pending" && analysisType !== "coupon" && (
+                      {/* Status Butonları - Sadece pending tab'de göster */}
+                      {activeTab === "pending" && (
                         <>
                           <Button
                             onClick={() =>
@@ -568,8 +564,8 @@ export function AnalysisListTab({
                         </>
                       )}
 
-                      {/* Reset Butonu - Sadece completed tab'de ve kupon değilse göster */}
-                      {activeTab === "completed" && analysisType !== "coupon" && (
+                      {/* Reset Butonu - Sadece completed tab'de göster */}
+                      {activeTab === "completed" && (
                         <Button
                           onClick={() =>
                             handleStatusUpdate(analysis.id, "pending")

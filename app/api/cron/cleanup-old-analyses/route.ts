@@ -1,8 +1,9 @@
 /**
- * Cron Job: Old Analyses Cleanup (3 Days)
+ * Cron Job: Old Analyses Cleanup
+ * - Günlük analizler: 3 gün sonra silinir
+ * - AI analizleri: 15 gün sonra silinir
  * 
- * Her gün akşam 23:00 TR saatinde çalışır (20:00 UTC = 23:00 TR)
- * 3 gün önceki tüm analizleri siler (günlük + yapay zeka)
+ * Her gün akşam 23:00 TR saatinde çalışır (20:00 UTC)
  * Firebase dokümanları + Cloudinary görselleri temizlenir
  * 
  * Endpoint: GET /api/cron/cleanup-old-analyses
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
 
     logger.info('Cron: Authentication successful, starting cleanup...');
 
-    // 3 gün önceki analizleri sil (Cloudinary görselleri dahil)
+    // Günlük analizler: 3 gün, AI analizleri: 15 gün (Cloudinary görselleri dahil)
     const result = await deleteOldAnalyses();
 
     logger.info('Cron: Old analyses cleanup completed', {

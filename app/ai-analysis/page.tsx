@@ -134,9 +134,9 @@ export default function AIAnalysisPage() {
       // Premium erişimi varsa analiz çek
       if (hasPremiumAccess) {
         try {
-          // ⚡ OPTİMİZE: Sadece son 3 günün pending AI analizlerini çek (10-30 read)
+          // ⚡ OPTİMİZE: Sadece son 15 günün pending AI analizlerini çek
           const [pendingAnalyses, stats] = await Promise.all([
-            getPendingAnalyses("ai", 3), // Son 3 gün (cron 3 gün sonra siliyor)
+            getPendingAnalyses("ai", 15), // Son 15 gün (AI cron 15 gün sonra siliyor)
             getAnalysisStats(),
           ]);
           setAnalyses(pendingAnalyses);
