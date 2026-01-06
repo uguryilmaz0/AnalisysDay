@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   CreditCard,
@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Target,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { Button, Card } from "@/shared/components/ui";
 import {
@@ -18,6 +19,14 @@ import {
   useToast,
   useCopyToClipboard,
 } from "@/shared/hooks";
+import type { PricingPackage } from "@/types";
+
+// Varsayılan paketler (API yüklenemezse kullanılır)
+const DEFAULT_PACKAGES: PricingPackage[] = [
+  { days: 7, price: 250, label: "1 Hafta", isPopular: false },
+  { days: 15, price: 500, label: "15 Gün", isPopular: true },
+  { days: 30, price: 1000, label: "1 Ay", isPopular: false },
+];
 
 export default function PricingPage() {
   const { user, userData } = useRequireAuth({ requireEmailVerified: true });
@@ -26,24 +35,46 @@ export default function PricingPage() {
   const { copy } = useCopyToClipboard();
   const router = useRouter();
 
-  const [selectedPackage, setSelectedPackage] = useState<"7" | "15" | "30">(
-    "15"
-  );
+  const [packages, setPackages] = useState<PricingPackage[]>(DEFAULT_PACKAGES);
+  const [selectedIndex, setSelectedIndex] = useState(1); // Varsayılan: popüler paket
+  const [loadingPackages, setLoadingPackages] = useState(true);
 
-  const packages: Record<
-    "7" | "15" | "30",
-    {
-      days: number;
-      price: number;
-      pricePerDay: number;
-    }
-  > = {
-    "7": { days: 7, price: 250, pricePerDay: Math.round(250 / 7) },
-    "15": { days: 15, price: 500, pricePerDay: Math.round(500 / 15) },
-    "30": { days: 30, price: 1000, pricePerDay: Math.round(1000 / 30) },
-  };
+  // Fiyat paketlerini API'den çek
+  useEffect(() => {
+    const loadPackages = async () => {
+      try {
+        const response = await fetch("/api/settings/pricing");
+        const data = await response.json();
 
-  const currentPackage = packages[selectedPackage];
+        if (data.success && data.data?.packages?.length > 0) {
+          // Gün sayısına göre sırala
+          const sortedPackages = data.data.packages.sort(
+            (a: PricingPackage, b: PricingPackage) => a.days - b.days
+          );
+          setPackages(sortedPackages);
+
+          // Popüler paketi bul ve seç
+          const popularIndex = sortedPackages.findIndex(
+            (p: PricingPackage) => p.isPopular
+          );
+          if (popularIndex !== -1) {
+            setSelectedIndex(popularIndex);
+          }
+        }
+      } catch (error) {
+        console.error("Paketler yüklenemedi:", error);
+      } finally {
+        setLoadingPackages(false);
+      }
+    };
+
+    loadPackages();
+  }, []);
+
+  const currentPackage = packages[selectedIndex];
+  const pricePerDay = currentPackage
+    ? Math.round(currentPackage.price / currentPackage.days)
+    : 0;
 
   const iban =
     process.env.NEXT_PUBLIC_IBAN || "TR00 0000 0000 0000 0000 0000 00";
@@ -121,49 +152,55 @@ export default function PricingPage() {
 
         {/* Paket Seçimi */}
         <div className="max-w-4xl mx-auto mb-12">
-          <div className="grid md:grid-cols-3 gap-4">
-            {/* 15 Günlük Paket */}
-            <button
-              onClick={() => setSelectedPackage("15")}
-              className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "15"
-                  ? "border-purple-500 bg-purple-900/30 shadow-xl shadow-purple-500/20"
-                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
+          {loadingPackages ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 text-purple-500 animate-spin" />
+              <span className="ml-2 text-gray-400">Paketler yükleniyor...</span>
+            </div>
+          ) : (
+            <div
+              className={`grid gap-4 ${
+                packages.length === 1
+                  ? "grid-cols-1 max-w-sm mx-auto"
+                  : packages.length === 2
+                  ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+                  : packages.length === 3
+                  ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
               }`}
             >
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                  Popüler
-                </span>
-              </div>
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">15 Gün</p>
-                <p className="text-3xl font-bold text-white mb-1">500 TL</p>
-                <p className="text-sm text-gray-400">15 gün erişim</p>
-              </div>
-            </button>
-
-            {/* 1 Aylık Paket */}
-            <button
-              onClick={() => setSelectedPackage("30")}
-              className={`p-6 rounded-xl border-2 transition-all relative ${
-                selectedPackage === "30"
-                  ? "border-green-500 bg-green-900/30 shadow-xl shadow-green-500/20"
-                  : "border-gray-700 bg-gray-800 hover:border-gray-600"
-              }`}
-            >
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <span className="bg-green-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                  En Avantajlı
-                </span>
-              </div>
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-1">1 Ay</p>
-                <p className="text-3xl font-bold text-white mb-1">1.000 TL</p>
-                <p className="text-sm text-gray-400">30 gün erişim</p>
-              </div>
-            </button>
-          </div>
+              {packages.map((pkg, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedIndex(index)}
+                  className={`p-6 rounded-xl border-2 transition-all relative ${
+                    selectedIndex === index
+                      ? pkg.isPopular
+                        ? "border-purple-500 bg-purple-900/30 shadow-xl shadow-purple-500/20"
+                        : "border-blue-500 bg-blue-900/30 shadow-xl shadow-blue-500/20"
+                      : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                  }`}
+                >
+                  {pkg.isPopular && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                        Popüler
+                      </span>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm mb-1">{pkg.label}</p>
+                    <p className="text-3xl font-bold text-white mb-1">
+                      {pkg.price.toLocaleString("tr-TR")} TL
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      {pkg.days} gün erişim
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -171,17 +208,15 @@ export default function PricingPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8 hover:border-gray-700 transition-all">
             <div className="bg-linear-to-r from-blue-600 via-purple-600 to-blue-600 text-white rounded-xl p-6 mb-6 shadow-xl">
               <h2 className="text-2xl font-bold mb-2">
-                {currentPackage.days} Günlük Abonelik
+                {currentPackage.label} Abonelik
               </h2>
               <div className="flex items-baseline gap-2">
                 <span className="text-5xl font-bold">
-                  {currentPackage.price}
+                  {currentPackage.price.toLocaleString("tr-TR")}
                 </span>
                 <span className="text-2xl">TL</span>
               </div>
-              <p className="text-blue-100 mt-2">
-                Günlük {currentPackage.pricePerDay} TL
-              </p>
+              <p className="text-blue-100 mt-2">Günlük {pricePerDay} TL</p>
             </div>
 
             <div className="space-y-4 mb-8">
@@ -309,10 +344,12 @@ export default function PricingPage() {
                       "Merhaba, Analiz Günü için ödeme yaptım.\n\nKayıtlı Email: " +
                         (user?.email || "") +
                         "\nPaket: " +
+                        currentPackage.label +
+                        " (" +
                         currentPackage.days +
-                        " Gün" +
+                        " Gün)" +
                         "\nÖdeme Tutarı: " +
-                        currentPackage.price +
+                        currentPackage.price.toLocaleString("tr-TR") +
                         " TL"
                     )}`}
                     target="_blank"

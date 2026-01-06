@@ -74,3 +74,20 @@ export interface LoginLog {
   timestamp: number;
   createdAt: Timestamp;
 }
+
+// Fiyatlandırma paketi
+export interface PricingPackage {
+  days: number;
+  price: number;
+  label: string;
+  isPopular?: boolean;
+}
+
+// Site ayarları
+export interface SiteSettings {
+  pricing: {
+    packages: PricingPackage[];
+    updatedAt: Timestamp;
+    updatedBy: string;
+  };
+}

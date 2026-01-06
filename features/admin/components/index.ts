@@ -6,4 +6,4 @@ export { RateLimitTab } from "./RateLimitTab";
 export { SystemLogsTab } from "./SystemLogsTab";
 export { LoginLogsTab } from "./LoginLogsTab";
 export { PremiumDurationModal } from "./PremiumDurationModal";
-
+export { PricingSettingsTab } from "./PricingSettingsTab";

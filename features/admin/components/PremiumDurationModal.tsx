@@ -1,5 +1,6 @@
-import { X } from "lucide-react";
-import { useState } from "react";
+import { X, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { PricingPackage } from "@/types";
 
 interface PremiumDurationModalProps {
   isOpen: boolean;
@@ -8,38 +9,64 @@ interface PremiumDurationModalProps {
   userEmail: string;
 }
 
-type DurationOption = {
-  label: string;
-  days: number;
-  description: string;
-};
-
-const DURATION_OPTIONS: DurationOption[] = [
-  {
-    label: "15 Gün",
-    days: 15,
-    description: "15 gün premium erişim",
-  },
-  {
-    label: "1 Ay",
-    days: 30,
-    description: "30 gün premium erişim",
-  },
-];
-
 export function PremiumDurationModal({
   isOpen,
   onClose,
   onConfirm,
   userEmail,
 }: PremiumDurationModalProps) {
-  const [selectedDuration, setSelectedDuration] = useState<number>(30);
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
+
+  // Paketleri API'den çek
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchPackages = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch("/api/settings/pricing");
+        if (response.ok) {
+          const result = await response.json();
+          // API response: { success: true, data: { packages: [...] } }
+          const pkgs = result.data?.packages || result.packages || [];
+          setPackages(pkgs);
+          // İlk paketi seç
+          if (pkgs.length > 0) {
+            setSelectedDuration(pkgs[0].days);
+          }
+        }
+      } catch (error) {
+        console.error("Paketler yüklenemedi:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPackages();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    onConfirm(selectedDuration);
-    onClose();
+    if (selectedDuration) {
+      onConfirm(selectedDuration);
+      onClose();
+    }
+  };
+
+  // Gün sayısına göre label oluştur
+  const getDurationLabel = (days: number): string => {
+    if (days === 1) return "1 Gün";
+    if (days === 7) return "1 Hafta";
+    if (days === 14 || days === 15) return `${days} Gün`;
+    if (days === 30) return "1 Ay";
+    if (days === 60) return "2 Ay";
+    if (days === 90) return "3 Ay";
+    if (days === 180) return "6 Ay";
+    if (days === 365) return "1 Yıl";
+    return `${days} Gün`;
   };
 
   return (
@@ -64,41 +91,58 @@ export function PremiumDurationModal({
           </p>
 
           {/* Duration Options */}
-          <div className="space-y-3">
-            {DURATION_OPTIONS.map((option) => (
-              <button
-                key={option.days}
-                onClick={() => setSelectedDuration(option.days)}
-                className={`w-full text-left p-4 rounded-lg border-2 transition ${
-                  selectedDuration === option.days
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "border-gray-700 bg-gray-800 hover:border-gray-600"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-white">
-                      {option.label}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
+              <span className="ml-2 text-gray-400">Paketler yükleniyor...</span>
+            </div>
+          ) : packages.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p>Henüz paket tanımlanmamış.</p>
+              <p className="text-sm mt-2">Admin panelinden paket ekleyin.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {packages.map((pkg) => (
+                <button
+                  key={pkg.days}
+                  onClick={() => setSelectedDuration(pkg.days)}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                    selectedDuration === pkg.days
+                      ? "border-blue-500 bg-blue-500/10"
+                      : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-white flex items-center gap-2">
+                        {pkg.label || getDurationLabel(pkg.days)}
+                        {pkg.isPopular && (
+                          <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
+                            Popüler
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {pkg.days} gün premium erişim • {pkg.price} TL
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-400">
-                      {option.description}
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        selectedDuration === pkg.days
+                          ? "border-blue-500 bg-blue-500"
+                          : "border-gray-600"
+                      }`}
+                    >
+                      {selectedDuration === pkg.days && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
                     </div>
                   </div>
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedDuration === option.days
-                        ? "border-blue-500 bg-blue-500"
-                        : "border-gray-600"
-                    }`}
-                  >
-                    {selectedDuration === option.days && (
-                      <div className="w-2 h-2 rounded-full bg-white" />
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -111,7 +155,8 @@ export function PremiumDurationModal({
           </button>
           <button
             onClick={handleConfirm}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+            disabled={!selectedDuration || loading}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Onayla
           </button>

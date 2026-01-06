@@ -11,6 +11,7 @@ import {
   Sparkles,
   LogIn,
   Ticket,
+  DollarSign,
 } from "lucide-react";
 import { Card, LoadingSpinner } from "@/shared/components/ui";
 import { useRequireAuth } from "@/shared/hooks";
@@ -23,6 +24,7 @@ import {
   RateLimitTab,
   SystemLogsTab,
   LoginLogsTab,
+  PricingSettingsTab,
 } from "@/features/admin/components";
 
 export default function AdminPage() {
@@ -53,6 +55,7 @@ export default function AdminPage() {
     | "ratelimits"
     | "logs"
     | "login-logs"
+    | "pricing-settings"
   >("upload");
 
   // ⚡ İlk yükleme: Sadece stats (lazy loading)
@@ -296,6 +299,18 @@ export default function AdminPage() {
                   <span className="hidden sm:inline">Login Logları</span>
                   <span className="sm:hidden">Login</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab("pricing-settings")}
+                  className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-semibold transition whitespace-nowrap text-sm md:text-base ${
+                    activeTab === "pricing-settings"
+                      ? "bg-linear-to-r from-green-600 to-emerald-600 text-white"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <DollarSign className="h-4 w-4 md:h-5 md:w-5" />
+                  <span className="hidden sm:inline">Fiyatlandırma</span>
+                  <span className="sm:hidden">💰</span>
+                </button>
               </>
             )}
           </div>
@@ -333,6 +348,10 @@ export default function AdminPage() {
             {activeTab === "logs" && isSuperAdmin && <SystemLogsTab />}
 
             {activeTab === "login-logs" && isSuperAdmin && <LoginLogsTab />}
+
+            {activeTab === "pricing-settings" && isSuperAdmin && (
+              <PricingSettingsTab isSuperAdmin={isSuperAdmin} />
+            )}
           </div>
         </div>
       </div>

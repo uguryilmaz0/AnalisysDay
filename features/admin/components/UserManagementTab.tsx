@@ -24,6 +24,7 @@ interface UserManagementTabProps {
 type UserFilter =
   | "all"
   | "premium"
+  | "expired"
   | "free"
   | "admin"
   | "verified"
@@ -118,9 +119,10 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   // Filtered users - Arama varsa tüm kullanıcılarda ara, yoksa mevcut sayfada
   const filteredUsers = useMemo(() => {
     // Eğer arama yapılıyorsa ve 2+ karakter girilmişse, tüm kullanıcılar içinde ara
-    const sourceUsers = debouncedSearchQuery.trim().length >= 2 && allUsersForSearch.length > 0
-      ? allUsersForSearch
-      : users;
+    const sourceUsers =
+      debouncedSearchQuery.trim().length >= 2 && allUsersForSearch.length > 0
+        ? allUsersForSearch
+        : users;
 
     let result = sourceUsers.filter((u) => !u.superAdmin);
 
@@ -141,8 +143,21 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       case "premium":
         result = result.filter((u) => u.isPaid);
         break;
+      case "expired":
+        // Daha önce abone olmuş ama şu an değil (süresi dolmuş)
+        result = result.filter(
+          (u) => !u.isPaid && (u.lastPaymentDate || u.subscriptionEndDate)
+        );
+        break;
       case "free":
-        result = result.filter((u) => !u.isPaid && u.role !== "admin");
+        // Hiç abone olmamış (lastPaymentDate ve subscriptionEndDate yok)
+        result = result.filter(
+          (u) =>
+            !u.isPaid &&
+            !u.lastPaymentDate &&
+            !u.subscriptionEndDate &&
+            u.role !== "admin"
+        );
         break;
       case "admin":
         result = result.filter((u) => u.role === "admin");
@@ -187,23 +202,40 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
   const handleMakePremium = async (days: number) => {
     if (!selectedUser) return;
 
+    // selectedUser'ı kaydet çünkü modal kapandığında null olacak
+    const targetUser = { ...selectedUser };
+
+    // Modal'ı kapat
+    setPremiumModalOpen(false);
+
     try {
       // API çağrısı
-      await userService.makePremium(selectedUser.uid, days);
+      await userService.makePremium(targetUser.uid, days);
       showToast(`Kullanıcı premium yapıldı! (${days} gün)`, "success");
-      
-      // 🔄 OPTIMISTIC UPDATE: Local state'i anında güncelle
-      setUsers(prevUsers => 
-        prevUsers.map(u => 
-          u.uid === selectedUser.uid 
-            ? { ...u, isPaid: true } 
-            : u
-        )
-      );
-      
+
+      // Yeni abonelik bitiş tarihini hesapla
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + days);
+      const { Timestamp } = await import("firebase/firestore");
+      const newSubscriptionEndDate = Timestamp.fromDate(endDate);
+
+      // 🔄 OPTIMISTIC UPDATE: Her iki state'i de güncelle (arama aktifken de çalışsın)
+      const updateUserData = (u: User) =>
+        u.uid === targetUser.uid
+          ? {
+              ...u,
+              isPaid: true,
+              subscriptionEndDate: newSubscriptionEndDate,
+              lastPaymentDate: Timestamp.now(),
+            }
+          : u;
+
+      setUsers((prevUsers) => prevUsers.map(updateUserData));
+      setAllUsersForSearch((prevUsers) => prevUsers.map(updateUserData));
+
       // Cache'i temizle (sonraki yüklemelerde güncel veri gelsin)
       analysisCache.invalidateUserCache();
-      
+
       setSelectedUser(null);
     } catch {
       showToast("Premium yapılamadı!", "error");
@@ -226,16 +258,21 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
     try {
       await userService.cancelSubscription(uid);
       showToast("Abonelik başarıyla iptal edildi!", "success");
-      
-      // 🔄 OPTIMISTIC UPDATE: Local state'i anında güncelle
-      setUsers(prevUsers => 
-        prevUsers.map(u => 
-          u.uid === uid 
-            ? { ...u, isPaid: false, subscriptionEndDate: null } 
-            : u
-        )
-      );
-      
+
+      // 🔄 OPTIMISTIC UPDATE: Her iki state'i de güncelle (arama aktifken de çalışsın)
+      const updateUserData = (u: User) =>
+        u.uid === uid
+          ? {
+              ...u,
+              isPaid: false,
+              subscriptionEndDate: null,
+              lastPaymentDate: null,
+            }
+          : u;
+
+      setUsers((prevUsers) => prevUsers.map(updateUserData));
+      setAllUsersForSearch((prevUsers) => prevUsers.map(updateUserData));
+
       // Cache'i temizle
       analysisCache.invalidateUserCache();
     } catch {
@@ -252,12 +289,15 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       return;
 
     try {
-      // 🔄 OPTIMISTIC UPDATE: Önce local state'den kaldır
-      setUsers(prevUsers => prevUsers.filter(u => u.uid !== uid));
-      
+      // 🔄 OPTIMISTIC UPDATE: Her iki state'den de kaldır
+      setUsers((prevUsers) => prevUsers.filter((u) => u.uid !== uid));
+      setAllUsersForSearch((prevUsers) =>
+        prevUsers.filter((u) => u.uid !== uid)
+      );
+
       await removeUser(uid);
       showToast("Kullanıcı başarıyla silindi!", "success");
-      
+
       // Cache'i temizle
       analysisCache.invalidateUserCache();
     } catch {
@@ -285,21 +325,19 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
 
     try {
       await userService.toggleEmailVerified(uid, !currentStatus);
-      
+
       // 🔄 OPTIMISTIC UPDATE: Local state'i güncelle
-      setUsers(prevUsers => 
-        prevUsers.map(u => 
-          u.uid === uid 
-            ? { ...u, emailVerified: !currentStatus } 
-            : u
+      setUsers((prevUsers) =>
+        prevUsers.map((u) =>
+          u.uid === uid ? { ...u, emailVerified: !currentStatus } : u
         )
       );
-      
+
       showToast(
         "Email doğrulama durumu güncellendi! (Firebase Auth + Firestore)",
         "success"
       );
-      
+
       // Cache'i temizle
       analysisCache.invalidateUserCache();
     } catch {
@@ -366,11 +404,13 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
             </div>
           )}
-          {debouncedSearchQuery.trim().length >= 2 && !searchLoading && allUsersForSearch.length > 0 && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-400">
-              ✓ Tüm kullanıcılarda aranıyor
-            </span>
-          )}
+          {debouncedSearchQuery.trim().length >= 2 &&
+            !searchLoading &&
+            allUsersForSearch.length > 0 && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-400">
+                ✓ Tüm kullanıcılarda aranıyor
+              </span>
+            )}
         </div>
 
         {/* Filter Buttons */}
@@ -396,6 +436,25 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
             Premium ({users.filter((u) => !u.superAdmin && u.isPaid).length})
           </button>
           <button
+            onClick={() => setFilter("expired")}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${
+              filter === "expired"
+                ? "bg-yellow-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            Süresi Doldu (
+            {
+              users.filter(
+                (u) =>
+                  !u.superAdmin &&
+                  !u.isPaid &&
+                  (u.lastPaymentDate || u.subscriptionEndDate)
+              ).length
+            }
+            )
+          </button>
+          <button
             onClick={() => setFilter("free")}
             className={`px-4 py-2 rounded-lg font-semibold transition ${
               filter === "free"
@@ -406,7 +465,12 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
             Ücretsiz (
             {
               users.filter(
-                (u) => !u.superAdmin && !u.isPaid && u.role !== "admin"
+                (u) =>
+                  !u.superAdmin &&
+                  !u.isPaid &&
+                  !u.lastPaymentDate &&
+                  !u.subscriptionEndDate &&
+                  u.role !== "admin"
               ).length
             }
             )
@@ -559,7 +623,20 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
                     <td className="px-4 py-3">
                       {u.isPaid ? (
                         <Badge variant="success">Premium</Badge>
+                      ) : u.lastPaymentDate || u.subscriptionEndDate ? (
+                        // Daha önce abone olmuş ama şu an değil
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="warning">Süresi Doldu</Badge>
+                          {u.subscriptionEndDate && (
+                            <span className="text-xs text-gray-500">
+                              {new Date(
+                                u.subscriptionEndDate.toDate()
+                              ).toLocaleDateString("tr-TR")}
+                            </span>
+                          )}
+                        </div>
                       ) : (
+                        // Hiç abone olmamış
                         <Badge variant="info">Ücretsiz</Badge>
                       )}
                     </td>
@@ -750,10 +827,10 @@ export function UserManagementTab({ currentUserId }: UserManagementTabProps) {
       {hasSearchOrFilter && (
         <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
           <p className="text-sm text-blue-400">
-            🔍 {debouncedSearchQuery.trim().length >= 2 
+            🔍{" "}
+            {debouncedSearchQuery.trim().length >= 2
               ? `Tüm ${allUsersForSearch.length} kullanıcı içinde aranıyor. ${filteredUsers.length} sonuç bulundu.`
-              : "Arama sonuçları gösteriliyor. Sayfa değiştirmek için aramayı/filtreyi temizleyin."
-            }
+              : "Arama sonuçları gösteriliyor. Sayfa değiştirmek için aramayı/filtreyi temizleyin."}
           </p>
         </div>
       )}
