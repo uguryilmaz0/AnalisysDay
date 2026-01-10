@@ -58,57 +58,51 @@ export function AnalysisListTab({
   }>({ open: false, analysis: null });
 
   // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
-  const loadAnalysesPaginated = useCallback(async (
-    page: number = currentPage,
-    cursor?: string
-  ) => {
-    setLoading(true);
-    try {
-      if (activeTab === "pending") {
-        // Pending analizler için getAllAnalyses kullan (genellikle az veri)
-        const allAnalyses = await getAllAnalyses();
-        const filteredPending = allAnalyses
-          .filter((a) => (a.type || "daily") === analysisType)
-          .filter((a) => !a.status || a.status === "pending");
+  const loadAnalysesPaginated = useCallback(
+    async (page: number = currentPage, cursor?: string) => {
+      setLoading(true);
+      try {
+        if (activeTab === "pending") {
+          // Pending analizler için getAllAnalyses kullan (genellikle az veri)
+          const allAnalyses = await getAllAnalyses();
+          const filteredPending = allAnalyses
+            .filter((a) => (a.type || "daily") === analysisType)
+            .filter((a) => !a.status || a.status === "pending");
 
-        setAnalyses(filteredPending);
-        setHasMore(false); // Pending'de pagination yok, az veri
-      } else {
-        // Completed analizler için dinamik pagination
-        const data = await getCompletedAnalyses(
-          analysisType,
-          statusFilter,
-          page,
-          itemsPerPage,
-          cursor
-        );
+          setAnalyses(filteredPending);
+          setHasMore(false); // Pending'de pagination yok, az veri
+        } else {
+          // Completed analizler için dinamik pagination
+          const data = await getCompletedAnalyses(
+            analysisType,
+            statusFilter,
+            page,
+            itemsPerPage,
+            cursor
+          );
 
-        setAnalyses(data.analyses);
-        setHasMore(data.hasMore);
+          setAnalyses(data.analyses);
+          setHasMore(data.hasMore);
 
-        // Yeni cursor'u stack'e ekle
-        if (data.lastDocId) {
-          setCursorStack((prev) => {
-            if (page === prev.length) {
-              return [...prev, data.lastDocId];
-            }
-            return prev;
-          });
+          // Yeni cursor'u stack'e ekle
+          if (data.lastDocId) {
+            setCursorStack((prev) => {
+              if (page === prev.length) {
+                return [...prev, data.lastDocId];
+              }
+              return prev;
+            });
+          }
         }
+      } catch (error) {
+        console.error("❌ Analizler yüklenemedi:", error);
+        showToast("Analizler yüklenemedi", "error");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("❌ Analizler yüklenemedi:", error);
-      showToast("Analizler yüklenemedi", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    activeTab,
-    analysisType,
-    statusFilter,
-    currentPage,
-    showToast,
-  ]);
+    },
+    [activeTab, analysisType, statusFilter, currentPage, showToast]
+  );
 
   // Tab veya filtre değişiminde veriyi yenile
   useEffect(() => {
