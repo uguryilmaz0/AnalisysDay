@@ -20,6 +20,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
   const [ideal, setIdeal] = useState("");
   const [alternative, setAlternative] = useState("");
   const [possibleScore, setPossibleScore] = useState("");
+  const [iyMs, setIyMs] = useState("");
   const [percentage, setPercentage] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -41,7 +42,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
 
     // Yapay zeka analizi için ek validasyon
     if (analysisType === "ai") {
-      if (!ideal || !alternative || !possibleScore || !percentage) {
+      if (!ideal || !alternative || !possibleScore || !iyMs || !percentage) {
         showToast(
           "Yapay zeka analizi için tüm tahmin alanlarını doldurun!",
           "warning"
@@ -64,6 +65,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
         ideal,
         alternative,
         possibleScore,
+        iyMs,
         percentage
       );
 
@@ -73,6 +75,7 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
       setIdeal("");
       setAlternative("");
       setPossibleScore("");
+      setIyMs("");
       setPercentage("");
       setImageFiles([]);
 
@@ -195,6 +198,15 @@ export function AnalysisUploadTab({ userId }: AnalysisUploadTabProps) {
                 value={possibleScore}
                 onChange={(e) => setPossibleScore(e.target.value)}
                 placeholder="Örn: 2-1 veya 1-0"
+                maxLength={30}
+                fullWidth
+              />
+              <Input
+                label="İY / MS *"
+                type="text"
+                value={iyMs}
+                onChange={(e) => setIyMs(e.target.value)}
+                placeholder="Örn: 1/1 veya 0/2"
                 maxLength={30}
                 fullWidth
               />

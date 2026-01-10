@@ -40,6 +40,7 @@ export interface DailyAnalysis {
   ideal?: string; // İdeal Tercih (max 30 karakter)
   alternative?: string; // Alternatif (max 30 karakter)
   possibleScore?: string; // Olası Skor (max 30 karakter)
+  iyMs?: string; // İY / MS (max 30 karakter)
   percentage?: string; // Yüzde (max 30 karakter)
 }
 

@@ -597,6 +597,7 @@ function AIAnalysisCard({
         {(analysis.ideal ||
           analysis.alternative ||
           analysis.possibleScore ||
+          analysis.iyMs ||
           analysis.percentage) && (
           <div className="mt-4 bg-linear-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-5 backdrop-blur-sm">
             <div className="flex items-center gap-2 mb-4">
@@ -605,7 +606,7 @@ function AIAnalysisCard({
                 AI Tahminleri
               </h3>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {/* İdeal */}
               <div className="bg-gray-900/60 rounded-lg p-4 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
                 <p className="text-xs text-purple-400 font-semibold mb-2">
@@ -633,6 +634,16 @@ function AIAnalysisCard({
                 </p>
                 <p className="text-white font-bold text-lg">
                   {analysis.possibleScore || "-"}
+                </p>
+              </div>
+
+              {/* İY / MS */}
+              <div className="bg-gray-900/60 rounded-lg p-4 border border-blue-500/20 hover:border-blue-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
+                <p className="text-xs text-blue-400 font-semibold mb-2">
+                  İY / MS
+                </p>
+                <p className="text-white font-bold text-lg">
+                  {analysis.iyMs || "-"}
                 </p>
               </div>
 

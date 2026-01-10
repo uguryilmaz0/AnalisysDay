@@ -157,31 +157,35 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-12 px-4">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 py-6 sm:py-12 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-white/20 backdrop-blur-sm p-4 rounded-full">
-              <UserIcon className="h-8 w-8" />
+        <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl p-4 sm:p-8 text-white mb-6 sm:mb-8 shadow-xl">
+          <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-4">
+            <div className="bg-white/20 backdrop-blur-sm p-2 sm:p-4 rounded-full shrink-0">
+              <UserIcon className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">Profil Ayarları</h1>
-              <p className="text-blue-100">Hesap bilgilerinizi yönetin</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-bold truncate">
+                Profil Ayarları
+              </h1>
+              <p className="text-blue-100 text-sm sm:text-base">
+                Hesap bilgilerinizi yönetin
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
           {/* Sol Kolon */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Profil Düzenleme */}
             <ProfileEditForm userData={userData} userId={user.uid} />
 
             {/* Hesap Bilgileri */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <UserIcon className="h-5 w-5 text-blue-400" />
+            <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                 Diğer Bilgiler
               </h2>
               <AccountInfo userData={userData} />
@@ -191,9 +195,9 @@ export default function ProfilePage() {
             <PasswordChangeForm />
 
             {/* Bildirim Ayarları */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <Bell className="h-5 w-5 text-emerald-400" />
+            <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400" />
                 Bildirim Ayarları
               </h2>
 
@@ -222,20 +226,20 @@ export default function ProfilePage() {
             </div>
 
             {/* Cache Temizleme */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 text-blue-400" />
+            <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                 Veri Yönetimi
               </h2>
 
-              <div className="space-y-4">
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-                  <p className="text-sm text-gray-300 mb-2">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 sm:p-4">
+                  <p className="text-sm text-gray-300 mb-1 sm:mb-2">
                     📦 <strong>Analiz Cache</strong>
                   </p>
                   <p className="text-xs text-gray-400">
-                    Lig ve takım verileri hızlı erişim için cache'lenir. Veri
-                    güncellemeleri veya hata durumlarında cache'i
+                    Lig ve takım verileri hızlı erişim için cachelenir. Veri
+                    güncellemeleri veya hata durumlarında cache i
                     temizleyebilirsiniz.
                   </p>
                 </div>
@@ -243,7 +247,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleClearCache}
                   disabled={clearingCache}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2.5 sm:py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
                   {clearingCache ? (
                     <>
@@ -253,7 +257,7 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <RefreshCw className="h-5 w-5" />
-                      Cache'i Temizle ve Yenile
+                      Cache i Temizle ve Yenile
                     </>
                   )}
                 </button>
@@ -262,41 +266,41 @@ export default function ProfilePage() {
           </div>
 
           {/* Sağ Kolon - Üyelik ve Hesap Yönetimi */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Referral Sistemi - Sadece Premium Kullanıcılar İçin */}
             {hasPremiumAccess && <ReferralSection userData={userData} />}
 
             {/* Üyelik Durumu */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-400" />
+            <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
                 Üyelik Durumu
               </h2>
 
               {hasPremiumAccess ? (
-                <div className="space-y-4">
-                  <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-400" />
-                      <span className="text-green-400 font-bold">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 sm:p-4">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+                      <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-400 shrink-0" />
+                      <span className="text-green-400 font-bold text-sm sm:text-base">
                         {userData.role === "admin"
                           ? "Admin - Premium Erişim"
                           : "Aktif Premium Üyelik"}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-300">
+                    <p className="text-xs sm:text-sm text-gray-300">
                       Günlük analizlere sınırsız erişiminiz var
                     </p>
                   </div>
 
                   {userData.role !== "admin" && (
-                    <div className="bg-gray-800 rounded-lg p-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-800 rounded-lg p-3 sm:p-4">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <p className="text-xs text-gray-400 mb-1">
                             Başlangıç Tarihi
                           </p>
-                          <p className="text-white font-medium">
+                          <p className="text-white font-medium text-sm sm:text-base">
                             {userData.lastPaymentDate
                               ?.toDate()
                               .toLocaleDateString("tr-TR")}
@@ -306,7 +310,7 @@ export default function ProfilePage() {
                           <p className="text-xs text-gray-400 mb-1">
                             Bitiş Tarihi
                           </p>
-                          <p className="text-white font-medium">
+                          <p className="text-white font-medium text-sm sm:text-base">
                             {userData.subscriptionEndDate
                               ?.toDate()
                               .toLocaleDateString("tr-TR")}
@@ -412,24 +416,24 @@ export default function ProfilePage() {
             </div>
 
             {/* Tehlikeli Alan - Hesap Silme */}
-            <div className="bg-red-900/20 border border-red-500/50 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
+            <div className="bg-red-900/20 border border-red-500/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+              <h2 className="text-lg sm:text-xl font-bold text-red-400 mb-3 sm:mb-4 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
                 Tehlikeli Alan
               </h2>
 
               {!showDeleteConfirm ? (
                 <button
                   onClick={toggleDeleteConfirm}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
-                  <Trash2 className="h-5 w-5" />
+                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                   Hesabımı Sil
                 </button>
               ) : (
-                <div className="space-y-4">
-                  <div className="bg-red-950/50 border border-red-500/50 rounded-lg p-4">
-                    <p className="text-sm text-red-200 mb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="bg-red-950/50 border border-red-500/50 rounded-lg p-3 sm:p-4">
+                    <p className="text-xs sm:text-sm text-red-200 mb-1 sm:mb-2">
                       ⚠️ <strong>Uyarı:</strong> Bu işlem geri alınamaz!
                     </p>
                     <ul className="text-xs text-red-300 space-y-1 list-disc list-inside">
@@ -440,7 +444,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-300 mb-2">
+                    <label className="block text-xs sm:text-sm text-gray-300 mb-2">
                       Onaylamak için{" "}
                       <strong className="text-red-400">SİL</strong> yazın:
                     </label>
@@ -455,31 +459,33 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <button
                       onClick={() => {
                         setShowDeleteConfirm(false);
                         setDeleteConfirmText("");
                       }}
                       disabled={deleting}
-                      className="bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg font-semibold transition"
+                      className="bg-gray-700 hover:bg-gray-600 text-white py-2.5 sm:py-3 rounded-lg font-semibold transition text-sm sm:text-base"
                     >
                       İptal
                     </button>
                     <button
                       onClick={handleDeleteAccount}
                       disabled={deleteConfirmText !== "SİL" || deleting}
-                      className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                      className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white py-2.5 sm:py-3 rounded-lg font-semibold transition flex items-center justify-center gap-1 sm:gap-2 text-sm sm:text-base"
                     >
                       {deleting ? (
                         <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Siliniyor...
+                          <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                          <span className="hidden xs:inline">Siliniyor...</span>
+                          <span className="xs:hidden">...</span>
                         </>
                       ) : (
                         <>
-                          <Trash2 className="h-5 w-5" />
-                          Hesabı Sil
+                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                          <span className="hidden xs:inline">Hesabı Sil</span>
+                          <span className="xs:hidden">Sil</span>
                         </>
                       )}
                     </button>

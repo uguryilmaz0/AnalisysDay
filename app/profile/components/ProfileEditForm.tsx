@@ -77,26 +77,26 @@ export function ProfileEditForm({ userData, userId }: ProfileEditFormProps) {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <UserIcon className="h-5 w-5 text-blue-400" />
+    <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
           Hesap Bilgileri
         </h2>
         {!isEditing && (
           <button
             onClick={handleEdit}
-            className="text-blue-400 hover:text-blue-300 transition flex items-center gap-2 text-sm"
+            className="text-blue-400 hover:text-blue-300 transition flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
             Düzenle
           </button>
         )}
       </div>
 
       {isEditing ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Ad"
               value={editFirstName}
@@ -152,22 +152,24 @@ export function ProfileEditForm({ userData, userId }: ProfileEditFormProps) {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-            <UserIcon className="h-5 w-5 text-gray-400" />
-            <div className="flex-1">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+            <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0" />
+            <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400">Ad Soyad</p>
-              <p className="text-white font-medium">
+              <p className="text-white font-medium text-sm sm:text-base truncate">
                 {userData.firstName} {userData.lastName}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-            <UserIcon className="h-5 w-5 text-gray-400" />
-            <div>
+          <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+            <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0" />
+            <div className="min-w-0">
               <p className="text-xs text-gray-400">Kullanıcı Adı</p>
-              <p className="text-white font-medium">@{userData.username}</p>
+              <p className="text-white font-medium text-sm sm:text-base truncate">
+                @{userData.username}
+              </p>
             </div>
           </div>
         </div>

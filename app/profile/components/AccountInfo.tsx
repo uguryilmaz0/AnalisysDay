@@ -29,25 +29,27 @@ export function AccountInfo({ userData }: AccountInfoProps) {
   const { hasActiveSubscription, daysRemaining } = subscriptionInfo;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-        <Mail className="h-5 w-5 text-gray-400" />
-        <div>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+        <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0" />
+        <div className="min-w-0">
           <p className="text-xs text-gray-400">Email</p>
-          <p className="text-white font-medium">{userData.email}</p>
+          <p className="text-white font-medium text-sm sm:text-base truncate">
+            {userData.email}
+          </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-        <Shield className="h-5 w-5 text-gray-400" />
+      <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+        <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0" />
         <div>
           <p className="text-xs text-gray-400">Rol</p>
-          <p className="text-white font-medium">
+          <p className="text-white font-medium text-sm sm:text-base">
             {userData.role === "admin" ? (
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1 sm:gap-2 flex-wrap">
                 <span className="text-orange-400">⚡ Admin</span>
                 {userData.superAdmin && (
-                  <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs">
+                  <span className="bg-yellow-500/20 text-yellow-400 px-1.5 sm:px-2 py-0.5 rounded text-xs">
                     ⭐ Super
                   </span>
                 )}
@@ -61,23 +63,23 @@ export function AccountInfo({ userData }: AccountInfoProps) {
 
       {/* Abonelik Durumu */}
       {userData.role !== "admin" && (
-        <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-          <div className="h-5 w-5 text-gray-400">
+        <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+          <div className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0 flex items-center justify-center">
             {hasActiveSubscription ? "✨" : "⏰"}
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-gray-400">Abonelik Durumu</p>
             {hasActiveSubscription ? (
               <div>
-                <p className="text-white font-medium">
+                <p className="text-white font-medium text-sm sm:text-base">
                   <span className="text-blue-400">✓ Premium Aktif</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 mt-0.5 sm:mt-1">
                   {daysRemaining > 0 ? (
-                    <>
-                      {daysRemaining} gün kaldı
+                    <span className="flex flex-wrap gap-x-1">
+                      <span>{daysRemaining} gün kaldı</span>
                       {userData.subscriptionEndDate && (
-                        <span className="ml-2">
+                        <span>
                           (
                           {userData.subscriptionEndDate
                             .toDate()
@@ -85,14 +87,14 @@ export function AccountInfo({ userData }: AccountInfoProps) {
                           )
                         </span>
                       )}
-                    </>
+                    </span>
                   ) : (
                     "Bugün sona eriyor"
                   )}
                 </p>
               </div>
             ) : (
-              <p className="font-medium text-yellow-400">
+              <p className="font-medium text-yellow-400 text-sm sm:text-base">
                 {userData.isPaid ? "Süresi Dolmuş" : "Ücretsiz Üyelik"}
               </p>
             )}
@@ -100,11 +102,11 @@ export function AccountInfo({ userData }: AccountInfoProps) {
         </div>
       )}
 
-      <div className="flex items-center gap-3 bg-gray-800 rounded-lg p-4">
-        <Calendar className="h-5 w-5 text-gray-400" />
+      <div className="flex items-center gap-2 sm:gap-3 bg-gray-800 rounded-lg p-3 sm:p-4">
+        <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0" />
         <div>
           <p className="text-xs text-gray-400">Kayıt Tarihi</p>
-          <p className="text-white font-medium">
+          <p className="text-white font-medium text-sm sm:text-base">
             {userData.createdAt.toDate().toLocaleDateString("tr-TR")}
           </p>
         </div>

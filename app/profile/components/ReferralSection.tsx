@@ -102,41 +102,41 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
 
   if (loading) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
         <LoadingSpinner size="md" text="Referral verileri yükleniyor..." />
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <Users className="h-5 w-5 text-purple-400" />
+    <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+      <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
         Arkadaşını Davet Et
       </h2>
 
-      <p className="text-gray-400 text-sm mb-4">
+      <p className="text-gray-400 text-xs sm:text-sm mb-3 sm:mb-4">
         Premium üye olarak arkadaşlarınızı davet edebilirsiniz. Davet ettiğiniz
         kişiler premium olduğunda burada görüntülenir.
       </p>
 
       {/* Referral Link */}
-      <div className="bg-gray-800 rounded-lg p-4 mb-4">
-        <label className="text-xs text-gray-400 mb-2 block">
+      <div className="bg-gray-800 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+        <label className="text-xs text-gray-400 mb-1 sm:mb-2 block">
           Davet Linkiniz
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={referralLink}
             readOnly
-            className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="flex-1 bg-gray-700 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 truncate"
           />
           <Button
             onClick={handleCopyLink}
             variant="primary"
             size="md"
-            className="shrink-0"
+            className="shrink-0 w-full sm:w-auto"
           >
             <Copy className="h-4 w-4" />
             Kopyala
@@ -152,23 +152,23 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
       </div>
 
       {/* İstatistikler */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="h-4 w-4 text-blue-400" />
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
+        <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-1 sm:gap-2 mb-1">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
             <span className="text-xs text-gray-400">Toplam Davet</span>
           </div>
-          <p className="text-2xl font-bold text-white">
+          <p className="text-xl sm:text-2xl font-bold text-white">
             {stats.totalReferrals}
           </p>
         </div>
 
-        <div className="bg-purple-900/30 border border-purple-500/50 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Award className="h-4 w-4 text-purple-400" />
+        <div className="bg-purple-900/30 border border-purple-500/50 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-1 sm:gap-2 mb-1">
+            <Award className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
             <span className="text-xs text-gray-400">Premium Olanlar</span>
           </div>
-          <p className="text-2xl font-bold text-white">
+          <p className="text-xl sm:text-2xl font-bold text-white">
             {stats.premiumReferrals}
           </p>
         </div>
@@ -257,9 +257,9 @@ export function ReferralSection({ userData }: ReferralSectionProps) {
 
       {/* Hiç davet yoksa */}
       {stats.totalReferrals === 0 && (
-        <div className="text-center py-6">
-          <Users className="h-12 w-12 text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">
+        <div className="text-center py-4 sm:py-6">
+          <Users className="h-10 w-10 sm:h-12 sm:w-12 text-gray-600 mx-auto mb-2 sm:mb-3" />
+          <p className="text-gray-500 text-xs sm:text-sm">
             Henüz kimseyi davet etmediniz.
             <br />
             Yukarıdaki linki paylaşarak başlayın! 🚀

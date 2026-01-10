@@ -97,7 +97,9 @@ export default function CouponPage() {
 
   // Loading state
   if (authLoading || loading) {
-    return <LoadingSpinner fullScreen size="xl" text="Kuponlar yükleniyor..." />;
+    return (
+      <LoadingSpinner fullScreen size="xl" text="Kuponlar yükleniyor..." />
+    );
   }
 
   // Premium erişimi yoksa - KİLİT EKRANI
@@ -214,11 +216,14 @@ export default function CouponPage() {
                   <div className="flex items-center gap-3 mb-3 flex-wrap">
                     <Calendar className="h-5 w-5 text-yellow-400" />
                     <span className="text-sm text-gray-400">
-                      {new Date(coupon.date.toDate()).toLocaleDateString("tr-TR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {new Date(coupon.date.toDate()).toLocaleDateString(
+                        "tr-TR",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
                       {" • "}
                       <span className="text-yellow-400 font-semibold">
                         {new Date(coupon.createdAt.toDate()).toLocaleTimeString(
@@ -230,6 +235,18 @@ export default function CouponPage() {
                         )}
                       </span>
                     </span>
+
+                    {/* Kazandı/Kaybetti Badge */}
+                    {coupon.status === "won" && (
+                      <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                        ✓ Kazandı
+                      </span>
+                    )}
+                    {coupon.status === "lost" && (
+                      <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                        ✗ Kaybetti
+                      </span>
+                    )}
 
                     {/* Kalan Süre */}
                     <span className="ml-auto flex items-center gap-2 bg-orange-600/20 text-orange-400 px-3 py-1 rounded-full text-xs font-semibold">
@@ -245,7 +262,9 @@ export default function CouponPage() {
                   {/* Editör Bilgisi */}
                   {coupon.createdByUsername && (
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm text-gray-400 font-medium">Editör:</span>
+                      <span className="text-sm text-gray-400 font-medium">
+                        Editör:
+                      </span>
                       <span className="inline-flex items-center gap-1.5 bg-linear-to-r from-yellow-600 to-orange-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg">
                         @{coupon.createdByUsername}
                       </span>
@@ -281,15 +300,26 @@ export default function CouponPage() {
                       userEmail={userData?.email || "Unknown"}
                       userName={
                         userData?.username ||
-                        `${userData?.firstName || ""} ${userData?.lastName || ""}`.trim()
+                        `${userData?.firstName || ""} ${
+                          userData?.lastName || ""
+                        }`.trim()
                       }
                       onImageClick={() => {
                         trackImageView("view", coupon, url, imgIndex);
-                        setSelectedImage({ url, title: coupon.title, coupon, imageIndex: imgIndex });
+                        setSelectedImage({
+                          url,
+                          title: coupon.title,
+                          coupon,
+                          imageIndex: imgIndex,
+                        });
                         modal.open();
                       }}
-                      onRightClick={() => trackImageView("right_click", coupon, url, imgIndex)}
-                      onScreenshotDetected={() => trackImageView("screenshot", coupon, url, imgIndex)}
+                      onRightClick={() =>
+                        trackImageView("right_click", coupon, url, imgIndex)
+                      }
+                      onScreenshotDetected={() =>
+                        trackImageView("screenshot", coupon, url, imgIndex)
+                      }
                       disableRightClick={true}
                     />
                   ))}

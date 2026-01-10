@@ -43,6 +43,7 @@ class AnalysisService extends BaseService {
     ideal?: string,
     alternative?: string,
     possibleScore?: string,
+    iyMs?: string,
     percentage?: string
   ): Promise<void> {
     return this.executeWithErrorHandling(async () => {
@@ -59,6 +60,7 @@ class AnalysisService extends BaseService {
         ideal,
         alternative,
         possibleScore,
+        iyMs,
         percentage
       );
     }, "create");

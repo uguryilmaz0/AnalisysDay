@@ -43,6 +43,9 @@ export function AnalysisListTab({
 
   const analysisStats = useAdminStore((state) => state.analysisStats);
   const removeAnalysis = useAdminStore((state) => state.removeAnalysis);
+  const updateAnalysisStats = useAdminStore(
+    (state) => state.updateAnalysisStats
+  );
   const [activeTab, setActiveTab] = useState<ViewTab>("pending");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("1day");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -55,7 +58,10 @@ export function AnalysisListTab({
   }>({ open: false, analysis: null });
 
   // ⚡ DİNAMİK PAGİNATİON: Backend'den sayfa sayfa çek
-  const loadAnalysesPaginated = useCallback(async () => {
+  const loadAnalysesPaginated = useCallback(async (
+    page: number = currentPage,
+    cursor?: string
+  ) => {
     setLoading(true);
     try {
       if (activeTab === "pending") {
@@ -69,21 +75,25 @@ export function AnalysisListTab({
         setHasMore(false); // Pending'de pagination yok, az veri
       } else {
         // Completed analizler için dinamik pagination
-        const currentCursor = cursorStack[currentPage - 1];
         const data = await getCompletedAnalyses(
           analysisType,
           statusFilter,
-          currentPage,
+          page,
           itemsPerPage,
-          currentCursor
+          cursor
         );
 
         setAnalyses(data.analyses);
         setHasMore(data.hasMore);
 
         // Yeni cursor'u stack'e ekle
-        if (data.lastDocId && currentPage === cursorStack.length) {
-          setCursorStack((prev) => [...prev, data.lastDocId]);
+        if (data.lastDocId) {
+          setCursorStack((prev) => {
+            if (page === prev.length) {
+              return [...prev, data.lastDocId];
+            }
+            return prev;
+          });
         }
       }
     } catch (error) {
@@ -97,7 +107,6 @@ export function AnalysisListTab({
     analysisType,
     statusFilter,
     currentPage,
-    cursorStack,
     showToast,
   ]);
 
@@ -105,15 +114,18 @@ export function AnalysisListTab({
   useEffect(() => {
     setCurrentPage(1);
     setCursorStack([undefined]);
-    loadAnalysesPaginated();
+    loadAnalysesPaginated(1, undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, analysisType, statusFilter]);
 
-  // Sayfa değişiminde yükle
+  // Sayfa değişiminde yükle (sadece sayfa değiştiğinde, ilk yükleme hariç)
   useEffect(() => {
-    if (activeTab === "completed") {
-      loadAnalysesPaginated();
+    if (activeTab === "completed" && currentPage > 1) {
+      const cursor = cursorStack[currentPage - 1];
+      loadAnalysesPaginated(currentPage, cursor);
     }
-  }, [currentPage, loadAnalysesPaginated, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
   // Pagination handler
   const handlePageChange = (newPage: number) => {
@@ -225,17 +237,39 @@ export function AnalysisListTab({
     )
       return;
 
-    try {
-      await analysisService.updateStatus(id, status, userData.uid);
+    // Mevcut analizi bul (stats güncellemesi için)
+    const currentAnalysis = analyses.find((a) => a.id === id);
+    const oldStatus = currentAnalysis?.status || "pending";
 
-      // 🔄 OPTIMISTIC UPDATE: Local state'i güncelle
+    // 🔄 TRUE OPTIMISTIC UPDATE: Önce local state'i güncelle
+    const previousAnalyses = [...analyses];
+
+    // Pending'den won/lost'a geçişte listeyi güncelle
+    if (status === "won" || status === "lost") {
+      // Analizi listeden çıkar (completed'a geçti)
+      setAnalyses((prev) => prev.filter((a) => a.id !== id));
+    } else {
+      // Pending'e döndüyse sadece status güncelle
       setAnalyses((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status } : a))
       );
+    }
 
-      showToast(`Analiz "${statusText}" olarak güncellendi!`, "success");
+    // Stats'ı da optimistic güncelle
+    const type = analysisType === "ai" ? "ai" : "daily";
+    updateAnalysisStats(type, oldStatus, status);
+
+    showToast(`Analiz "${statusText}" olarak güncellendi!`, "success");
+
+    try {
+      // Backend'i güncelle
+      await analysisService.updateStatus(id, status, userData.uid);
     } catch {
-      showToast("Durum güncellenemedi!", "error");
+      // Hata durumunda rollback
+      setAnalyses(previousAnalyses);
+      // Stats'ı da geri al
+      updateAnalysisStats(type, status, oldStatus);
+      showToast("Durum güncellenemedi! Değişiklik geri alındı.", "error");
     }
   };
 
@@ -537,32 +571,33 @@ export function AnalysisListTab({
                         <Edit2 className="h-4 w-4" />
                       </Button>
 
-                      {/* Status Butonları - Sadece pending tab'de göster */}
-                      {activeTab === "pending" && (
-                        <>
-                          <Button
-                            onClick={() =>
-                              handleStatusUpdate(analysis.id, "won")
-                            }
-                            size="sm"
-                            title="Kazandı olarak işaretle"
-                            className="p-2 bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
+                      {/* Status Butonları - Kuponlarda her zaman, diğerlerinde sadece pending tab'de göster */}
+                      {(activeTab === "pending" || analysisType === "coupon") &&
+                        analysis.status === "pending" && (
+                          <>
+                            <Button
+                              onClick={() =>
+                                handleStatusUpdate(analysis.id, "won")
+                              }
+                              size="sm"
+                              title="Kazandı olarak işaretle"
+                              className="p-2 bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
 
-                          <Button
-                            onClick={() =>
-                              handleStatusUpdate(analysis.id, "lost")
-                            }
-                            size="sm"
-                            title="Kaybetti olarak işaretle"
-                            className="p-2 bg-red-600 hover:bg-red-700"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
+                            <Button
+                              onClick={() =>
+                                handleStatusUpdate(analysis.id, "lost")
+                              }
+                              size="sm"
+                              title="Kaybetti olarak işaretle"
+                              className="p-2 bg-red-600 hover:bg-red-700"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
 
                       {/* Reset Butonu - Sadece completed tab'de göster */}
                       {activeTab === "completed" && (

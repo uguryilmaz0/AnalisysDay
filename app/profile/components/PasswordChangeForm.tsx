@@ -94,25 +94,25 @@ export function PasswordChangeForm() {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Key className="h-5 w-5 text-purple-400" />
+    <div className="bg-gray-900 border border-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <Key className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
           Şifre Değiştir
         </h2>
         {!isChanging && (
           <button
             onClick={() => setIsChanging(true)}
-            className="text-purple-400 hover:text-purple-300 transition flex items-center gap-2 text-sm"
+            className="text-purple-400 hover:text-purple-300 transition flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
           >
-            <Lock className="h-4 w-4" />
+            <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
             Değiştir
           </button>
         )}
       </div>
 
       {isChanging ? (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <Input
             label="Mevcut Şifre"
             type="password"
@@ -171,8 +171,8 @@ export function PasswordChangeForm() {
           </div>
         </div>
       ) : (
-        <div className="bg-gray-800/50 rounded-lg p-4">
-          <p className="text-sm text-gray-400">
+        <div className="bg-gray-800/50 rounded-lg p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-400">
             Güvenliğiniz için düzenli olarak şifrenizi değiştirmenizi öneririz
           </p>
         </div>

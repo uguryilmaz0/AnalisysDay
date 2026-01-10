@@ -140,32 +140,34 @@ export function PricingSettingsTab({ isSuperAdmin }: PricingSettingsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <DollarSign className="h-8 w-8 text-green-500" />
+          <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 shrink-0" />
           <div>
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">
               Fiyatlandırma Ayarları
             </h2>
-            <p className="text-gray-400">Premium üyelik paketlerini yönetin</p>
+            <p className="text-gray-400 text-sm sm:text-base">
+              Premium üyelik paketlerini yönetin
+            </p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3">
           <Button
             onClick={addPackage}
             variant="secondary"
             size="sm"
-            className="flex items-center gap-2"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
           >
             <Plus className="h-4 w-4" />
-            Paket Ekle
+            <span className="hidden xs:inline">Paket</span> Ekle
           </Button>
           <Button
             onClick={savePackages}
             variant="primary"
             size="sm"
             disabled={saving}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
           >
             {saving ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -194,11 +196,11 @@ export function PricingSettingsTab({ isSuperAdmin }: PricingSettingsTabProps) {
       </Card>
 
       {/* Paketler */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {packages.map((pkg, index) => (
           <Card
             key={index}
-            padding="lg"
+            padding="md"
             className={`relative ${
               pkg.isPopular ? "border-purple-500 ring-2 ring-purple-500/20" : ""
             }`}
@@ -274,18 +276,20 @@ export function PricingSettingsTab({ isSuperAdmin }: PricingSettingsTabProps) {
               <div className="flex gap-2 pt-2 border-t border-gray-700">
                 <button
                   onClick={() => setPopular(index)}
-                  className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium transition ${
+                  className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
                     pkg.isPopular
                       ? "bg-purple-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                   }`}
                 >
-                  <Star className="h-4 w-4" />
-                  {pkg.isPopular ? "Popüler" : "Popüler Yap"}
+                  <Star className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="truncate">
+                    {pkg.isPopular ? "Popüler" : "Popüler Yap"}
+                  </span>
                 </button>
                 <button
                   onClick={() => removePackage(index)}
-                  className="p-2 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition"
+                  className="p-2 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition shrink-0"
                   title="Paketi Sil"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -297,18 +301,18 @@ export function PricingSettingsTab({ isSuperAdmin }: PricingSettingsTabProps) {
       </div>
 
       {/* Önizleme */}
-      <Card padding="lg">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+      <Card padding="md">
+        <h3 className="text-base sm:text-lg font-bold text-white mb-4 flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
           Fiyatlandırma Önizlemesi
         </h3>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
           {packages
             .sort((a, b) => a.days - b.days)
             .map((pkg, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-xl border-2 text-center ${
+                className={`p-3 sm:p-4 rounded-xl border-2 text-center ${
                   pkg.isPopular
                     ? "border-purple-500 bg-purple-900/20"
                     : "border-gray-700 bg-gray-800"
@@ -320,7 +324,9 @@ export function PricingSettingsTab({ isSuperAdmin }: PricingSettingsTabProps) {
                   </span>
                 )}
                 <p className="text-gray-400 text-sm mt-2">{pkg.label}</p>
-                <p className="text-3xl font-bold text-white">{pkg.price} TL</p>
+                <p className="text-2xl sm:text-3xl font-bold text-white">
+                  {pkg.price} TL
+                </p>
                 <p className="text-sm text-gray-400">{pkg.days} gün erişim</p>
               </div>
             ))}

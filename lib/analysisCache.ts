@@ -287,6 +287,9 @@ class AnalysisCacheManager {
   invalidateAnalysisCache(): void {
     this.clearByPattern('analyses:*');
     this.clearByPattern('stats:*');
+    this.clearByPattern('pending:*');
+    this.clearByPattern('coupons:*');
+    console.log('🧹 Analysis cache invalidated (analyses, stats, pending, coupons)');
   }
 
   /**

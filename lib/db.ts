@@ -559,6 +559,7 @@ export async function createAnalysis(
   ideal?: string,
   alternative?: string,
   possibleScore?: string,
+  iyMs?: string,
   percentage?: string
 ): Promise<string> {
   try {
@@ -608,6 +609,7 @@ export async function createAnalysis(
       analysisData.ideal = ideal;
       analysisData.alternative = alternative;
       analysisData.possibleScore = possibleScore;
+      analysisData.iyMs = iyMs;
       analysisData.percentage = percentage;
     }
 

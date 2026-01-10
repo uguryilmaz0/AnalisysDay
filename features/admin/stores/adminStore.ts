@@ -39,10 +39,12 @@ interface AdminState {
   loadAllData: () => Promise<void>;
   loadAnalyses: () => Promise<void>;
   loadUsers: () => Promise<void>;
+  refreshStats: () => Promise<void>;
   
   // Analysis actions
   addAnalysis: (analysis: DailyAnalysis) => void;
   removeAnalysis: (id: string) => Promise<void>;
+  updateAnalysisStats: (type: 'daily' | 'ai', fromStatus: 'pending' | 'won' | 'lost', toStatus: 'pending' | 'won' | 'lost') => void;
   
   // User actions
   updateUser: (uid: string, updates: Partial<User>) => void;
@@ -156,6 +158,49 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         analysesLoading: false,
       });
     }
+  },
+
+  /**
+   * Stats'ı yeniden yükler
+   */
+  refreshStats: async () => {
+    try {
+      const analysisStats = await analysisService.getStats();
+      set({ analysisStats });
+      console.log('🔄 Stats yenilendi');
+    } catch (error) {
+      console.error('Stats yenilenemedi:', error);
+    }
+  },
+
+  /**
+   * Analiz stat'larını optimistic günceller
+   */
+  updateAnalysisStats: (type, fromStatus, toStatus) => {
+    set((state) => {
+      const newStats = { ...state.analysisStats };
+      const prefix = type === 'daily' ? 'daily' : 'ai';
+      
+      // Eski status'tan çıkar
+      if (fromStatus === 'pending') {
+        newStats[`${prefix}Pending` as keyof AnalysisStats]--;
+      } else if (fromStatus === 'won') {
+        newStats[`${prefix}Won` as keyof AnalysisStats]--;
+      } else if (fromStatus === 'lost') {
+        newStats[`${prefix}Lost` as keyof AnalysisStats]--;
+      }
+      
+      // Yeni status'a ekle
+      if (toStatus === 'pending') {
+        newStats[`${prefix}Pending` as keyof AnalysisStats]++;
+      } else if (toStatus === 'won') {
+        newStats[`${prefix}Won` as keyof AnalysisStats]++;
+      } else if (toStatus === 'lost') {
+        newStats[`${prefix}Lost` as keyof AnalysisStats]++;
+      }
+      
+      return { analysisStats: newStats };
+    });
   },
 
   /**
